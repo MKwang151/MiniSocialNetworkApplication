@@ -1,0 +1,33 @@
+package com.example.minisocialnetworkapplication
+
+import android.app.Application
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
+import com.google.android.datatransport.BuildConfig
+import dagger.hilt.android.HiltAndroidApp
+import timber.log.Timber
+import javax.inject.Inject
+
+@HiltAndroidApp
+class MiniSocialApp : Application(), Configuration.Provider {
+
+    @Inject
+    lateinit var workerFactory: HiltWorkerFactory
+
+    override fun onCreate() {
+        super.onCreate()
+
+        // Initialize Timber for logging
+        if (BuildConfig.DEBUG) {
+            Timber.plant(Timber.DebugTree())
+        }
+
+        Timber.d("MiniSocialApp initialized")
+    }
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .build()
+}
+
