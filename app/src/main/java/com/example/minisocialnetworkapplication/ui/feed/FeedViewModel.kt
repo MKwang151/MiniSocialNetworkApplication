@@ -23,7 +23,8 @@ sealed interface FeedUiState {
 @HiltViewModel
 class FeedViewModel @Inject constructor(
     private val getFeedPagingUseCase: GetFeedPagingUseCase,
-    private val toggleLikeUseCase: ToggleLikeUseCase
+    private val toggleLikeUseCase: ToggleLikeUseCase,
+    private val postRepository: com.example.minisocialnetworkapplication.core.domain.repository.PostRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<FeedUiState>(FeedUiState.Idle)
@@ -80,5 +81,32 @@ class FeedViewModel @Inject constructor(
     fun clearError() {
         _uiState.value = FeedUiState.Idle
     }
-}
 
+    fun deletePost(postId: String) {
+        viewModelScope.launch {
+            try {
+                Timber.d("Deleting post: $postId")
+                when (val result = postRepository.deletePost(postId)) {
+                    is Result.Success -> {
+                        Timber.d("Post deleted successfully from Feed")
+                        // Paging will auto-refresh
+                    }
+                    is Result.Error -> {
+                        Timber.e("Failed to delete post: ${result.message}")
+                        _uiState.value = FeedUiState.Error(
+                            result.message ?: "Failed to delete post"
+                        )
+                    }
+                    is Result.Loading -> {
+                        // Should not happen
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error deleting post")
+                _uiState.value = FeedUiState.Error(
+                    e.message ?: "Unknown error"
+                )
+            }
+        }
+    }
+}

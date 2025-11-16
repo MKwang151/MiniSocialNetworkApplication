@@ -34,6 +34,7 @@ fun FeedScreen(
     onNavigateToSettings: () -> Unit = {},
     onLogout: () -> Unit,
     shouldRefresh: StateFlow<Boolean>? = null,
+    postDeleted: StateFlow<Boolean>? = null,
     viewModel: FeedViewModel = hiltViewModel()
 ) {
     val lazyPagingItems = viewModel.feedPagingFlow.collectAsLazyPagingItems()
@@ -41,6 +42,10 @@ fun FeedScreen(
 
     // State to trigger scroll to top
     var shouldScrollToTop by remember { mutableStateOf(false) }
+
+    // State for delete dialog
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var postToDelete by remember { mutableStateOf<Post?>(null) }
 
     // Auto refresh when screen appears
     LaunchedEffect(Unit) {
@@ -51,6 +56,15 @@ fun FeedScreen(
     val postCreated by (shouldRefresh ?: MutableStateFlow(false)).collectAsState()
     LaunchedEffect(postCreated) {
         if (postCreated) {
+            shouldScrollToTop = true
+            lazyPagingItems.refresh()
+        }
+    }
+
+    // Refresh when post is deleted from PostDetailScreen
+    val isPostDeleted by (postDeleted ?: MutableStateFlow(false)).collectAsState()
+    LaunchedEffect(isPostDeleted) {
+        if (isPostDeleted) {
             shouldScrollToTop = true
             lazyPagingItems.refresh()
         }
@@ -108,7 +122,26 @@ fun FeedScreen(
             onNavigateToProfile = onNavigateToProfile,
             shouldScrollToTop = shouldScrollToTop,
             onScrolledToTop = { shouldScrollToTop = false },
+            onDeletePost = { postToDelete = it; showDeleteDialog = true },
             modifier = Modifier.padding(paddingValues)
+        )
+    }
+
+    // Delete confirmation dialog
+    if (showDeleteDialog && postToDelete != null) {
+        com.example.minisocialnetworkapplication.ui.components.DeletePostDialog(
+            onConfirm = {
+                postToDelete?.let { post: Post ->
+                    viewModel.deletePost(post.id)
+                }
+                showDeleteDialog = false
+                postToDelete = null
+                lazyPagingItems.refresh()
+            },
+            onDismiss = {
+                showDeleteDialog = false
+                postToDelete = null
+            }
         )
     }
 }
@@ -122,7 +155,8 @@ fun FeedContent(
     onNavigateToProfile: (String) -> Unit,
     shouldScrollToTop: Boolean,
     onScrolledToTop: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onDeletePost: (Post) -> Unit = {}
 ) {
     val isRefreshing = lazyPagingItems.loadState.refresh is LoadState.Loading
     val listState = rememberLazyListState()
@@ -142,51 +176,59 @@ fun FeedContent(
         onRefresh = { lazyPagingItems.refresh() },
         modifier = modifier
     ) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(vertical = 8.dp)
-        ) {
-            items(
-                count = lazyPagingItems.itemCount,
-                key = { index -> lazyPagingItems.peek(index)?.id ?: index }
-            ) { index ->
-                val post = lazyPagingItems[index]
-                if (post != null) {
-                    PostCard(
-                        post = post,
-                        onLikeClicked = { viewModel.toggleLike(post) },
-                        onCommentClicked = { onNavigateToPostDetail(post.id) },
-                        onPostClicked = { onNavigateToPostDetail(post.id) },
-                        onAuthorClicked = { onNavigateToProfile(post.authorId) },
-                        isOptimisticallyLiked = post.likedByMe
-                    )
-                }
-            }
-
-            // Loading indicator at the end
-            when (lazyPagingItems.loadState.append) {
-                is LoadState.Loading -> {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator()
-                        }
-                    }
-                }
-                is LoadState.Error -> {
-                    item {
-                        ErrorItem(
-                            message = "Failed to load more posts",
-                            onRetryClick = { lazyPagingItems.retry() }
+        // Show shimmer loading on initial load
+        if (lazyPagingItems.loadState.refresh is LoadState.Loading && lazyPagingItems.itemCount == 0) {
+            com.example.minisocialnetworkapplication.ui.components.FeedLoadingShimmer(
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
+                items(
+                    count = lazyPagingItems.itemCount,
+                    key = { index -> lazyPagingItems.peek(index)?.id ?: index }
+                ) { index ->
+                    val post = lazyPagingItems[index]
+                    if (post != null) {
+                        PostCard(
+                            post = post,
+                            onLikeClicked = { viewModel.toggleLike(post) },
+                            onCommentClicked = { onNavigateToPostDetail(post.id) },
+                            onPostClicked = { onNavigateToPostDetail(post.id) },
+                            onAuthorClicked = { onNavigateToProfile(post.authorId) },
+                            onDeleteClicked = { onDeletePost(it) },
+                            isOptimisticallyLiked = post.likedByMe
                         )
                     }
                 }
-                else -> {}
+
+                // Loading indicator at the end
+                when (lazyPagingItems.loadState.append) {
+                    is LoadState.Loading -> {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator()
+                            }
+                        }
+                    }
+                    is LoadState.Error -> {
+                        item {
+                            ErrorItem(
+                                message = "Failed to load more posts",
+                                onRetryClick = { lazyPagingItems.retry() }
+                            )
+                        }
+                    }
+                    else -> {}
+                }
             }
         }
 

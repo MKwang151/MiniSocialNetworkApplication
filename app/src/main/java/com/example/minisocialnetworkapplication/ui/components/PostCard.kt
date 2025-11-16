@@ -6,16 +6,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
-import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -32,8 +30,12 @@ fun PostCard(
     onPostClicked: (Post) -> Unit,
     onAuthorClicked: (String) -> Unit,
     modifier: Modifier = Modifier,
-    isOptimisticallyLiked: Boolean = post.likedByMe
+    onDeleteClicked: (Post) -> Unit = {},
+    isOptimisticallyLiked: Boolean = post.likedByMe,
+    showMenuButton: Boolean = true
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+    val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -84,12 +86,44 @@ fun PostCard(
                     )
                 }
 
-                // Menu button
-                IconButton(onClick = { /* TODO: Show menu */ }) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "More options"
-                    )
+                // Menu button (only show if showMenuButton is true)
+                if (showMenuButton) {
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "More options"
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            // Show Delete option only for post owner
+                            if (post.authorId == currentUserId) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = "Delete Post",
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        onDeleteClicked(post)
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Delete",
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -125,7 +159,7 @@ fun PostCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Like Button
+                // Like Button with Animation
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -133,10 +167,8 @@ fun PostCard(
                         .clickable { onLikeClicked(post) }
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
-                    Icon(
-                        imageVector = if (isOptimisticallyLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                        contentDescription = "Like",
-                        tint = if (isOptimisticallyLiked) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant,
+                    AnimatedLikeIcon(
+                        isLiked = isOptimisticallyLiked,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
