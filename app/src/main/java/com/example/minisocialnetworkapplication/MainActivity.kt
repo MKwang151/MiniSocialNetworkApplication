@@ -1,5 +1,6 @@
 package com.example.minisocialnetworkapplication
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -11,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.minisocialnetworkapplication.core.util.LanguageManager
 import com.example.minisocialnetworkapplication.ui.auth.AuthViewModel
 import com.example.minisocialnetworkapplication.ui.navigation.NavGraph
 import com.example.minisocialnetworkapplication.ui.navigation.Screen
@@ -19,6 +21,15 @@ import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    override fun attachBaseContext(newBase: Context) {
+        // Apply saved language before activity is created
+        val languageCode = LanguageManager.getLanguageSync(newBase)
+        android.util.Log.d("MainActivity", "Applying language: $languageCode")
+        val context = LanguageManager.applyLanguage(newBase, languageCode)
+        super.attachBaseContext(context)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

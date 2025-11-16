@@ -115,7 +115,8 @@ class PostRemoteMediator(
             // Update database
             database.withTransaction {
                 if (loadType == LoadType.REFRESH) {
-                    postDao.clearAll()
+                    // Clear only remote keys, not posts
+                    // Posts will be updated with REPLACE strategy in insertAll
                     remoteKeysDao.clearAll()
                 }
 
@@ -132,6 +133,8 @@ class PostRemoteMediator(
                 }
 
                 remoteKeysDao.insertAll(remoteKeys)
+                // insertAll uses REPLACE strategy, so it will update existing posts
+                // and pending posts will be kept
                 postDao.insertAll(posts)
             }
 
