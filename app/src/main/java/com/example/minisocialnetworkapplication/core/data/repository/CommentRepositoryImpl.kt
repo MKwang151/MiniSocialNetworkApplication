@@ -1,5 +1,6 @@
 package com.example.minisocialnetworkapplication.core.data.repository
 
+import com.example.minisocialnetworkapplication.core.data.local.AppDatabase
 import com.example.minisocialnetworkapplication.core.domain.model.Comment
 import com.example.minisocialnetworkapplication.core.domain.repository.CommentRepository
 import com.example.minisocialnetworkapplication.core.util.Constants
@@ -17,7 +18,8 @@ import javax.inject.Inject
 
 class CommentRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val database: AppDatabase
 ) : CommentRepository {
 
     override fun getComments(postId: String): Flow<List<Comment>> = callbackFlow {
@@ -93,12 +95,24 @@ class CommentRepositoryImpl @Inject constructor(
                 .add(commentData)
                 .await()
 
-            // Increment comment count
+            // Increment comment count in Firestore
             firestore
                 .collection(Constants.COLLECTION_POSTS)
                 .document(postId)
                 .update(Constants.FIELD_COMMENT_COUNT, com.google.firebase.firestore.FieldValue.increment(1))
                 .await()
+
+            // Update Room cache comment count
+            try {
+                val currentPost = database.postDao().getPostById(postId)
+                if (currentPost != null) {
+                    val newCommentCount = currentPost.commentCount + 1
+                    database.postDao().updateCommentCount(postId, newCommentCount)
+                    Timber.d("Updated comment count in Room cache: $postId -> $newCommentCount")
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to update comment count in Room cache, will sync later")
+            }
 
             val comment = Comment(
                 id = docRef.id,
@@ -158,12 +172,24 @@ class CommentRepositoryImpl @Inject constructor(
                 .delete()
                 .await()
 
-            // Decrement comment count
+            // Decrement comment count in Firestore
             firestore
                 .collection(Constants.COLLECTION_POSTS)
                 .document(postId)
                 .update(Constants.FIELD_COMMENT_COUNT, com.google.firebase.firestore.FieldValue.increment(-1))
                 .await()
+
+            // Update Room cache comment count
+            try {
+                val currentPost = database.postDao().getPostById(postId)
+                if (currentPost != null) {
+                    val newCommentCount = (currentPost.commentCount - 1).coerceAtLeast(0)
+                    database.postDao().updateCommentCount(postId, newCommentCount)
+                    Timber.d("Updated comment count in Room cache: $postId -> $newCommentCount")
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to update comment count in Room cache, will sync later")
+            }
 
             Timber.d("Comment deleted successfully: $commentId")
             Result.Success(Unit)
