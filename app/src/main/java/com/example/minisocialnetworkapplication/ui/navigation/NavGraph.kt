@@ -12,6 +12,7 @@ import com.example.minisocialnetworkapplication.ui.auth.RegisterScreen
 import com.example.minisocialnetworkapplication.ui.feed.FeedScreen
 import com.example.minisocialnetworkapplication.ui.post.ComposePostScreen
 import com.example.minisocialnetworkapplication.ui.postdetail.PostDetailScreen
+import com.example.minisocialnetworkapplication.ui.profile.EditProfileScreen
 import com.example.minisocialnetworkapplication.ui.profile.ProfileScreen
 import com.example.minisocialnetworkapplication.ui.settings.SettingsScreen
 
@@ -63,9 +64,15 @@ fun NavGraph(
                 ?.savedStateHandle
                 ?.getStateFlow("post_deleted", false)
 
+            // Check if profile was updated (need to refresh to show new author names)
+            val profileUpdated = navController.currentBackStackEntry
+                ?.savedStateHandle
+                ?.getStateFlow("profile_updated", false)
+
             FeedScreen(
                 shouldRefresh = shouldRefresh,
                 postDeleted = postDeleted,
+                profileUpdated = profileUpdated,
                 onNavigateToComposePost = {
                     navController.navigate(Screen.ComposePost.route)
                 },
@@ -130,6 +137,24 @@ fun NavGraph(
 
         // Week 3 - Profile Screen
         composable(Screen.Profile.route) {
+            // Check if profile was updated
+            val profileUpdated = it.savedStateHandle.get<Boolean>("profile_updated") ?: false
+            val profileUpdatedForFeed = it.savedStateHandle.get<Boolean>("profile_updated_for_feed") ?: false
+
+            if (profileUpdated) {
+                // Clear the flag
+                it.savedStateHandle.remove<Boolean>("profile_updated")
+            }
+
+            if (profileUpdatedForFeed) {
+                // Clear the flag and forward to FeedScreen
+                it.savedStateHandle.remove<Boolean>("profile_updated_for_feed")
+                // Set flag for FeedScreen (previousBackStackEntry of Profile is Feed)
+                navController.previousBackStackEntry
+                    ?.savedStateHandle
+                    ?.set("profile_updated", true)
+            }
+
             ProfileScreen(
                 onNavigateBack = {
                     navController.popBackStack()
@@ -139,15 +164,30 @@ fun NavGraph(
                 },
                 onNavigateToEditProfile = { userId ->
                     navController.navigate(Screen.EditProfile.createRoute(userId))
-                }
+                },
+                shouldRefresh = profileUpdated
             )
         }
 
         // Week 4 - Edit Profile Screen
         composable(Screen.EditProfile.route) {
-            com.example.minisocialnetworkapplication.ui.profile.EditProfileScreen(
+            EditProfileScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onProfileUpdated = {
+                    // Set flag for ProfileScreen to refresh
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("profile_updated", true)
+
+                    // Also set flag for FeedScreen to refresh
+                    // ProfileScreen will be the previousBackStackEntry
+                    // So we need to go 2 levels back to reach FeedScreen
+                    // Get Profile entry, then its previousBackStackEntry should be Feed
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.set("profile_updated_for_feed", true)
                 }
             )
         }
