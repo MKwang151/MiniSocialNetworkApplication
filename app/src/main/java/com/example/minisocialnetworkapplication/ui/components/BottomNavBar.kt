@@ -51,9 +51,9 @@ fun BottomNavBar(navController: NavHostController) {
 }
 
 sealed class BottomNavItem(val route: String, val label: String, val icon: ImageVector) {
-    object Home : BottomNavItem(Screen.Feed.route, "Home", Icons.Default.Home)
+    object Home: BottomNavItem(Screen.Feed.route, "Home", Icons.Default.Home)
     object Search: BottomNavItem("Search", "Search", Icons.Default.Search)
     object Chat: BottomNavItem("Chat", "Chat", Icons.Default.Inbox)
-    object Profile : BottomNavItem(Screen.Profile.route, "Profile", Icons.Default.Person)
-    object Settings : BottomNavItem(Screen.Settings.route, "Settings", Icons.Default.Settings)
+    object Profile: BottomNavItem(Screen.Profile.route, "Profile", Icons.Default.Person)
+    object Settings: BottomNavItem(Screen.Settings.route, "Settings", Icons.Default.Settings)
 }
