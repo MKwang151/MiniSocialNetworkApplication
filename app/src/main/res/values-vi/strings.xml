@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Mạng Xã Hội Mini</string>
+
+    <!-- Xác thực -->
+    <string name="login">Đăng nhập</string>
+    <string name="register">Đăng ký</string>
+    <string name="logout">Đăng xuất</string>
+    <string name="email">Email</string>
+    <string name="password">Mật khẩu</string>
+    <string name="confirm_password">Xác nhận mật khẩu</string>
+    <string name="display_name">Tên hiển thị</string>
+    <string name="create_account">Tạo tài khoản</string>
+    <string name="already_have_account">Đã có tài khoản? Đăng nhập</string>
+    <string name="dont_have_account">Chưa có tài khoản? Đăng ký</string>
+    <string name="forgot_password">Quên mật khẩu?</string>
+
+    <!-- Bảng tin -->
+    <string name="feed">Bảng tin</string>
+    <string name="create_post">Tạo bài viết</string>
+    <string name="no_posts_yet">Chưa có bài viết nào</string>
+    <string name="be_first_to_share">Hãy là người đầu tiên chia sẻ điều gì đó!</string>
+    <string name="failed_to_load_feed">Không thể tải bảng tin</string>
+    <string name="retry">Thử lại</string>
+    <string name="failed_to_load_more_posts">Không thể tải thêm bài viết</string>
+
+    <!-- Tạo bài viết -->
+    <string name="whats_on_your_mind">Bạn đang nghĩ gì?</string>
+    <string name="post">Đăng</string>
+    <string name="add_photos">Thêm ảnh (tối đa %1$d)</string>
+    <string name="add_more_photos">Thêm ảnh (%1$d/%2$d)</string>
+    <string name="selected_images">Ảnh đã chọn:</string>
+    <string name="uploading_post">Đang tải bài viết lên…</string>
+    <string name="back">Quay lại</string>
+    <string name="remove_image">Xóa ảnh</string>
+
+    <!-- Tương tác bài viết -->
+    <string name="like">Thích</string>
+    <string name="comment">Bình luận</string>
+    <string name="share">Chia sẻ</string>
+    <string name="more_options">Tùy chọn khác</string>
+    <string name="likes_count">%1$d lượt thích</string>
+    <string name="comments_count">%1$d bình luận</string>
+
+    <!-- Bình luận -->
+    <string name="add_comment">Thêm bình luận…</string>
+    <string name="send">Gửi</string>
+    <string name="delete">Xóa</string>
+    <string name="edit">Sửa</string>
+
+    <!-- Hồ sơ -->
+    <string name="profile">Hồ sơ</string>
+    <string name="edit_profile">Chỉnh sửa hồ sơ</string>
+    <string name="bio">Giới thiệu</string>
+    <string name="posts">Bài viết</string>
+    <string name="followers">Người theo dõi</string>
+    <string name="following">Đang theo dõi</string>
+
+    <!-- Lỗi xác thực -->
+    <string name="error_email_empty">Email không được để trống</string>
+    <string name="error_email_invalid">Vui lòng nhập email hợp lệ</string>
+    <string name="error_password_empty">Mật khẩu không được để trống</string>
+    <string name="error_password_short">Mật khẩu phải có ít nhất %1$d ký tự</string>
+    <string name="error_passwords_dont_match">Mật khẩu không khớp</string>
+    <string name="error_name_empty">Tên không được để trống</string>
+    <string name="error_name_short">Tên phải có ít nhất 2 ký tự</string>
+    <string name="error_post_empty">Bài viết không được để trống</string>
+    <string name="error_post_too_long">Nội dung bài viết không được vượt quá %1$d ký tự</string>
+    <string name="error_too_many_images">Bạn chỉ có thể thêm tối đa %1$d ảnh</string>
+
+    <!-- Thông báo thành công -->
+    <string name="registration_successful">Đăng ký thành công!</string>
+    <string name="login_successful">Đăng nhập thành công!</string>
+    <string name="post_created">Tạo bài viết thành công!</string>
+    <string name="comment_added">Đã thêm bình luận!</string>
+
+    <!-- Thông báo lỗi -->
+    <string name="registration_failed">Đăng ký thất bại</string>
+    <string name="login_failed">Đăng nhập thất bại</string>
+    <string name="failed_to_create_post">Không thể tạo bài viết</string>
+    <string name="failed_to_toggle_like">Không thể thích/bỏ thích</string>
+    <string name="failed_to_add_comment">Không thể thêm bình luận</string>
+    <string name="user_not_authenticated">Người dùng chưa xác thực</string>
+    <string name="post_not_found">Không tìm thấy bài viết</string>
+    <string name="network_error">Lỗi mạng. Vui lòng kiểm tra kết nối.</string>
+
+    <!-- Thời gian -->
+    <string name="just_now">Vừa xong</string>
+    <string name="minute_ago">%1$d phút trước</string>
+    <string name="minutes_ago">%1$d phút trước</string>
+    <string name="hour_ago">%1$d giờ trước</string>
+    <string name="hours_ago">%1$d giờ trước</string>
+    <string name="day_ago">%1$d ngày trước</string>
+    <string name="days_ago">%1$d ngày trước</string>
+
+    <!-- Chung -->
+    <string name="loading">Đang tải…</string>
+    <string name="save">Lưu</string>
+    <string name="cancel">Hủy</string>
+    <string name="ok">Đồng ý</string>
+    <string name="yes">Có</string>
+    <string name="no">Không</string>
+    <string name="search">Tìm kiếm</string>
+    <string name="settings">Cài đặt</string>
+</resources>
+
