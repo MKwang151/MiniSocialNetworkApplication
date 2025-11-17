@@ -45,6 +45,9 @@ interface PostDao {
     @Query("DELETE FROM posts")
     suspend fun clearAll()
 
+    @Query("DELETE FROM posts WHERE isSyncPending = 0")
+    suspend fun clearSyncedPosts()
+
     @Query("DELETE FROM posts WHERE id = :postId")
     suspend fun deletePost(postId: String)
 }

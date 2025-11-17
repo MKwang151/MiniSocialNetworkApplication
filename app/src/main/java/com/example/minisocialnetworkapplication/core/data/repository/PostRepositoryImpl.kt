@@ -31,6 +31,9 @@ class PostRepositoryImpl @Inject constructor(
     private val workManager: WorkManager
 ) : PostRepository {
 
+    // Track current paging sources for invalidation
+    private var currentPagingSource: PagingSource<*, *>? = null
+
     /**
      * Copy image from content URI to app cache directory
      * This ensures the image is accessible when WorkManager runs
@@ -96,7 +99,11 @@ class PostRepositoryImpl @Inject constructor(
                 firestore = firestore,
                 auth = auth
             ),
-            pagingSourceFactory = { database.postDao().getPagingSource() }
+            pagingSourceFactory = {
+                database.postDao().getPagingSource().also {
+                    currentPagingSource = it
+                }
+            }
         ).flow.map { pagingData ->
             pagingData.map { it.toPost() }
         }
@@ -441,5 +448,31 @@ class PostRepositoryImpl @Inject constructor(
             false
         }
     }
-}
 
+    override suspend fun clearPostsCache(): Result<Unit> {
+        return try {
+            Timber.d("Clearing posts cache from Room database")
+
+            // CRITICAL: Clear both posts AND remote keys
+            // Without clearing remote keys, Paging 3 thinks data still exists
+            // and won't trigger RemoteMediator to reload from Firestore
+            database.postDao().clearAll()
+            database.remoteKeysDao().clearAll()
+
+            Timber.d("Posts cache and remote keys cleared successfully")
+
+            // Invalidate paging source to trigger immediate refresh
+            invalidatePagingSource()
+
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to clear posts cache")
+            Result.Error(e)
+        }
+    }
+
+    override fun invalidatePagingSource() {
+        Timber.d("Invalidating paging source to trigger refresh")
+        currentPagingSource?.invalidate()
+    }
+}

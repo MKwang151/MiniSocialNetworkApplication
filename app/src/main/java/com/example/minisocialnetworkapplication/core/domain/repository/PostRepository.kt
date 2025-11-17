@@ -42,5 +42,16 @@ interface PostRepository {
      * Check if current user liked a post
      */
     suspend fun isPostLikedByCurrentUser(postId: String): Boolean
-}
 
+    /**
+     * Clear posts cache (Room database)
+     * Use after profile update to force refresh from Firestore
+     */
+    suspend fun clearPostsCache(): Result<Unit>
+
+    /**
+     * Invalidate paging source to trigger refresh
+     * Call after clearing cache to force UI reload
+     */
+    fun invalidatePagingSource()
+}
