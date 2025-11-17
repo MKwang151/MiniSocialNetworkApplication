@@ -1,0 +1,49 @@
+package com.example.minisocialnetworkapplication.ui.components
+
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.currentBackStackEntryAsState
+import com.example.minisocialnetworkapplication.ui.navigation.Screen
+
+@Composable
+fun BottomNavBar(navController: NavHostController) {
+    val items = listOf(
+        BottomNavItem.Home,
+        BottomNavItem.Search,
+        BottomNavItem.Profile,
+        BottomNavItem.Settings
+    )
+
+    NavigationBar(
+        containerColor = Color.Black
+    ) {
+        val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+
+        items.forEach { item ->
+            NavigationBarItem(
+                selected = currentRoute == item.route,
+                onClick = { navController.navigate(item.route) },
+                icon = { Icon(item.icon, contentDescription = item.label) },
+                label = { Text(item.label) }
+            )
+        }
+    }
+}
+
+sealed class BottomNavItem(val route: String, val label: String, val icon: ImageVector) {
+    object Home : BottomNavItem(Screen.Feed.route, "Home", Icons.Default.Home)
+    object Search: BottomNavItem("Search", "Search", Icons.Default.Search)
+    object Profile : BottomNavItem(Screen.Profile.route, "Profile", Icons.Default.Person)
+    object Settings : BottomNavItem(Screen.Settings.route, "Settings", Icons.Default.Settings)
+}
