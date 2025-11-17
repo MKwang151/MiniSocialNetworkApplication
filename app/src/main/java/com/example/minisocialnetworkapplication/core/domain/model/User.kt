@@ -10,5 +10,8 @@ data class User(
     val bio: String? = null,
     val fcmToken: String? = null,
     val createdAt: Timestamp = Timestamp.now()
-)
+) {
+    // Alias for uid to make code more readable
+    val id: String get() = uid
+}
 
