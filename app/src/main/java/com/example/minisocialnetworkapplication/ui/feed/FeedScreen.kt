@@ -35,6 +35,7 @@ fun FeedScreen(
     onLogout: () -> Unit,
     shouldRefresh: StateFlow<Boolean>? = null,
     postDeleted: StateFlow<Boolean>? = null,
+    profileUpdated: StateFlow<Boolean>? = null,
     viewModel: FeedViewModel = hiltViewModel()
 ) {
     val lazyPagingItems = viewModel.feedPagingFlow.collectAsLazyPagingItems()
@@ -66,6 +67,16 @@ fun FeedScreen(
     LaunchedEffect(isPostDeleted) {
         if (isPostDeleted) {
             shouldScrollToTop = true
+            lazyPagingItems.refresh()
+        }
+    }
+
+    // Refresh when profile is updated (to show new author names)
+    val isProfileUpdated by (profileUpdated ?: MutableStateFlow(false)).collectAsState()
+    LaunchedEffect(isProfileUpdated) {
+        if (isProfileUpdated) {
+            timber.log.Timber.d("Profile updated - refreshing Feed to show new author names")
+            // Refresh to load new data from Firestore (cache already cleared by EditProfileViewModel)
             lazyPagingItems.refresh()
         }
     }
