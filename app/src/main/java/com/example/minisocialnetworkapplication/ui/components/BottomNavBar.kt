@@ -1,5 +1,6 @@
 package com.example.minisocialnetworkapplication.ui.components
 
+import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
@@ -8,10 +9,11 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.minisocialnetworkapplication.ui.navigation.Screen
@@ -26,6 +28,7 @@ fun BottomNavBar(navController: NavHostController) {
     )
 
     NavigationBar(
+        modifier = Modifier.height(80.dp),
         containerColor = Color.Black
     ) {
         val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
@@ -33,9 +36,13 @@ fun BottomNavBar(navController: NavHostController) {
         items.forEach { item ->
             NavigationBarItem(
                 selected = currentRoute == item.route,
-                onClick = { navController.navigate(item.route) },
+                onClick = { navController.navigate(item.route) {
+                    launchSingleTop = true
+                    restoreState = true
+                    popUpTo(Screen.Feed.route) { saveState = true }
+                } },
                 icon = { Icon(item.icon, contentDescription = item.label) },
-                label = { Text(item.label) }
+//                label = { Text(item.label) }
             )
         }
     }

@@ -42,11 +42,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavHostController
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.example.minisocialnetworkapplication.R
 import com.example.minisocialnetworkapplication.core.domain.model.Post
+import com.example.minisocialnetworkapplication.ui.components.BottomNavBar
 import com.example.minisocialnetworkapplication.ui.components.PostCard
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -54,6 +56,7 @@ import kotlinx.coroutines.flow.StateFlow
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedScreen(
+    navController: NavHostController,
     onNavigateToComposePost: () -> Unit,
     onNavigateToPostDetail: (String) -> Unit,
     onNavigateToProfile: (String) -> Unit,
@@ -150,7 +153,8 @@ fun FeedScreen(
                 )
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        bottomBar = { BottomNavBar(navController) }
     ) { paddingValues ->
         FeedContent(
             lazyPagingItems = lazyPagingItems,
