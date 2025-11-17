@@ -3,6 +3,7 @@ package com.example.minisocialnetworkapplication.ui.components
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -23,6 +24,7 @@ fun BottomNavBar(navController: NavHostController) {
     val items = listOf(
         BottomNavItem.Home,
         BottomNavItem.Search,
+        BottomNavItem.Chat,
         BottomNavItem.Profile,
         BottomNavItem.Settings
     )
@@ -51,6 +53,7 @@ fun BottomNavBar(navController: NavHostController) {
 sealed class BottomNavItem(val route: String, val label: String, val icon: ImageVector) {
     object Home : BottomNavItem(Screen.Feed.route, "Home", Icons.Default.Home)
     object Search: BottomNavItem("Search", "Search", Icons.Default.Search)
+    object Chat: BottomNavItem("Chat", "Chat", Icons.Default.Inbox)
     object Profile : BottomNavItem(Screen.Profile.route, "Profile", Icons.Default.Person)
     object Settings : BottomNavItem(Screen.Settings.route, "Settings", Icons.Default.Settings)
 }
