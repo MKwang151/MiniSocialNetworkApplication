@@ -70,6 +70,7 @@ fun NavGraph(
                 ?.getStateFlow("profile_updated", false)
 
             FeedScreen(
+                navController = navController,
                 shouldRefresh = shouldRefresh,
                 postDeleted = postDeleted,
                 profileUpdated = profileUpdated,
@@ -156,6 +157,7 @@ fun NavGraph(
             }
 
             ProfileScreen(
+                navController = navController,
                 onNavigateBack = {
                     navController.popBackStack()
                 },
