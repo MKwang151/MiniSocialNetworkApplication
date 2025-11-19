@@ -200,5 +200,48 @@ class CommentRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun updateComment(postId: String, commentId: String, newText: String): Result<Unit> {
+        return try {
+            val userId = auth.currentUser?.uid
+            if (userId == null) {
+                return Result.Error(Exception("User not authenticated"))
+            }
+
+            // Verify ownership - only comment author can edit
+            val commentDoc = firestore
+                .collection(Constants.COLLECTION_POSTS)
+                .document(postId)
+                .collection(Constants.COLLECTION_COMMENTS)
+                .document(commentId)
+                .get()
+                .await()
+
+            if (!commentDoc.exists()) {
+                return Result.Error(Exception("Comment not found"))
+            }
+
+            val commentAuthorId = commentDoc.getString(Constants.FIELD_AUTHOR_ID)
+            if (userId != commentAuthorId) {
+                return Result.Error(Exception("Not authorized to edit this comment"))
+            }
+
+            // Update comment text in Firestore
+            firestore
+                .collection(Constants.COLLECTION_POSTS)
+                .document(postId)
+                .collection(Constants.COLLECTION_COMMENTS)
+                .document(commentId)
+                .update("text", newText)
+                .await()
+
+            Timber.d("Comment updated successfully: $commentId")
+            Result.Success(Unit)
+
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to update comment")
+            Result.Error(e)
+        }
+    }
+
 }
 

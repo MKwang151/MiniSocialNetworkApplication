@@ -20,5 +20,10 @@ interface CommentRepository {
      * Delete a comment
      */
     suspend fun deleteComment(postId: String, commentId: String): Result<Unit>
+
+    /**
+     * Update comment text
+     */
+    suspend fun updateComment(postId: String, commentId: String, newText: String): Result<Unit>
 }
 
