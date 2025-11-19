@@ -56,6 +56,19 @@ class ComposePostViewModel @Inject constructor(
         Timber.d("Added ${uris.size} images, total: ${_selectedImages.value.size}")
     }
 
+    fun addImageFromCamera(uri: Uri) {
+        val currentImages = _selectedImages.value
+        if (currentImages.size >= Constants.MAX_IMAGE_COUNT) {
+            _uiState.value = ComposePostUiState.Error(
+                "You can only add up to ${Constants.MAX_IMAGE_COUNT} images"
+            )
+            return
+        }
+
+        _selectedImages.value = currentImages + uri
+        Timber.d("Added camera image, total: ${_selectedImages.value.size}")
+    }
+
     fun removeImage(uri: Uri) {
         _selectedImages.value = _selectedImages.value - uri
         Timber.d("Removed image, total: ${_selectedImages.value.size}")
@@ -122,6 +135,10 @@ class ComposePostViewModel @Inject constructor(
         if (_uiState.value is ComposePostUiState.Error) {
             _uiState.value = ComposePostUiState.Idle
         }
+    }
+
+    fun showError(message: String) {
+        _uiState.value = ComposePostUiState.Error(message)
     }
 }
 
