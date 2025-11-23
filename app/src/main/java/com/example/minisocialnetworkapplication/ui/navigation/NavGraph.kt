@@ -1,6 +1,14 @@
 package com.example.minisocialnetworkapplication.ui.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -82,6 +90,9 @@ fun NavGraph(
                 onNavigateToProfile = { userId ->
                     navController.navigate(Screen.Profile.createRoute(userId))
                 },
+                onNavigateToImageGallery = { postId, imageIndex ->
+                    navController.navigate(Screen.ImageGallery.createRoute(postId, imageIndex))
+                },
                 onNavigateToSettings = {
                     navController.navigate(Screen.Settings.route)
                 },
@@ -116,14 +127,18 @@ fun NavGraph(
             )
         }
 
-        // Week 3 - Post Detail Screen
-        composable(Screen.PostDetail.route) {
+        composable(Screen.PostDetail.route) { backStackEntry ->
+            val postId = backStackEntry.arguments?.getString("postId") ?: ""
+
             PostDetailScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
                 onNavigateToProfile = { userId ->
                     navController.navigate(Screen.Profile.createRoute(userId))
+                },
+                onNavigateToImageGallery = { imageIndex ->
+                    navController.navigate(Screen.ImageGallery.createRoute(postId, imageIndex))
                 },
                 onPostDeleted = {
                     // Set flag for FeedScreen to refresh
@@ -135,24 +150,12 @@ fun NavGraph(
             )
         }
 
-        // Week 3 - Profile Screen
         composable(Screen.Profile.route) {
             // Check if profile was updated
             val profileUpdated = it.savedStateHandle.get<Boolean>("profile_updated") ?: false
-            val profileUpdatedForFeed = it.savedStateHandle.get<Boolean>("profile_updated_for_feed") ?: false
-
             if (profileUpdated) {
                 // Clear the flag
                 it.savedStateHandle.remove<Boolean>("profile_updated")
-            }
-
-            if (profileUpdatedForFeed) {
-                // Clear the flag and forward to FeedScreen
-                it.savedStateHandle.remove<Boolean>("profile_updated_for_feed")
-                // Set flag for FeedScreen (previousBackStackEntry of Profile is Feed)
-                navController.previousBackStackEntry
-                    ?.savedStateHandle
-                    ?.set("profile_updated", true)
             }
 
             ProfileScreen(
@@ -162,6 +165,9 @@ fun NavGraph(
                 onNavigateToPostDetail = { postId ->
                     navController.navigate(Screen.PostDetail.createRoute(postId))
                 },
+                onNavigateToImageGallery = { postId, imageIndex ->
+                    navController.navigate(Screen.ImageGallery.createRoute(postId, imageIndex))
+                },
                 onNavigateToEditProfile = { userId ->
                     navController.navigate(Screen.EditProfile.createRoute(userId))
                 },
@@ -169,7 +175,6 @@ fun NavGraph(
             )
         }
 
-        // Week 4 - Edit Profile Screen
         composable(Screen.EditProfile.route) {
             EditProfileScreen(
                 onNavigateBack = {
@@ -182,14 +187,46 @@ fun NavGraph(
                         ?.set("profile_updated", true)
 
                     // Also set flag for FeedScreen to refresh
-                    // ProfileScreen will be the previousBackStackEntry
-                    // So we need to go 2 levels back to reach FeedScreen
-                    // Get Profile entry, then its previousBackStackEntry should be Feed
-                    navController.previousBackStackEntry
-                        ?.savedStateHandle
-                        ?.set("profile_updated_for_feed", true)
+                    navController.getBackStackEntry(Screen.Feed.route)
+                        .savedStateHandle
+                        .set("profile_updated", true)
+
+                    navController.popBackStack()
                 }
             )
+        }
+
+        composable(Screen.ImageGallery.route) {
+            val viewModel: com.example.minisocialnetworkapplication.ui.gallery.ImageGalleryViewModel = hiltViewModel()
+            val uiState by viewModel.uiState.collectAsState()
+
+            when (val state = uiState) {
+                is com.example.minisocialnetworkapplication.ui.gallery.ImageGalleryUiState.Loading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+                is com.example.minisocialnetworkapplication.ui.gallery.ImageGalleryUiState.Success -> {
+                    com.example.minisocialnetworkapplication.ui.gallery.ImageGalleryScreen(
+                        imageUrls = state.imageUrls,
+                        initialPage = viewModel.initialIndex,
+                        onNavigateBack = {
+                            navController.popBackStack()
+                        }
+                    )
+                }
+                is com.example.minisocialnetworkapplication.ui.gallery.ImageGalleryUiState.Error -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = state.message)
+                    }
+                }
+            }
         }
     }
 }
