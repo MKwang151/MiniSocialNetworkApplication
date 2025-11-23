@@ -59,4 +59,10 @@ interface PostRepository {
      * Call after clearing cache to force UI reload
      */
     fun invalidatePagingSource()
+
+    /**
+     * Update post with uploaded image URLs
+     * Used by background worker after images are uploaded
+     */
+    suspend fun updatePostImages(postId: String, mediaUrls: List<String>): Result<Unit>
 }

@@ -60,4 +60,10 @@ interface PostDao {
 
     @Query("UPDATE posts SET text = :newText WHERE id = :postId")
     suspend fun updatePostText(postId: String, newText: String)
+
+    @Query("UPDATE posts SET mediaUrls = :mediaUrls WHERE id = :postId")
+    suspend fun updatePostMediaUrls(postId: String, mediaUrls: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPost(post: PostEntity)
 }
