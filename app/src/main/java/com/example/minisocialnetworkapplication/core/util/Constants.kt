@@ -22,7 +22,7 @@ object Constants {
     const val PREFETCH_DISTANCE = 5
 
     // Image
-    const val MAX_IMAGE_COUNT = 3
+    const val MAX_IMAGE_COUNT = 10  // Maximum images per post (display only 3, show +N for more)
     const val IMAGE_QUALITY = 80
     const val MAX_IMAGE_WIDTH = 1080
     const val MAX_IMAGE_HEIGHT = 1920
