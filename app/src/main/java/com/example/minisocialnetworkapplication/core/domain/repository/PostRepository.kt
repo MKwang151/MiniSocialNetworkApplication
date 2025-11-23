@@ -39,6 +39,11 @@ interface PostRepository {
     suspend fun deletePost(postId: String): Result<Unit>
 
     /**
+     * Update post text
+     */
+    suspend fun updatePost(postId: String, newText: String): Result<Unit>
+
+    /**
      * Check if current user liked a post
      */
     suspend fun isPostLikedByCurrentUser(postId: String): Boolean
