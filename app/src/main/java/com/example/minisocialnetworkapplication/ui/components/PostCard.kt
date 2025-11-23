@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material3.*
@@ -14,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,8 +31,10 @@ fun PostCard(
     onCommentClicked: (Post) -> Unit,
     onPostClicked: (Post) -> Unit,
     onAuthorClicked: (String) -> Unit,
-    modifier: Modifier = Modifier,
+    onImageClicked: (Int) -> Unit = {},
     onDeleteClicked: (Post) -> Unit = {},
+    onEditClicked: (Post) -> Unit = {},
+    modifier: Modifier = Modifier,
     isOptimisticallyLiked: Boolean = post.likedByMe,
     showMenuButton: Boolean = true
 ) {
@@ -100,8 +104,22 @@ fun PostCard(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false }
                         ) {
-                            // Show Delete option only for post owner
+                            // Show Edit and Delete options only for post owner
                             if (post.authorId == currentUserId) {
+                                DropdownMenuItem(
+                                    text = { Text("Edit Post") },
+                                    onClick = {
+                                        showMenu = false
+                                        onEditClicked(post)
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Edit"
+                                        )
+                                    }
+                                )
+
                                 DropdownMenuItem(
                                     text = {
                                         Text(
@@ -144,6 +162,7 @@ fun PostCard(
             if (post.mediaUrls.isNotEmpty()) {
                 PostImages(
                     imageUrls = post.mediaUrls,
+                    onImageClicked = onImageClicked,
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(modifier = Modifier.height(12.dp))
@@ -165,13 +184,14 @@ fun PostCard(
                     modifier = Modifier
                         .clip(RoundedCornerShape(20.dp))
                         .clickable { onLikeClicked(post) }
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
-                    AnimatedLikeIcon(
+                    AnimatedLikeButton(
                         isLiked = isOptimisticallyLiked,
-                        modifier = Modifier.size(20.dp)
+                        onClick = { onLikeClicked(post) },
+                        modifier = Modifier.size(24.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "${post.likeCount}",
                         style = MaterialTheme.typography.bodyMedium,
@@ -210,10 +230,13 @@ fun PostCard(
 @Composable
 fun PostImages(
     imageUrls: List<String>,
+    onImageClicked: (Int) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    when (imageUrls.size) {
-        1 -> {
+    val remainingCount = if (imageUrls.size > 3) imageUrls.size - 3 else 0
+
+    when {
+        imageUrls.size == 1 -> {
             // Single image - full width
             AsyncImage(
                 model = imageUrls[0],
@@ -221,61 +244,104 @@ fun PostImages(
                 modifier = modifier
                     .fillMaxWidth()
                     .height(250.dp)
-                    .clip(RoundedCornerShape(8.dp)),
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onImageClicked(0) },
                 contentScale = ContentScale.Crop
             )
         }
-        2 -> {
+        imageUrls.size == 2 -> {
             // Two images - side by side
             Row(
                 modifier = modifier,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                imageUrls.forEach { url ->
+                imageUrls.take(2).forEachIndexed { index, url ->
                     AsyncImage(
                         model = url,
                         contentDescription = "Post image",
                         modifier = Modifier
                             .weight(1f)
                             .height(180.dp)
-                            .clip(RoundedCornerShape(8.dp)),
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onImageClicked(index) },
                         contentScale = ContentScale.Crop
                     )
                 }
             }
         }
-        3 -> {
-            // Three images - grid layout
+        imageUrls.size >= 3 -> {
+            // Three+ images - grid layout with overlay on 3rd image
             Column(
                 modifier = modifier,
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                // First image - full width
                 AsyncImage(
                     model = imageUrls[0],
                     contentDescription = "Post image",
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(180.dp)
-                        .clip(RoundedCornerShape(8.dp)),
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onImageClicked(0) },
                     contentScale = ContentScale.Crop
                 )
+
+                // Bottom row - 2 images
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    imageUrls.drop(1).forEach { url ->
+                    // Second image
+                    AsyncImage(
+                        model = imageUrls[1],
+                        contentDescription = "Post image",
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(120.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onImageClicked(1) },
+                        contentScale = ContentScale.Crop
+                    )
+
+                    // Third image with overlay if more than 3 images
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(120.dp)
+                    ) {
                         AsyncImage(
-                            model = url,
+                            model = imageUrls[2],
                             contentDescription = "Post image",
                             modifier = Modifier
-                                .weight(1f)
-                                .height(120.dp)
-                                .clip(RoundedCornerShape(8.dp)),
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onImageClicked(2) },
                             contentScale = ContentScale.Crop
                         )
+
+                        // Overlay for "+N more" if more than 3 images
+                        if (remainingCount > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.Black.copy(alpha = 0.6f))
+                                    .clickable { onImageClicked(2) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "+$remainingCount",
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
     }
 }
+
 
