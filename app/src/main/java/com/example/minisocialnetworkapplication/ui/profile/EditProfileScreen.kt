@@ -5,7 +5,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,12 +23,13 @@ fun EditProfileScreen(
     val bio by viewModel.bio.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
 
-    var showSuccessDialog by remember { mutableStateOf(false) }
-
-    // Handle success state
+    // Handle success state - navigate back immediately
     LaunchedEffect(uiState) {
         if (uiState is EditProfileUiState.Success) {
-            showSuccessDialog = true
+            // Trigger profile updated callback first
+            onProfileUpdated()
+            // Then navigate back to ProfileScreen
+            onNavigateBack()
         }
     }
 
@@ -164,37 +164,6 @@ fun EditProfileScreen(
         ) {
             Text((uiState as EditProfileUiState.Error).message)
         }
-    }
-
-    // Success dialog
-    if (showSuccessDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                showSuccessDialog = false
-                onProfileUpdated()
-                onNavigateBack()
-            },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            },
-            title = { Text("Profile Updated") },
-            text = { Text("Your profile has been updated successfully!") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showSuccessDialog = false
-                        onProfileUpdated()
-                        onNavigateBack()
-                    }
-                ) {
-                    Text("OK")
-                }
-            }
-        )
     }
 }
 
