@@ -16,7 +16,7 @@ import javax.inject.Inject
 
 sealed interface ComposePostUiState {
     data object Idle : ComposePostUiState
-    data object Uploading : ComposePostUiState
+    data class Uploading(val message: String = "Preparing images...") : ComposePostUiState
     data object Success : ComposePostUiState
     data class Error(val message: String) : ComposePostUiState
 }
@@ -93,8 +93,13 @@ class ComposePostViewModel @Inject constructor(
                     return@launch
                 }
 
-                _uiState.value = ComposePostUiState.Uploading
-                Timber.d("Creating post: text=${text.take(50)}, images=${images.size}")
+                val progressMessage = if (images.isEmpty()) {
+                    "Creating post..."
+                } else {
+                    "Creating post with ${images.size} image${if (images.size > 1) "s" else ""}..."
+                }
+                _uiState.value = ComposePostUiState.Uploading(progressMessage)
+                Timber.d("Creating post instantly: text=${text.take(50)}, images=${images.size}")
 
                 // Use IO dispatcher for potentially heavy I/O operations (copying images)
                 val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {

@@ -47,7 +47,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -302,6 +304,7 @@ fun ComposePostScreen(
 
             // Uploading progress
             if (uiState is ComposePostUiState.Uploading) {
+                val uploadingState = uiState as ComposePostUiState.Uploading
                 Spacer(modifier = Modifier.height(24.dp))
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -322,7 +325,7 @@ fun ComposePostScreen(
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = "Uploading your post...",
+                            text = uploadingState.message,
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
