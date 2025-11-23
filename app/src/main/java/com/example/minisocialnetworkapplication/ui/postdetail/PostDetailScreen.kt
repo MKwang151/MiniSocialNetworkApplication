@@ -18,7 +18,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -32,6 +34,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -40,10 +43,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -52,7 +51,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.minisocialnetworkapplication.core.domain.model.Comment
 import com.example.minisocialnetworkapplication.core.domain.model.Post
 import com.example.minisocialnetworkapplication.ui.components.PostCard
-import androidx.compose.material.icons.filled.MoreVert
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,9 +67,9 @@ fun PostDetailScreen(
     val deletionSuccess by viewModel.deletionSuccess.collectAsState()
 
     var showDeleteDialog by remember { mutableStateOf(false) }
-    val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
     var showEditPostDialog by remember { mutableStateOf(false) }
     var editPostText by remember { mutableStateOf("") }
+
     // Navigate back when deletion completes successfully
     LaunchedEffect(deletionSuccess) {
         if (deletionSuccess) {
@@ -89,21 +87,6 @@ fun PostDetailScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
                         )
-                    }
-                },
-                actions = {
-                    // Show delete button only for post owner
-                    if (uiState is PostDetailUiState.Success) {
-                        val post = (uiState as PostDetailUiState.Success).post
-                        if (post.authorId == currentUserId) {
-                            IconButton(onClick = { showDeleteDialog = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Delete Post",
-                                    tint = MaterialTheme.colorScheme.error
-                                )
-                            }
-                        }
                     }
                 }
             )
@@ -225,7 +208,7 @@ fun PostDetailContent(
                         onDeletePost(post)
                     },
                     isOptimisticallyLiked = post.likedByMe,
-                    showMenuButton = false  // Hide menu button in PostDetailScreen
+                    showMenuButton = true  // Show menu button in PostDetailScreen
                 )
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
