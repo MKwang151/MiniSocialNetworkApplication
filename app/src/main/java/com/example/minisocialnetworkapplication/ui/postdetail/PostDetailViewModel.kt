@@ -281,4 +281,86 @@ class PostDetailViewModel @Inject constructor(
             }
         }
     }
+
+    fun updatePost(newText: String) {
+        viewModelScope.launch {
+            try {
+                if (newText.isBlank()) {
+                    Timber.w("Cannot update post with empty text")
+                    return@launch
+                }
+
+                Timber.d("Updating post: $postId with new text")
+                when (val result = postRepository.updatePost(postId, newText)) {
+                    is Result.Success -> {
+                        Timber.d("Post updated successfully")
+                        // Reload post to get updated data
+                        loadPostAndComments()
+                    }
+                    is Result.Error -> {
+                        Timber.e("Failed to update post: ${result.message}")
+                        _uiState.value = PostDetailUiState.Error(
+                            result.message ?: "Failed to update post"
+                        )
+                    }
+                    is Result.Loading -> {}
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error updating post")
+                _uiState.value = PostDetailUiState.Error(
+                    e.message ?: "Unknown error"
+                )
+            }
+        }
+    }
+
+    fun updateComment(commentId: String, newText: String) {
+        viewModelScope.launch {
+            try {
+                if (newText.isBlank()) {
+                    Timber.w("Cannot update comment with empty text")
+                    return@launch
+                }
+
+                val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                val currentUserId = auth.currentUser?.uid
+
+                if (currentUserId == null) {
+                    Timber.e("User not authenticated")
+                    return@launch
+                }
+
+                // Get comment to check ownership
+                val commentRef = firestore.collection("posts")
+                    .document(postId)
+                    .collection("comments")
+                    .document(commentId)
+
+                val commentDoc = commentRef.get().await()
+
+                if (!commentDoc.exists()) {
+                    Timber.e("Comment not found")
+                    return@launch
+                }
+
+                val commentAuthorId = commentDoc.getString("authorId")
+
+                // Check if user owns this comment
+                if (commentAuthorId != currentUserId) {
+                    Timber.e("Not authorized to edit this comment")
+                    return@launch
+                }
+
+                // Update comment in Firestore
+                commentRef.update("text", newText).await()
+                Timber.d("Comment updated successfully")
+
+                // Reload comments to reflect the change
+                loadPostAndComments()
+            } catch (e: Exception) {
+                Timber.e(e, "Error updating comment")
+            }
+        }
+    }
 }
