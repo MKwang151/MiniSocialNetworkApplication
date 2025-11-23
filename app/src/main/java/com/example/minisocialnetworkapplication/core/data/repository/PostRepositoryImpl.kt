@@ -432,6 +432,58 @@ class PostRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun updatePost(postId: String, newText: String): Result<Unit> {
+        return try {
+            val userId = auth.currentUser?.uid
+            if (userId == null) {
+                return Result.Error(Exception("User not authenticated"))
+            }
+
+            // Verify ownership
+            val postDoc = firestore.collection(Constants.COLLECTION_POSTS)
+                .document(postId)
+                .get()
+                .await()
+
+            if (!postDoc.exists()) {
+                return Result.Error(Exception("Post not found"))
+            }
+
+            val authorId = postDoc.getString(Constants.FIELD_AUTHOR_ID)
+            if (authorId != userId) {
+                return Result.Error(Exception("Not authorized to edit this post"))
+            }
+
+            // Validate text
+            if (newText.isBlank()) {
+                return Result.Error(Exception("Post text cannot be empty"))
+            }
+
+            if (newText.length > Constants.MAX_POST_TEXT_LENGTH) {
+                return Result.Error(Exception("Post text exceeds maximum length"))
+            }
+
+            Timber.d("Updating post $postId with new text: ${newText.take(50)}...")
+
+            // Update Firestore
+            firestore.collection(Constants.COLLECTION_POSTS)
+                .document(postId)
+                .update("text", newText)
+                .await()
+
+            Timber.d("Post $postId updated successfully in Firestore")
+
+            // Update Room cache
+            database.postDao().updatePostText(postId, newText)
+            Timber.d("Post $postId updated successfully in Room cache")
+
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to update post")
+            Result.Error(e)
+        }
+    }
+
     override suspend fun isPostLikedByCurrentUser(postId: String): Boolean {
         return try {
             val userId = auth.currentUser?.uid ?: return false
