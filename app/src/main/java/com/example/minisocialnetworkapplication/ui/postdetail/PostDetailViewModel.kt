@@ -5,13 +5,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.minisocialnetworkapplication.core.domain.model.Comment
 import com.example.minisocialnetworkapplication.core.domain.model.Post
+import com.example.minisocialnetworkapplication.core.domain.repository.PostRepository
 import com.example.minisocialnetworkapplication.core.domain.usecase.comment.AddCommentUseCase
 import com.example.minisocialnetworkapplication.core.domain.usecase.comment.GetCommentsUseCase
 import com.example.minisocialnetworkapplication.core.domain.usecase.post.ToggleLikeUseCase
-import com.example.minisocialnetworkapplication.core.domain.repository.PostRepository
 import com.example.minisocialnetworkapplication.core.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber

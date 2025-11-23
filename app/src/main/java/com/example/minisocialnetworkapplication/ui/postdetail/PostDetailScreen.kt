@@ -1,13 +1,45 @@
 package com.example.minisocialnetworkapplication.ui.postdetail
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
@@ -20,6 +52,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.minisocialnetworkapplication.core.domain.model.Comment
 import com.example.minisocialnetworkapplication.core.domain.model.Post
 import com.example.minisocialnetworkapplication.ui.components.PostCard
+import androidx.compose.material.icons.filled.MoreVert
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,9 +69,9 @@ fun PostDetailScreen(
     val deletionSuccess by viewModel.deletionSuccess.collectAsState()
 
     var showDeleteDialog by remember { mutableStateOf(false) }
+    val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
     var showEditPostDialog by remember { mutableStateOf(false) }
     var editPostText by remember { mutableStateOf("") }
-
     // Navigate back when deletion completes successfully
     LaunchedEffect(deletionSuccess) {
         if (deletionSuccess) {
@@ -56,6 +89,21 @@ fun PostDetailScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
                         )
+                    }
+                },
+                actions = {
+                    // Show delete button only for post owner
+                    if (uiState is PostDetailUiState.Success) {
+                        val post = (uiState as PostDetailUiState.Success).post
+                        if (post.authorId == currentUserId) {
+                            IconButton(onClick = { showDeleteDialog = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete Post",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
                     }
                 }
             )
@@ -108,6 +156,7 @@ fun PostDetailScreen(
             onConfirm = {
                 viewModel.deletePost()
                 showDeleteDialog = false
+                // Navigation will happen automatically when deletion succeeds (via LaunchedEffect)
             },
             onDismiss = {
                 showDeleteDialog = false
@@ -176,7 +225,7 @@ fun PostDetailContent(
                         onDeletePost(post)
                     },
                     isOptimisticallyLiked = post.likedByMe,
-                    showMenuButton = true  // Show menu to allow edit and delete
+                    showMenuButton = false  // Hide menu button in PostDetailScreen
                 )
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
