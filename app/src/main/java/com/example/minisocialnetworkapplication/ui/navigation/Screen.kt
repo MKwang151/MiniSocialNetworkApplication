@@ -6,6 +6,7 @@ sealed class Screen(val route: String) {
     data object Feed : Screen("feed")
     data object ComposePost : Screen("compose_post")
     data object Settings : Screen("settings")
+    data object Chat : Screen("chat")
     data object PostDetail : Screen("post_detail/{postId}") {
         fun createRoute(postId: String) = "post_detail/$postId"
     }
