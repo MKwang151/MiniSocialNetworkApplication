@@ -18,7 +18,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -32,6 +34,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -54,6 +57,7 @@ import com.example.minisocialnetworkapplication.ui.components.PostCard
 fun PostDetailScreen(
     onNavigateBack: () -> Unit,
     onNavigateToProfile: (String) -> Unit,
+    onNavigateToImageGallery: (Int) -> Unit = {},
     onPostDeleted: () -> Unit = {},
     viewModel: PostDetailViewModel = hiltViewModel()
 ) {
@@ -63,7 +67,8 @@ fun PostDetailScreen(
     val deletionSuccess by viewModel.deletionSuccess.collectAsState()
 
     var showDeleteDialog by remember { mutableStateOf(false) }
-    val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+    var showEditPostDialog by remember { mutableStateOf(false) }
+    var editPostText by remember { mutableStateOf("") }
 
     // Navigate back when deletion completes successfully
     LaunchedEffect(deletionSuccess) {
@@ -83,21 +88,6 @@ fun PostDetailScreen(
                             contentDescription = "Back"
                         )
                     }
-                },
-                actions = {
-                    // Show delete button only for post owner
-                    if (uiState is PostDetailUiState.Success) {
-                        val post = (uiState as PostDetailUiState.Success).post
-                        if (post.authorId == currentUserId) {
-                            IconButton(onClick = { showDeleteDialog = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Delete Post",
-                                    tint = MaterialTheme.colorScheme.error
-                                )
-                            }
-                        }
-                    }
                 }
             )
         }
@@ -116,8 +106,19 @@ fun PostDetailScreen(
                     onSendComment = viewModel::addComment,
                     onLikeClicked = viewModel::toggleLike,
                     onAuthorClicked = onNavigateToProfile,
+                    onImageClicked = onNavigateToImageGallery,
+                    onEditPost = { text ->
+                        editPostText = text
+                        showEditPostDialog = true
+                    },
+                    onDeletePost = { post ->
+                        showDeleteDialog = true
+                    },
                     onDeleteComment = { comment ->
                         viewModel.deleteComment(comment.id)
+                    },
+                    onEditComment = { comment, newText ->
+                        viewModel.updateComment(comment.id, newText)
                     },
                     modifier = Modifier.padding(paddingValues)
                 )
@@ -145,6 +146,21 @@ fun PostDetailScreen(
             }
         )
     }
+
+    // Edit post dialog
+    if (showEditPostDialog) {
+        EditTextDialog(
+            title = "Edit Post",
+            initialText = editPostText,
+            onConfirm = { newText ->
+                viewModel.updatePost(newText)
+                showEditPostDialog = false
+            },
+            onDismiss = {
+                showEditPostDialog = false
+            }
+        )
+    }
 }
 
 @Composable
@@ -157,11 +173,17 @@ fun PostDetailContent(
     onSendComment: () -> Unit,
     onLikeClicked: () -> Unit,
     onAuthorClicked: (String) -> Unit,
+    onImageClicked: (Int) -> Unit = {},
+    onEditPost: (String) -> Unit = {},
+    onDeletePost: (Post) -> Unit = {},
     onDeleteComment: (Comment) -> Unit = {},
+    onEditComment: (Comment, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var commentToDelete by remember { mutableStateOf<Comment?>(null) }
+    var showEditCommentDialog by remember { mutableStateOf(false) }
+    var commentToEdit by remember { mutableStateOf<Comment?>(null) }
 
     Column(
         modifier = modifier.fillMaxSize()
@@ -179,8 +201,14 @@ fun PostDetailContent(
                     onCommentClicked = {},
                     onPostClicked = {},
                     onAuthorClicked = onAuthorClicked,
+                    onImageClicked = onImageClicked,
+                    onEditClicked = { onEditPost(post.text) },
+                    onDeleteClicked = {
+                        // Set flag to show delete dialog in PostDetailScreen
+                        onDeletePost(post)
+                    },
                     isOptimisticallyLiked = post.likedByMe,
-                    showMenuButton = false  // Hide menu button in PostDetailScreen
+                    showMenuButton = true  // Show menu button in PostDetailScreen
                 )
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -222,6 +250,10 @@ fun PostDetailContent(
                             commentToDelete = it
                             showDeleteDialog = true
                         },
+                        onEditClicked = { comment ->
+                            commentToEdit = comment
+                            showEditCommentDialog = true
+                        },
                         postAuthorId = post.authorId
                     )
                 }
@@ -253,6 +285,25 @@ fun PostDetailContent(
             }
         )
     }
+
+    // Edit comment dialog
+    if (showEditCommentDialog && commentToEdit != null) {
+        EditTextDialog(
+            title = "Edit Comment",
+            initialText = commentToEdit?.text ?: "",
+            onConfirm = { newText ->
+                commentToEdit?.let { comment ->
+                    onEditComment(comment, newText)
+                }
+                showEditCommentDialog = false
+                commentToEdit = null
+            },
+            onDismiss = {
+                showEditCommentDialog = false
+                commentToEdit = null
+            }
+        )
+    }
 }
 
 @Composable
@@ -260,6 +311,7 @@ fun CommentItem(
     comment: Comment,
     onAuthorClicked: (String) -> Unit,
     onDeleteClicked: (Comment) -> Unit = {},
+    onEditClicked: (Comment) -> Unit = {},
     postAuthorId: String = "",
     modifier: Modifier = Modifier
 ) {
@@ -339,6 +391,24 @@ fun CommentItem(
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false }
                 ) {
+                    // Show Edit only for comment owner
+                    if (comment.authorId == currentUserId) {
+                        DropdownMenuItem(
+                            text = { Text("Edit Comment") },
+                            onClick = {
+                                showMenu = false
+                                onEditClicked(comment)
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Edit"
+                                )
+                            }
+                        )
+                    }
+
+                    // Show Delete for comment owner OR post owner
                     DropdownMenuItem(
                         text = {
                             Text(
@@ -457,3 +527,41 @@ fun ErrorView(
     }
 }
 
+@Composable
+fun EditTextDialog(
+    title: String,
+    initialText: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var text by remember { mutableStateOf(initialText) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(150.dp),
+                placeholder = { Text("Enter text...") },
+                maxLines = 5
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(text) },
+                enabled = text.isNotBlank()
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}

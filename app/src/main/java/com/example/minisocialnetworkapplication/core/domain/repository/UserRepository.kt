@@ -36,3 +36,5 @@ interface UserRepository {
      */
     suspend fun searchUsers(query: String): Result<List<User>>
 }
+
+

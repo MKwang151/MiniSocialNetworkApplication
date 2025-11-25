@@ -37,7 +37,7 @@ class FeedViewModel @Inject constructor(
     // Optimistic like updates - track posts being liked
     private val _optimisticLikes = MutableStateFlow<Map<String, Post>>(emptyMap())
 
-    val feedPagingFlow: Flow<PagingData<Post>> = getFeedPagingUseCase()
+    val feedPosts: Flow<PagingData<Post>> = getFeedPagingUseCase()
         .cachedIn(viewModelScope)
         .combine(_optimisticLikes) { pagingData, optimisticLikes ->
             pagingData.map { post ->
@@ -107,6 +107,40 @@ class FeedViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Error deleting post")
+                _uiState.value = FeedUiState.Error(
+                    e.message ?: "Unknown error"
+                )
+            }
+        }
+    }
+
+    fun updatePost(postId: String, newText: String) {
+        viewModelScope.launch {
+            try {
+                if (newText.isBlank()) {
+                    Timber.w("Cannot update post with empty text")
+                    _uiState.value = FeedUiState.Error("Post text cannot be empty")
+                    return@launch
+                }
+
+                Timber.d("Updating post: $postId from FeedScreen")
+                when (val result = postRepository.updatePost(postId, newText)) {
+                    is Result.Success -> {
+                        Timber.d("Post updated successfully from Feed")
+                        // Post will auto-refresh through paging
+                    }
+                    is Result.Error -> {
+                        Timber.e("Failed to update post: ${result.message}")
+                        _uiState.value = FeedUiState.Error(
+                            result.message ?: "Failed to update post"
+                        )
+                    }
+                    is Result.Loading -> {
+                        // Should not happen
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error updating post")
                 _uiState.value = FeedUiState.Error(
                     e.message ?: "Unknown error"
                 )

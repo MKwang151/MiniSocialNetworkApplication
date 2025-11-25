@@ -1,5 +1,6 @@
 package com.example.minisocialnetworkapplication.ui.post
 
+import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -23,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.Button
@@ -45,16 +47,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.example.minisocialnetworkapplication.core.util.Constants
 import timber.log.Timber
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,9 +71,13 @@ fun ComposePostScreen(
     onNavigateBack: (postCreated: Boolean) -> Unit,
     viewModel: ComposePostViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val postText by viewModel.postText.collectAsState()
     val selectedImages by viewModel.selectedImages.collectAsState()
+
+    // Camera URI state
+    var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
 
     // Handle success state
     LaunchedEffect(uiState) {
@@ -73,14 +86,14 @@ fun ComposePostScreen(
         }
     }
 
-    // Image picker
+    // Image picker launcher
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(
             maxItems = Constants.MAX_IMAGE_COUNT
         )
     ) { uris ->
         if (uris.isNotEmpty()) {
-            Timber.d("Selected ${uris.size} images")
+            Timber.d("Selected ${uris.size} images from gallery")
             // Filter to respect max count based on already selected images
             val availableSlots = Constants.MAX_IMAGE_COUNT - selectedImages.size
             val urisToAdd = if (uris.size > availableSlots) {
@@ -93,6 +106,37 @@ fun ComposePostScreen(
             if (urisToAdd.isNotEmpty()) {
                 viewModel.addImages(urisToAdd)
             }
+        }
+    }
+
+    // Camera launcher
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) {
+            Timber.d("Camera photo captured successfully")
+            cameraImageUri?.let { uri ->
+                viewModel.addImageFromCamera(uri)
+            }
+        } else {
+            Timber.w("Camera photo capture failed or cancelled")
+        }
+    }
+
+    // Camera permission launcher
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            Timber.d("Camera permission granted")
+            // Create URI and launch camera
+            cameraImageUri = createImageUri(context)
+            cameraImageUri?.let { uri ->
+                cameraLauncher.launch(uri)
+            }
+        } else {
+            Timber.w("Camera permission denied")
+            viewModel.showError("Camera permission is required to take photos")
         }
     }
 
@@ -169,29 +213,68 @@ fun ComposePostScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Image picker button
-            OutlinedButton(
-                onClick = {
-                    if (selectedImages.size < Constants.MAX_IMAGE_COUNT) {
-                        imagePickerLauncher.launch(
-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                        )
-                    }
-                },
-                enabled = selectedImages.size < Constants.MAX_IMAGE_COUNT,
-                modifier = Modifier.fillMaxWidth()
+            // Image picker and camera buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Image,
-                    contentDescription = "Add images"
-                )
-                Spacer(modifier = Modifier.width(8.dp))
+                // Gallery button
+                OutlinedButton(
+                    onClick = {
+                        if (selectedImages.size < Constants.MAX_IMAGE_COUNT) {
+                            imagePickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        }
+                    },
+                    enabled = selectedImages.size < Constants.MAX_IMAGE_COUNT,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Image,
+                        contentDescription = "Gallery"
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Gallery")
+                }
+
+                // Camera button
+                OutlinedButton(
+                    onClick = {
+                        if (selectedImages.size < Constants.MAX_IMAGE_COUNT) {
+                            // Check camera permission
+                            if (context.checkSelfPermission(android.Manifest.permission.CAMERA) ==
+                                android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                // Permission already granted, launch camera
+                                cameraImageUri = createImageUri(context)
+                                cameraImageUri?.let { uri ->
+                                    cameraLauncher.launch(uri)
+                                }
+                            } else {
+                                // Request permission
+                                cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                            }
+                        }
+                    },
+                    enabled = selectedImages.size < Constants.MAX_IMAGE_COUNT,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CameraAlt,
+                        contentDescription = "Camera"
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Camera")
+                }
+            }
+
+            // Photo count indicator
+            if (selectedImages.isNotEmpty()) {
                 Text(
-                    text = if (selectedImages.isEmpty()) {
-                        "Add Photos (up to ${Constants.MAX_IMAGE_COUNT})"
-                    } else {
-                        "Add More Photos (${selectedImages.size}/${Constants.MAX_IMAGE_COUNT})"
-                    }
+                    text = "Photos: ${selectedImages.size}/${Constants.MAX_IMAGE_COUNT}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp)
                 )
             }
 
@@ -221,6 +304,7 @@ fun ComposePostScreen(
 
             // Uploading progress
             if (uiState is ComposePostUiState.Uploading) {
+                val uploadingState = uiState as ComposePostUiState.Uploading
                 Spacer(modifier = Modifier.height(24.dp))
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -241,7 +325,7 @@ fun ComposePostScreen(
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = "Uploading your post...",
+                            text = uploadingState.message,
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -287,6 +371,33 @@ fun SelectedImageItem(
                 modifier = Modifier.size(16.dp)
             )
         }
+    }
+}
+
+/**
+ * Create a URI for camera capture using FileProvider
+ */
+private fun createImageUri(context: Context): Uri? {
+    return try {
+        // Create camera directory if it doesn't exist
+        val cameraDir = File(context.cacheDir, "camera")
+        if (!cameraDir.exists()) {
+            cameraDir.mkdirs()
+        }
+
+        // Create unique file name
+        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val imageFile = File(cameraDir, "IMG_${timeStamp}.jpg")
+
+        // Get URI using FileProvider
+        FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            imageFile
+        )
+    } catch (e: Exception) {
+        Timber.e(e, "Error creating camera image URI")
+        null
     }
 }
 

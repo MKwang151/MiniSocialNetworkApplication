@@ -104,6 +104,9 @@ dependencies {
     // Coil
     implementation(libs.coil.compose)
 
+    // Zoomable Image
+    implementation("net.engawapg.lib:zoomable:1.6.1")
+
     // DataStore
     implementation(libs.androidx.datastore.preferences)
 

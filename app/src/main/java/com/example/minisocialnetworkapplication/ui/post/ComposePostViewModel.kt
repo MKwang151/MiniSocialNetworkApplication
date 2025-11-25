@@ -16,7 +16,7 @@ import javax.inject.Inject
 
 sealed interface ComposePostUiState {
     data object Idle : ComposePostUiState
-    data object Uploading : ComposePostUiState
+    data class Uploading(val message: String = "Preparing images...") : ComposePostUiState
     data object Success : ComposePostUiState
     data class Error(val message: String) : ComposePostUiState
 }
@@ -56,6 +56,19 @@ class ComposePostViewModel @Inject constructor(
         Timber.d("Added ${uris.size} images, total: ${_selectedImages.value.size}")
     }
 
+    fun addImageFromCamera(uri: Uri) {
+        val currentImages = _selectedImages.value
+        if (currentImages.size >= Constants.MAX_IMAGE_COUNT) {
+            _uiState.value = ComposePostUiState.Error(
+                "You can only add up to ${Constants.MAX_IMAGE_COUNT} images"
+            )
+            return
+        }
+
+        _selectedImages.value = currentImages + uri
+        Timber.d("Added camera image, total: ${_selectedImages.value.size}")
+    }
+
     fun removeImage(uri: Uri) {
         _selectedImages.value = _selectedImages.value - uri
         Timber.d("Removed image, total: ${_selectedImages.value.size}")
@@ -80,8 +93,13 @@ class ComposePostViewModel @Inject constructor(
                     return@launch
                 }
 
-                _uiState.value = ComposePostUiState.Uploading
-                Timber.d("Creating post: text=${text.take(50)}, images=${images.size}")
+                val progressMessage = if (images.isEmpty()) {
+                    "Creating post..."
+                } else {
+                    "Creating post with ${images.size} image${if (images.size > 1) "s" else ""}..."
+                }
+                _uiState.value = ComposePostUiState.Uploading(progressMessage)
+                Timber.d("Creating post instantly: text=${text.take(50)}, images=${images.size}")
 
                 // Use IO dispatcher for potentially heavy I/O operations (copying images)
                 val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -122,6 +140,10 @@ class ComposePostViewModel @Inject constructor(
         if (_uiState.value is ComposePostUiState.Error) {
             _uiState.value = ComposePostUiState.Idle
         }
+    }
+
+    fun showError(message: String) {
+        _uiState.value = ComposePostUiState.Error(message)
     }
 }
 

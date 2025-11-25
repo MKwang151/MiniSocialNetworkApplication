@@ -25,6 +25,7 @@
 
     <!-- Post Creation -->
     <string name="whats_on_your_mind">What\'s on your mind?</string>
+    <string name="post_hint">What\'s on your mind?</string>
     <string name="post">Post</string>
     <string name="add_photos">Add Photos (up to %1$d)</string>
     <string name="add_more_photos">Add More Photos (%1$d/%2$d)</string>
@@ -43,9 +44,12 @@
 
     <!-- Comments -->
     <string name="add_comment">Add a comment…</string>
+    <string name="comment_placeholder">Write a comment...</string>
     <string name="send">Send</string>
     <string name="delete">Delete</string>
     <string name="edit">Edit</string>
+    <string name="edit_comment">Edit Comment</string>
+    <string name="edit_post">Edit Post</string>
 
     <!-- Profile -->
     <string name="profile">Profile</string>

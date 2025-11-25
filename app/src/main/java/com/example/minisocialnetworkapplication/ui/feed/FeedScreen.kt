@@ -57,6 +57,7 @@ fun FeedScreen(
     onNavigateToComposePost: () -> Unit,
     onNavigateToPostDetail: (String) -> Unit,
     onNavigateToProfile: (String) -> Unit,
+    onNavigateToImageGallery: (String, Int) -> Unit,
     onNavigateToSettings: () -> Unit = {},
     onLogout: () -> Unit,
     shouldRefresh: StateFlow<Boolean>? = null,
@@ -64,7 +65,7 @@ fun FeedScreen(
     profileUpdated: StateFlow<Boolean>? = null,
     viewModel: FeedViewModel = hiltViewModel()
 ) {
-    val lazyPagingItems = viewModel.feedPagingFlow.collectAsLazyPagingItems()
+    val lazyPagingItems = viewModel.feedPosts.collectAsLazyPagingItems()
     val uiState by viewModel.uiState.collectAsState()
 
     // State to trigger scroll to top
@@ -73,6 +74,10 @@ fun FeedScreen(
     // State for delete dialog
     var showDeleteDialog by remember { mutableStateOf(false) }
     var postToDelete by remember { mutableStateOf<Post?>(null) }
+
+    // State for edit dialog
+    var showEditDialog by remember { mutableStateOf(false) }
+    var postToEdit by remember { mutableStateOf<Post?>(null) }
 
     // Auto refresh when screen appears
     LaunchedEffect(Unit) {
@@ -157,9 +162,11 @@ fun FeedScreen(
             viewModel = viewModel,
             onNavigateToPostDetail = onNavigateToPostDetail,
             onNavigateToProfile = onNavigateToProfile,
+            onNavigateToImageGallery = onNavigateToImageGallery,
             shouldScrollToTop = shouldScrollToTop,
             onScrolledToTop = { shouldScrollToTop = false },
             onDeletePost = { postToDelete = it; showDeleteDialog = true },
+            onEditPost = { postToEdit = it; showEditDialog = true },
             modifier = Modifier.padding(paddingValues)
         )
     }
@@ -181,6 +188,26 @@ fun FeedScreen(
             }
         )
     }
+
+    // Edit post dialog
+    if (showEditDialog && postToEdit != null) {
+        com.example.minisocialnetworkapplication.ui.components.EditTextDialog(
+            title = "Edit Post",
+            initialText = postToEdit?.text ?: "",
+            onConfirm = { newText ->
+                postToEdit?.let { post ->
+                    viewModel.updatePost(post.id, newText)
+                }
+                showEditDialog = false
+                postToEdit = null
+                lazyPagingItems.refresh()
+            },
+            onDismiss = {
+                showEditDialog = false
+                postToEdit = null
+            }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -190,10 +217,12 @@ fun FeedContent(
     viewModel: FeedViewModel,
     onNavigateToPostDetail: (String) -> Unit,
     onNavigateToProfile: (String) -> Unit,
+    onNavigateToImageGallery: (String, Int) -> Unit,
     shouldScrollToTop: Boolean,
     onScrolledToTop: () -> Unit,
     modifier: Modifier = Modifier,
-    onDeletePost: (Post) -> Unit = {}
+    onDeletePost: (Post) -> Unit = {},
+    onEditPost: (Post) -> Unit = {}
 ) {
     val isRefreshing = lazyPagingItems.loadState.refresh is LoadState.Loading
     val listState = rememberLazyListState()
@@ -236,6 +265,10 @@ fun FeedContent(
                             onCommentClicked = { onNavigateToPostDetail(post.id) },
                             onPostClicked = { onNavigateToPostDetail(post.id) },
                             onAuthorClicked = { onNavigateToProfile(post.authorId) },
+                            onImageClicked = { imageIndex ->
+                                onNavigateToImageGallery(post.id, imageIndex)
+                            },
+                            onEditClicked = { onEditPost(it) },
                             onDeleteClicked = { onDeletePost(it) },
                             isOptimisticallyLiked = post.likedByMe
                         )

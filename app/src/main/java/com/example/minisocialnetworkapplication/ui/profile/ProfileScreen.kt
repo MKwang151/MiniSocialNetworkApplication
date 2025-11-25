@@ -48,6 +48,7 @@ import com.example.minisocialnetworkapplication.ui.components.PostCard
 fun ProfileScreen(
     onNavigateBack: () -> Unit,
     onNavigateToPostDetail: (String) -> Unit,
+    onNavigateToImageGallery: (String, Int) -> Unit = { _, _ -> },
     onNavigateToEditProfile: (String) -> Unit = {},
     shouldRefresh: Boolean = false,
     viewModel: ProfileViewModel = hiltViewModel()
@@ -101,6 +102,7 @@ fun ProfileScreen(
                     isOwnProfile = state.isOwnProfile,
                     userPosts = userPosts,
                     onPostClicked = onNavigateToPostDetail,
+                    onImageClicked = onNavigateToImageGallery,
                     onLikeClicked = viewModel::toggleLike,
                     modifier = Modifier.padding(paddingValues)
                 )
@@ -122,6 +124,7 @@ fun ProfileContent(
     isOwnProfile: Boolean,
     userPosts: LazyPagingItems<Post>,
     onPostClicked: (String) -> Unit,
+    onImageClicked: (String, Int) -> Unit = { _, _ -> },
     onLikeClicked: (Post) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -160,6 +163,8 @@ fun ProfileContent(
                     onCommentClicked = { onPostClicked(post.id) },
                     onPostClicked = { onPostClicked(post.id) },
                     onAuthorClicked = {},
+                    onImageClicked = { imageIndex ->                        onImageClicked(post.id, imageIndex)
+                    },
                     isOptimisticallyLiked = post.likedByMe
                 )
             }

@@ -26,8 +26,15 @@ import com.example.minisocialnetworkapplication.core.worker.UploadPostWorker
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import java.io.File
@@ -40,7 +47,8 @@ class PostRepositoryImpl @Inject constructor(
     private val database: AppDatabase,
     private val firestore: FirebaseFirestore,
     private val auth: FirebaseAuth,
-    private val workManager: WorkManager
+    private val workManager: WorkManager,
+    private val storage: com.google.firebase.storage.FirebaseStorage
 ) : PostRepository {
 
     // Track current paging sources for invalidation
@@ -52,44 +60,40 @@ class PostRepositoryImpl @Inject constructor(
      */
     private fun copyImageToCache(uri: Uri): File? {
         return try {
-            Timber.d("Starting to copy image: $uri")
-
-            val inputStream = context.contentResolver.openInputStream(uri)
-            if (inputStream == null) {
-                Timber.e("Cannot open input stream for URI: $uri")
-                return null
-            }
-
             val cacheFile = File(
                 context.cacheDir,
                 "upload_${System.currentTimeMillis()}_${UUID.randomUUID()}.jpg"
             )
 
-            var bytesCopied = 0L
-            FileOutputStream(cacheFile).use { outputStream ->
-                val buffer = ByteArray(8192)
-                var bytes = inputStream.read(buffer)
-                while (bytes >= 0) {
-                    outputStream.write(buffer, 0, bytes)
-                    bytesCopied += bytes
-                    bytes = inputStream.read(buffer)
+            context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                FileOutputStream(cacheFile).use { outputStream ->
+                    // Use larger buffer (64KB) for faster copying
+                    val buffer = ByteArray(64 * 1024)
+                    var bytesRead: Int
+                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                        outputStream.write(buffer, 0, bytesRead)
+                    }
                 }
-            }
-            inputStream.close()
-
-            Timber.d("Copied image to cache: ${cacheFile.absolutePath}, size: ${cacheFile.length()} bytes (copied: $bytesCopied)")
-
-            if (!cacheFile.exists() || cacheFile.length() == 0L) {
-                Timber.e("Cache file is empty or doesn't exist")
+            } ?: run {
+                Timber.e("Cannot open input stream for URI: $uri")
                 return null
             }
 
+            if (!cacheFile.exists() || cacheFile.length() == 0L) {
+                Timber.e("Cache file is empty or doesn't exist")
+                cacheFile.delete()
+                return null
+            }
+
+            Timber.d("Cached image: ${cacheFile.length() / 1024}KB")
             cacheFile
         } catch (e: SecurityException) {
             Timber.e(e, "Security exception copying image: $uri")
             null
         } catch (e: OutOfMemoryError) {
             Timber.e(e, "Out of memory copying image: $uri")
+            // Try to free memory
+            System.gc()
             null
         } catch (e: Exception) {
             Timber.e(e, "Failed to copy image to cache: $uri")
@@ -141,25 +145,7 @@ class PostRepositoryImpl @Inject constructor(
                 return Result.Error(Exception("User not authenticated"))
             }
 
-            Timber.d("Creating post with ${imageUris.size} images")
-
-            // Copy images to cache directory first
-            // This ensures WorkManager can access them later
-            val cachedImagePaths = mutableListOf<String>()
-            for (uri in imageUris) {
-                val cachedFile = copyImageToCache(uri)
-                if (cachedFile != null) {
-                    cachedImagePaths.add(cachedFile.absolutePath)
-                } else {
-                    Timber.w("Failed to cache image: $uri, skipping")
-                }
-            }
-
-            if (imageUris.isNotEmpty() && cachedImagePaths.isEmpty()) {
-                return Result.Error(Exception("Failed to prepare images for upload"))
-            }
-
-            Timber.d("Cached ${cachedImagePaths.size} images to: ${cachedImagePaths.joinToString()}")
+            Timber.d("Creating post with ${imageUris.size} images - instant display mode")
 
             // Generate post ID
             val postId = UUID.randomUUID().toString()
@@ -172,54 +158,102 @@ class PostRepositoryImpl @Inject constructor(
             val userName = userDoc.getString("name") ?: "Unknown"
             val userAvatarUrl = userDoc.getString("avatarUrl")
 
-            // Create temporary post entity and insert to Room immediately
-            // This makes the post appear in Feed right away
+            // STEP 1: Create post in Firestore IMMEDIATELY without images
+            val postData = hashMapOf(
+                Constants.FIELD_AUTHOR_ID to userId,
+                "authorName" to userName,
+                "authorAvatarUrl" to userAvatarUrl,
+                "text" to text,
+                "mediaUrls" to emptyList<String>(),  // Empty first!
+                Constants.FIELD_LIKE_COUNT to 0,
+                Constants.FIELD_COMMENT_COUNT to 0,
+                Constants.FIELD_CREATED_AT to com.google.firebase.Timestamp.now()
+            )
+
+            firestore.collection(Constants.COLLECTION_POSTS)
+                .document(postId)
+                .set(postData)
+                .await()
+
+            Timber.d("Post created in Firestore immediately: $postId")
+
+            // STEP 2: Insert to Room cache immediately with LOCAL image URIs
+            // This allows user to see images instantly from local storage!
+            val localImageUrls = imageUris.joinToString(",") { it.toString() }
+
             val tempPost = com.example.minisocialnetworkapplication.core.data.local.PostEntity(
                 id = postId,
                 authorId = userId,
                 authorName = userName,
                 authorAvatarUrl = userAvatarUrl,
                 text = text,
-                mediaUrls = cachedImagePaths.joinToString(","),
+                mediaUrls = localImageUrls,  // Store local URIs first!
                 likeCount = 0,
                 commentCount = 0,
                 likedByMe = false,
                 createdAt = System.currentTimeMillis(),
-                isSyncPending = true
+                isSyncPending = false  // Already synced to Firestore
             )
-            database.postDao().insertAll(listOf(tempPost))
-            Timber.d("Inserted temporary post to Room: $postId")
+            database.postDao().insertPost(tempPost)
+            Timber.d("Post inserted to Room cache with ${imageUris.size} local image URIs: $postId")
 
-            // Create WorkManager request with unique ID
-            val workData = workDataOf(
-                "POST_ID" to postId,
-                "TEXT" to text,
-                "IMAGE_URIS" to cachedImagePaths.toTypedArray(),
-                "USER_ID" to userId
-            )
+            // STEP 3: Schedule background image upload if has images
+            if (imageUris.isNotEmpty()) {
+                // Launch coroutine in IO dispatcher for background processing
+                CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+                    try {
+                        // Copy images to cache in parallel
+                        val cachedImagePaths = coroutineScope {
+                            imageUris.map { uri ->
+                                async(Dispatchers.IO) {
+                                    try {
+                                        copyImageToCache(uri)
+                                    } catch (e: Exception) {
+                                        Timber.w(e, "Failed to cache image: $uri")
+                                        null
+                                    }
+                                }
+                            }.awaitAll().filterNotNull().map { it.absolutePath }
+                        }
 
-            val constraints = Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
-                .build()
+                        if (cachedImagePaths.isNotEmpty()) {
+                            // Enqueue image upload worker
+                            val workData = workDataOf(
+                                "POST_ID" to postId,
+                                "IMAGE_URIS" to cachedImagePaths.toTypedArray(),
+                                "USER_ID" to userId
+                            )
 
-            val uploadWorkRequest = OneTimeWorkRequestBuilder<UploadPostWorker>()
-                .setInputData(workData)
-                .setConstraints(constraints)
-                .setBackoffCriteria(
-                    BackoffPolicy.EXPONENTIAL,
-                    WorkRequest.MIN_BACKOFF_MILLIS,
-                    java.util.concurrent.TimeUnit.MILLISECONDS
-                )
-                .addTag(Constants.WORK_TAG_UPLOAD)
-                .build()
+                            val constraints = Constraints.Builder()
+                                .setRequiredNetworkType(NetworkType.CONNECTED)
+                                .build()
 
-            workManager.enqueueUniqueWork(
-                "${Constants.WORK_UPLOAD_POST}_$postId",
-                ExistingWorkPolicy.KEEP,
-                uploadWorkRequest
-            )
+                            val uploadWorkRequest = OneTimeWorkRequestBuilder<UploadPostWorker>()
+                                .setInputData(workData)
+                                .setConstraints(constraints)
+                                .setBackoffCriteria(
+                                    BackoffPolicy.EXPONENTIAL,
+                                    WorkRequest.MIN_BACKOFF_MILLIS,
+                                    java.util.concurrent.TimeUnit.MILLISECONDS
+                                )
+                                .addTag(Constants.WORK_TAG_UPLOAD)
+                                .build()
 
-            Timber.d("Post upload enqueued with ID: $postId")
+                            workManager.enqueueUniqueWork(
+                                "${Constants.WORK_UPLOAD_POST}_$postId",
+                                ExistingWorkPolicy.KEEP,
+                                uploadWorkRequest
+                            )
+
+                            Timber.d("Image upload enqueued for post: $postId (${cachedImagePaths.size} images)")
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "Failed to prepare images for upload")
+                    }
+                }
+            }
+
+            Timber.d("Post created successfully and will be visible immediately: $postId")
             Result.Success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "Failed to enqueue post upload")
@@ -377,9 +411,42 @@ class PostRepositoryImpl @Inject constructor(
                 return Result.Error(Exception("Not authorized to delete this post"))
             }
 
-            Timber.d("Deleting post $postId with all its comments and likes")
+            Timber.d("Deleting post $postId with all its comments, likes, and images")
 
-            // Step 1: Delete all comments in this post
+            // Step 1: Delete all images from Storage
+            try {
+                @Suppress("UNCHECKED_CAST")
+                val mediaUrls = postDoc.get("mediaUrls") as? List<String> ?: emptyList()
+
+                if (mediaUrls.isNotEmpty()) {
+                    Timber.d("Deleting ${mediaUrls.size} images from Storage for post $postId")
+
+                    // Delete images in parallel for better performance
+                    coroutineScope {
+                        mediaUrls.map { imageUrl ->
+                            async(Dispatchers.IO) {
+                                try {
+                                    val storageRef = storage.getReferenceFromUrl(imageUrl)
+                                    storageRef.delete().await()
+                                    Timber.d("Deleted image from Storage: $imageUrl")
+                                } catch (e: Exception) {
+                                    Timber.w(e, "Failed to delete image from Storage: $imageUrl")
+                                    // Continue even if one image fails
+                                }
+                            }
+                        }.awaitAll()
+                    }
+
+                    Timber.d("Deleted ${mediaUrls.size} images from Storage for post $postId")
+                } else {
+                    Timber.d("No images to delete for post $postId")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error deleting images from Storage, continuing with post deletion")
+                // Continue even if image deletion fails
+            }
+
+            // Step 2: Delete all comments in this post
             try {
                 val commentsSnapshot = firestore.collection(Constants.COLLECTION_POSTS)
                     .document(postId)
@@ -402,7 +469,7 @@ class PostRepositoryImpl @Inject constructor(
                 // Continue even if comments deletion fails
             }
 
-            // Step 2: Delete all likes for this post
+            // Step 3: Delete all likes for this post
             try {
                 // Query likes collection where postId matches
                 val likesSnapshot = firestore.collection(Constants.COLLECTION_LIKES)
@@ -425,21 +492,73 @@ class PostRepositoryImpl @Inject constructor(
                 // Continue even if likes deletion fails
             }
 
-            // Step 3: Delete the post itself from Firestore (CRITICAL)
+            // Step 4: Delete the post itself from Firestore (CRITICAL)
             firestore.collection(Constants.COLLECTION_POSTS)
                 .document(postId)
                 .delete()
                 .await()
             Timber.d("Deleted post document $postId from Firestore")
 
-            // Step 4: Delete from Room cache (CRITICAL - must succeed)
+            // Step 5: Delete from Room cache (CRITICAL - must succeed)
             database.postDao().deletePost(postId)
             Timber.d("Deleted post $postId from Room cache")
 
-            Timber.d("Post $postId deleted successfully with all related data")
+            Timber.d("Post $postId deleted successfully with all related data (images, comments, likes)")
             Result.Success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "Failed to delete post: ${e.message}")
+            Result.Error(e)
+        }
+    }
+
+    override suspend fun updatePost(postId: String, newText: String): Result<Unit> {
+        return try {
+            val userId = auth.currentUser?.uid
+            if (userId == null) {
+                return Result.Error(Exception("User not authenticated"))
+            }
+
+            // Verify ownership
+            val postDoc = firestore.collection(Constants.COLLECTION_POSTS)
+                .document(postId)
+                .get()
+                .await()
+
+            if (!postDoc.exists()) {
+                return Result.Error(Exception("Post not found"))
+            }
+
+            val authorId = postDoc.getString(Constants.FIELD_AUTHOR_ID)
+            if (authorId != userId) {
+                return Result.Error(Exception("Not authorized to edit this post"))
+            }
+
+            // Validate text
+            if (newText.isBlank()) {
+                return Result.Error(Exception("Post text cannot be empty"))
+            }
+
+            if (newText.length > Constants.MAX_POST_TEXT_LENGTH) {
+                return Result.Error(Exception("Post text exceeds maximum length"))
+            }
+
+            Timber.d("Updating post $postId with new text: ${newText.take(50)}...")
+
+            // Update Firestore
+            firestore.collection(Constants.COLLECTION_POSTS)
+                .document(postId)
+                .update("text", newText)
+                .await()
+
+            Timber.d("Post $postId updated successfully in Firestore")
+
+            // Update Room cache
+            database.postDao().updatePostText(postId, newText)
+            Timber.d("Post $postId updated successfully in Room cache")
+
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to update post")
             Result.Error(e)
         }
     }
@@ -479,6 +598,31 @@ class PostRepositoryImpl @Inject constructor(
             Result.Success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "Failed to clear posts cache")
+            Result.Error(e)
+        }
+    }
+
+    override suspend fun updatePostImages(postId: String, mediaUrls: List<String>): Result<Unit> {
+        return try {
+            Timber.d("Updating post $postId with ${mediaUrls.size} uploaded images")
+
+            // Update Firestore
+            firestore.collection(Constants.COLLECTION_POSTS)
+                .document(postId)
+                .update("mediaUrls", mediaUrls)
+                .await()
+
+            Timber.d("Updated Firestore with image URLs for post: $postId")
+
+            // Update Room cache
+            val mediaUrlsString = mediaUrls.joinToString(",")
+            database.postDao().updatePostMediaUrls(postId, mediaUrlsString)
+
+            Timber.d("Updated Room cache with image URLs for post: $postId")
+
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to update post images")
             Result.Error(e)
         }
     }

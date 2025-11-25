@@ -39,6 +39,11 @@ interface PostRepository {
     suspend fun deletePost(postId: String): Result<Unit>
 
     /**
+     * Update post text
+     */
+    suspend fun updatePost(postId: String, newText: String): Result<Unit>
+
+    /**
      * Check if current user liked a post
      */
     suspend fun isPostLikedByCurrentUser(postId: String): Boolean
@@ -54,4 +59,10 @@ interface PostRepository {
      * Call after clearing cache to force UI reload
      */
     fun invalidatePagingSource()
+
+    /**
+     * Update post with uploaded image URLs
+     * Used by background worker after images are uploaded
+     */
+    suspend fun updatePostImages(postId: String, mediaUrls: List<String>): Result<Unit>
 }

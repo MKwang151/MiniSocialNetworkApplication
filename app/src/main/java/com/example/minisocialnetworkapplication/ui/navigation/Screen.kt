@@ -16,5 +16,8 @@ sealed class Screen(val route: String) {
     data object EditProfile : Screen("edit_profile/{userId}") {
         fun createRoute(userId: String) = "edit_profile/$userId"
     }
+    data object ImageGallery : Screen("image_gallery/{postId}/{initialIndex}") {
+        fun createRoute(postId: String, initialIndex: Int = 0) = "image_gallery/$postId/$initialIndex"
+    }
 }
 

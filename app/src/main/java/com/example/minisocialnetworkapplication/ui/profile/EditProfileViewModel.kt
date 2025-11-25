@@ -24,6 +24,7 @@ sealed interface EditProfileUiState {
 class EditProfileViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val postRepository: com.example.minisocialnetworkapplication.core.domain.repository.PostRepository,
+    private val cacheSyncUtil: com.example.minisocialnetworkapplication.core.util.CacheSyncUtil,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -117,15 +118,22 @@ class EditProfileViewModel @Inject constructor(
                             is Result.Loading -> {}
                         }
 
-                        // CRITICAL: Clear Room cache to force refresh from Firestore
-                        // This ensures all screens (Feed, Profile, PostDetail) show updated data
-                        val clearCacheResult = postRepository.clearPostsCache()
-                        when (clearCacheResult) {
+                        // CRITICAL: Sync cache from Firebase để cập nhật author info trong Room
+                        // Sử dụng refreshAuthorInfoInCache để chỉ cập nhật thông tin author (nhanh hơn)
+                        Timber.d("Starting cache sync after profile update")
+                        val syncResult = cacheSyncUtil.refreshAuthorInfoInCache(userId)
+
+                        when (syncResult) {
                             is Result.Success -> {
-                                Timber.d("Cleared posts cache - all screens will refresh with new data")
+                                Timber.d("Cache synced successfully: ${syncResult.data} posts updated")
+                                // Invalidate paging source để trigger refresh UI
+                                postRepository.invalidatePagingSource()
                             }
                             is Result.Error -> {
-                                Timber.w("Failed to clear cache: ${clearCacheResult.message}")
+                                Timber.w("Cache sync failed: ${syncResult.message}, falling back to clear cache")
+                                // Fallback: Clear cache nếu sync thất bại
+                                postRepository.clearPostsCache()
+                                postRepository.invalidatePagingSource()
                             }
                             is Result.Loading -> {}
                         }
