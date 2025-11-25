@@ -39,6 +39,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     packaging {
         resources {
@@ -48,7 +49,6 @@ android {
 }
 
 dependencies {
-
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
