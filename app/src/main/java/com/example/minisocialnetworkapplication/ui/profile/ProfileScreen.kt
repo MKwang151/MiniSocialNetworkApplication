@@ -41,13 +41,11 @@ import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.example.minisocialnetworkapplication.core.domain.model.Post
 import com.example.minisocialnetworkapplication.core.domain.model.User
-import com.example.minisocialnetworkapplication.ui.components.BottomNavBar
 import com.example.minisocialnetworkapplication.ui.components.PostCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
-    navController: NavHostController,
     onNavigateBack: () -> Unit,
     onNavigateToPostDetail: (String) -> Unit,
     onNavigateToEditProfile: (String) -> Unit = {},
@@ -91,8 +89,7 @@ fun ProfileScreen(
                     }
                 }
             )
-        },
-        bottomBar = { BottomNavBar(navController) }
+        }
     ) { paddingValues ->
         when (val state = uiState) {
             is ProfileUiState.Loading -> {

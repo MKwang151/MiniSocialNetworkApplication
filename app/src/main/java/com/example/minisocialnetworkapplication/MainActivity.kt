@@ -14,7 +14,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.minisocialnetworkapplication.core.util.LanguageManager
 import com.example.minisocialnetworkapplication.ui.auth.AuthViewModel
-import com.example.minisocialnetworkapplication.ui.navigation.NavGraph
+import com.example.minisocialnetworkapplication.ui.navigation.MainScreen
 import com.example.minisocialnetworkapplication.ui.navigation.Screen
 import com.example.minisocialnetworkapplication.ui.theme.MiniSocialNetworkApplicationTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -48,7 +48,7 @@ class MainActivity : ComponentActivity() {
                         Screen.Login.route
                     }
 
-                    NavGraph(startDestination = startDestination)
+                    MainScreen(startDestination = startDestination)
                 }
             }
         }

@@ -19,7 +19,8 @@ import com.example.minisocialnetworkapplication.ui.settings.SettingsScreen
 @Composable
 fun NavGraph(
     navController: NavHostController = rememberNavController(),
-    startDestination: String
+    startDestination: String,
+    authViewModel: AuthViewModel = hiltViewModel()
 ) {
     NavHost(
         navController = navController,
@@ -52,8 +53,6 @@ fun NavGraph(
         }
 
         composable(Screen.Feed.route) {
-            val authViewModel: AuthViewModel = hiltViewModel()
-
             // Get result from ComposePost to trigger refresh
             val shouldRefresh = navController.currentBackStackEntry
                 ?.savedStateHandle
@@ -70,7 +69,6 @@ fun NavGraph(
                 ?.getStateFlow("profile_updated", false)
 
             FeedScreen(
-                navController = navController,
                 shouldRefresh = shouldRefresh,
                 postDeleted = postDeleted,
                 profileUpdated = profileUpdated,
@@ -157,7 +155,6 @@ fun NavGraph(
             }
 
             ProfileScreen(
-                navController = navController,
                 onNavigateBack = {
                     navController.popBackStack()
                 },
