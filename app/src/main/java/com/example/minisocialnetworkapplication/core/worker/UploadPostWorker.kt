@@ -5,15 +5,15 @@ import android.net.Uri
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.example.minisocialnetworkapplication.core.domain.model.User
 import com.example.minisocialnetworkapplication.core.util.Constants
 import com.example.minisocialnetworkapplication.core.util.ImageCompressor
-import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import java.io.File
@@ -24,13 +24,12 @@ class UploadPostWorker @AssistedInject constructor(
     @Assisted private val context: Context,
     @Assisted params: WorkerParameters,
     private val storage: FirebaseStorage,
-    private val firestore: FirebaseFirestore,
+    private val postRepository: com.example.minisocialnetworkapplication.core.domain.repository.PostRepository,
     private val auth: FirebaseAuth
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
         val postId = inputData.getString("POST_ID") ?: return Result.failure()
-        val text = inputData.getString("TEXT") ?: return Result.failure()
         val imageFilePaths = inputData.getStringArray("IMAGE_URIS") ?: emptyArray()
         val userId = inputData.getString("USER_ID") ?: auth.currentUser?.uid
 
@@ -39,27 +38,44 @@ class UploadPostWorker @AssistedInject constructor(
             return Result.failure()
         }
 
-        return try {
-            Timber.d("Starting post upload: postId=$postId, text=$text, images=${imageFilePaths.size}")
+        if (imageFilePaths.isEmpty()) {
+            Timber.d("No images to upload for post: $postId")
+            return Result.success()
+        }
 
-            // Upload images from cache files
-            val imageUrls = imageFilePaths.mapNotNull { filePath ->
-                try {
-                    uploadImageFromFile(filePath, userId)
-                } catch (e: Exception) {
-                    Timber.e(e, "Failed to upload image: $filePath")
-                    null
-                }
+        return try {
+            Timber.d("Starting background image upload: postId=$postId, images=${imageFilePaths.size}")
+
+            // Upload images from cache files in parallel for better performance
+            val imageUrls = coroutineScope {
+                imageFilePaths.map { filePath ->
+                    async {
+                        try {
+                            uploadImageFromFile(filePath, userId)
+                        } catch (e: Exception) {
+                            Timber.e(e, "Failed to upload image: $filePath")
+                            null
+                        }
+                    }
+                }.awaitAll().filterNotNull()
             }
 
-            if (imageFilePaths.isNotEmpty() && imageUrls.isEmpty()) {
+            if (imageUrls.isEmpty()) {
                 throw Exception("All image uploads failed")
             }
 
-            Timber.d("Images uploaded: ${imageUrls.size}")
+            Timber.d("Images uploaded: ${imageUrls.size}/${imageFilePaths.size} (parallel upload)")
 
-            // Create post in Firestore with specific ID
-            createPost(postId, userId, text, imageUrls)
+            // Update post with uploaded image URLs
+            when (val result = postRepository.updatePostImages(postId, imageUrls)) {
+                is com.example.minisocialnetworkapplication.core.util.Result.Success -> {
+                    Timber.d("Post updated successfully with images: $postId")
+                }
+                is com.example.minisocialnetworkapplication.core.util.Result.Error -> {
+                    throw Exception("Failed to update post with images: ${result.message}")
+                }
+                else -> {}
+            }
 
             // Clean up cache files after successful upload
             imageFilePaths.forEach { filePath ->
@@ -71,17 +87,17 @@ class UploadPostWorker @AssistedInject constructor(
                 }
             }
 
-            Timber.d("Post created successfully")
+            Timber.d("Images uploaded and post updated successfully")
             Result.success()
 
         } catch (e: Exception) {
-            Timber.e(e, "Upload failed, attempt ${runAttemptCount + 1}")
+            Timber.e(e, "Image upload failed, attempt ${runAttemptCount + 1}")
 
             // Retry up to 3 times
             if (runAttemptCount < 2) {
                 Result.retry()
             } else {
-                Timber.e("Upload failed after 3 attempts")
+                Timber.e("Image upload failed after 3 attempts")
                 // Clean up cache files on final failure
                 imageFilePaths.forEach { filePath ->
                     try {
@@ -132,40 +148,5 @@ class UploadPostWorker @AssistedInject constructor(
         return downloadUrl
     }
 
-    private suspend fun createPost(postId: String, userId: String, text: String, imageUrls: List<String>) {
-        // Get user info
-        val userDoc = firestore.collection(Constants.COLLECTION_USERS)
-            .document(userId)
-            .get()
-            .await()
-
-        val user = userDoc.toObject(User::class.java)
-        if (user == null) {
-            Timber.e("User document not found for userId: $userId")
-            throw Exception("User not found")
-        }
-
-        Timber.d("User found: ${user.name}")
-
-        // Create post document
-        val post = hashMapOf(
-            Constants.FIELD_AUTHOR_ID to userId,
-            "authorName" to user.name,
-            "authorAvatarUrl" to user.avatarUrl,
-            "text" to text,
-            "mediaUrls" to imageUrls,
-            Constants.FIELD_LIKE_COUNT to 0,
-            Constants.FIELD_COMMENT_COUNT to 0,
-            Constants.FIELD_CREATED_AT to Timestamp.now()
-        )
-
-        // Set to Firestore with specific document ID
-        firestore.collection(Constants.COLLECTION_POSTS)
-            .document(postId)
-            .set(post)
-            .await()
-
-        Timber.d("Post created in Firestore with ID: $postId")
-    }
 }
 

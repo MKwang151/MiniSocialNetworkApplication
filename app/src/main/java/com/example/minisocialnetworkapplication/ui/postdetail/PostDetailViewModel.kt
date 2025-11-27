@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -31,6 +30,7 @@ sealed interface PostDetailUiState {
 @HiltViewModel
 class PostDetailViewModel @Inject constructor(
     private val postRepository: PostRepository,
+    private val commentRepository: com.example.minisocialnetworkapplication.core.domain.repository.CommentRepository,
     private val getCommentsUseCase: GetCommentsUseCase,
     private val addCommentUseCase: AddCommentUseCase,
     private val toggleLikeUseCase: ToggleLikeUseCase,
@@ -219,67 +219,134 @@ class PostDetailViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 Timber.d("Deleting comment: $commentId from post: $postId")
-                // Call repository to delete comment
-                // For now, we'll use Firestore directly since we don't have a repository method
-                val firestore = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
-                val currentUserId = auth.currentUser?.uid
 
-                if (currentUserId == null) {
-                    Timber.e("User not authenticated")
-                    return@launch
-                }
-
-                // Get comment to check ownership
-                val commentRef = firestore.collection("posts")
-                    .document(postId)
-                    .collection("comments")
-                    .document(commentId)
-
-                val commentDoc = commentRef.get().await()
-
-                if (!commentDoc.exists()) {
-                    Timber.e("Comment not found")
-                    return@launch
-                }
-
-                val commentAuthorId = commentDoc.getString("authorId")
-                val postAuthorId = currentPost?.authorId
-
-                // Check if user can delete: must be comment owner OR post owner
-                if (commentAuthorId != currentUserId && postAuthorId != currentUserId) {
-                    Timber.e("Not authorized to delete this comment")
-                    return@launch
-                }
-
-                // Delete comment from Firestore
-                commentRef.delete().await()
-                Timber.d("Comment deleted successfully")
-
-                // Update post comment count
-                val postRef = firestore.collection("posts").document(postId)
-                postRef.update(
-                    "commentCount",
-                    com.google.firebase.firestore.FieldValue.increment(-1)
-                ).await()
-                Timber.d("Post comment count decremented")
-
-                // Reload post to update UI
-                when (val postResult = postRepository.getPost(postId)) {
+                // Use CommentRepository which properly updates both Firestore and Room cache
+                when (val result = commentRepository.deleteComment(postId, commentId)) {
                     is Result.Success -> {
-                        currentPost = postResult.data
+                        Timber.d("Comment deleted successfully")
+
+                        // Optimistically update UI by removing comment from current state
                         val currentState = _uiState.value
                         if (currentState is PostDetailUiState.Success) {
-                            _uiState.value = currentState.copy(post = postResult.data)
+                            val updatedComments = currentState.comments.filter { it.id != commentId }
+                            val updatedPost = currentState.post.copy(
+                                commentCount = (currentState.post.commentCount - 1).coerceAtLeast(0)
+                            )
+                            currentPost = updatedPost
+                            _uiState.value = currentState.copy(
+                                post = updatedPost,
+                                comments = updatedComments
+                            )
+                            Timber.d("UI updated optimistically after comment deletion")
+                        }
+
+                        // Reload post from cache to ensure consistency
+                        when (val postResult = postRepository.getPost(postId)) {
+                            is Result.Success -> {
+                                currentPost = postResult.data
+                                val state = _uiState.value
+                                if (state is PostDetailUiState.Success) {
+                                    _uiState.value = state.copy(post = postResult.data)
+                                    Timber.d("Post reloaded from cache after comment deletion")
+                                }
+                            }
+                            is Result.Error -> {
+                                Timber.w("Failed to reload post from cache")
+                            }
+                            is Result.Loading -> {}
                         }
                     }
                     is Result.Error -> {
-                        Timber.w("Failed to reload post after deleting comment")
+                        Timber.e("Failed to delete comment: ${result.exception?.message}")
+                        _uiState.value = PostDetailUiState.Error(
+                            result.exception?.message ?: "Failed to delete comment"
+                        )
                     }
                     is Result.Loading -> {}
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Error deleting comment")
+                _uiState.value = PostDetailUiState.Error(
+                    e.message ?: "Unknown error deleting comment"
+                )
+            }
+        }
+    }
+
+    fun updatePost(newText: String) {
+        viewModelScope.launch {
+            try {
+                if (newText.isBlank()) {
+                    Timber.w("Cannot update post with empty text")
+                    return@launch
+                }
+
+                Timber.d("Updating post: $postId with new text")
+                when (val result = postRepository.updatePost(postId, newText)) {
+                    is Result.Success -> {
+                        Timber.d("Post updated successfully")
+                        // Reload post to get updated data
+                        loadPostAndComments()
+                    }
+                    is Result.Error -> {
+                        Timber.e("Failed to update post: ${result.message}")
+                        _uiState.value = PostDetailUiState.Error(
+                            result.message ?: "Failed to update post"
+                        )
+                    }
+                    is Result.Loading -> {}
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error updating post")
+                _uiState.value = PostDetailUiState.Error(
+                    e.message ?: "Unknown error"
+                )
+            }
+        }
+    }
+
+    fun updateComment(commentId: String, newText: String) {
+        viewModelScope.launch {
+            try {
+                if (newText.isBlank()) {
+                    Timber.w("Cannot update comment with empty text")
+                    return@launch
+                }
+
+                Timber.d("Updating comment: $commentId with new text")
+
+                // Use CommentRepository which properly handles authorization and updates
+                when (val result = commentRepository.updateComment(postId, commentId, newText)) {
+                    is Result.Success -> {
+                        Timber.d("Comment updated successfully")
+
+                        // Optimistically update UI
+                        val currentState = _uiState.value
+                        if (currentState is PostDetailUiState.Success) {
+                            val updatedComments = currentState.comments.map { comment ->
+                                if (comment.id == commentId) {
+                                    comment.copy(text = newText)
+                                } else {
+                                    comment
+                                }
+                            }
+                            _uiState.value = currentState.copy(comments = updatedComments)
+                            Timber.d("UI updated optimistically after comment edit")
+                        }
+                    }
+                    is Result.Error -> {
+                        Timber.e("Failed to update comment: ${result.exception?.message}")
+                        _uiState.value = PostDetailUiState.Error(
+                            result.exception?.message ?: "Failed to update comment"
+                        )
+                    }
+                    is Result.Loading -> {}
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error updating comment")
+                _uiState.value = PostDetailUiState.Error(
+                    e.message ?: "Unknown error updating comment"
+                )
             }
         }
     }

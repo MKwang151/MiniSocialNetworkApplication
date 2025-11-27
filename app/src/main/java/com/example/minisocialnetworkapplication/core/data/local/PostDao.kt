@@ -54,5 +54,16 @@ interface PostDao {
 
     @Query("DELETE FROM posts WHERE id = :postId")
     suspend fun deletePost(postId: String)
-}
 
+    @Query("UPDATE posts SET authorName = :newName, authorAvatarUrl = :newAvatarUrl WHERE authorId = :userId")
+    suspend fun updateAuthorInfo(userId: String, newName: String, newAvatarUrl: String?): Int
+
+    @Query("UPDATE posts SET text = :newText WHERE id = :postId")
+    suspend fun updatePostText(postId: String, newText: String)
+
+    @Query("UPDATE posts SET mediaUrls = :mediaUrls WHERE id = :postId")
+    suspend fun updatePostMediaUrls(postId: String, mediaUrls: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPost(post: PostEntity)
+}

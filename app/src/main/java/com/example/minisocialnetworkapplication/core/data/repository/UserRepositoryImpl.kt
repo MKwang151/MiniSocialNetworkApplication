@@ -62,7 +62,7 @@ class UserRepositoryImpl @Inject constructor(
                 return Result.Error(Exception("User not authenticated"))
             }
 
-            if (userId != user.uid) {
+            if (userId != user.id) {
                 return Result.Error(Exception("Cannot update other user's profile"))
             }
 

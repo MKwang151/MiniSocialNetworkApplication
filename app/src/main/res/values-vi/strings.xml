@@ -26,6 +26,7 @@
 
     <!-- Tạo bài viết -->
     <string name="whats_on_your_mind">Bạn đang nghĩ gì?</string>
+    <string name="post_hint">Bạn đang nghĩ gì?</string>
     <string name="post">Đăng</string>
     <string name="add_photos">Thêm ảnh (tối đa %1$d)</string>
     <string name="add_more_photos">Thêm ảnh (%1$d/%2$d)</string>
@@ -44,9 +45,12 @@
 
     <!-- Bình luận -->
     <string name="add_comment">Thêm bình luận…</string>
+    <string name="comment_placeholder">Viết bình luận...</string>
     <string name="send">Gửi</string>
     <string name="delete">Xóa</string>
     <string name="edit">Sửa</string>
+    <string name="edit_comment">Chỉnh sửa bình luận</string>
+    <string name="edit_post">Chỉnh sửa bài viết</string>
 
     <!-- Hồ sơ -->
     <string name="profile">Hồ sơ</string>
