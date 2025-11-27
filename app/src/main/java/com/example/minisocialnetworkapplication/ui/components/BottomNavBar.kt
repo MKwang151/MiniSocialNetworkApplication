@@ -45,15 +45,14 @@ fun BottomNavBar(
         items.forEach { item ->
             NavigationBarItem(
                 selected = item.route == currentRoute,
-                onClick = { navController.navigate(
-                    if (item is BottomNavItem.Profile)
-                        item.createRoute(currentUser?.id ?: "0")
-                    else item.route
-                ) {
-                    launchSingleTop = true
-                    restoreState = true
-                    popUpTo(Screen.Feed.route) { saveState = true }
-                } },
+                onClick = {
+                    if (item.route != currentRoute) {
+                        navController.navigate(
+                            if (item is BottomNavItem.Profile)
+                                item.createRoute(currentUser?.id ?: "0")
+                            else item.route
+                        )
+                    } },
                 icon = { Icon(item.icon, contentDescription = item.label) },
 //                label = { Text(item.label) }
             )
@@ -63,7 +62,7 @@ fun BottomNavBar(
 
 sealed class BottomNavItem(val route: String, val label: String, val icon: ImageVector) {
     object Home : BottomNavItem(Screen.Feed.route, "Home", Icons.Default.Home)
-    object Search: BottomNavItem("Search", "Search", Icons.Default.Search)
+    object Search: BottomNavItem(Screen.SearchUser.route, "Search", Icons.Default.Search)
     object Chat: BottomNavItem(Screen.Chat.route, "Chat", Icons.Default.Inbox)
     // navController returns Screen.Profile.route (profile/{userId})
     // actual route is profile/$userId
