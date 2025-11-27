@@ -14,6 +14,7 @@ import com.example.minisocialnetworkapplication.ui.post.ComposePostScreen
 import com.example.minisocialnetworkapplication.ui.postdetail.PostDetailScreen
 import com.example.minisocialnetworkapplication.ui.profile.EditProfileScreen
 import com.example.minisocialnetworkapplication.ui.profile.ProfileScreen
+import com.example.minisocialnetworkapplication.ui.searchuser.SearchUserScreen
 import com.example.minisocialnetworkapplication.ui.settings.SettingsScreen
 
 @Composable
@@ -187,6 +188,17 @@ fun NavGraph(
                     navController.previousBackStackEntry
                         ?.savedStateHandle
                         ?.set("profile_updated_for_feed", true)
+                }
+            )
+        }
+
+        composable(Screen.SearchUser.route) {
+            SearchUserScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToProfile = { userId ->
+                    navController.navigate(Screen.Profile.createRoute(userId))
                 }
             )
         }

@@ -23,7 +23,8 @@ fun MainScreen(startDestination: String) {
                     Screen.Feed.route,
                     Screen.Chat.route,
                     Screen.Settings.route,
-                    Screen.Profile.route
+                    Screen.Profile.route,
+                    Screen.SearchUser.route
                 )
             ) {
                 BottomNavBar(navController, authViewModel)
