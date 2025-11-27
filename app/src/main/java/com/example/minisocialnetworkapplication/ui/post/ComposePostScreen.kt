@@ -63,7 +63,8 @@ import com.example.minisocialnetworkapplication.core.util.Constants
 import timber.log.Timber
 import java.io.File
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
