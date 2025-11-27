@@ -11,16 +11,23 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import com.example.minisocialnetworkapplication.ui.auth.AuthViewModel
 import com.example.minisocialnetworkapplication.ui.navigation.Screen
 
 @Composable
-fun BottomNavBar(navController: NavHostController) {
+fun BottomNavBar(
+    navController: NavHostController,
+    authViewModel: AuthViewModel
+) {
+    val currentUser by authViewModel.currentUser.collectAsStateWithLifecycle()
     val items = listOf(
         BottomNavItem.Home,
         BottomNavItem.Search,
@@ -37,12 +44,15 @@ fun BottomNavBar(navController: NavHostController) {
 
         items.forEach { item ->
             NavigationBarItem(
-                selected = currentRoute == item.route,
-                onClick = { navController.navigate(item.route) {
-                    launchSingleTop = true
-                    restoreState = true
-                    popUpTo(Screen.Feed.route) { saveState = true }
-                } },
+                selected = item.route == currentRoute,
+                onClick = {
+                    if (item.route != currentRoute) {
+                        navController.navigate(
+                            if (item is BottomNavItem.Profile)
+                                item.createRoute(currentUser?.id ?: "0")
+                            else item.route
+                        )
+                    } },
                 icon = { Icon(item.icon, contentDescription = item.label) },
 //                label = { Text(item.label) }
             )
@@ -51,9 +61,13 @@ fun BottomNavBar(navController: NavHostController) {
 }
 
 sealed class BottomNavItem(val route: String, val label: String, val icon: ImageVector) {
-    object Home: BottomNavItem(Screen.Feed.route, "Home", Icons.Default.Home)
-    object Search: BottomNavItem("Search", "Search", Icons.Default.Search)
-    object Chat: BottomNavItem("Chat", "Chat", Icons.Default.Inbox)
-    object Profile: BottomNavItem(Screen.Profile.route, "Profile", Icons.Default.Person)
-    object Settings: BottomNavItem(Screen.Settings.route, "Settings", Icons.Default.Settings)
+    object Home : BottomNavItem(Screen.Feed.route, "Home", Icons.Default.Home)
+    object Search: BottomNavItem(Screen.SearchUser.route, "Search", Icons.Default.Search)
+    object Chat: BottomNavItem(Screen.Chat.route, "Chat", Icons.Default.Inbox)
+    // navController returns Screen.Profile.route (profile/{userId})
+    // actual route is profile/$userId
+    object Profile : BottomNavItem(Screen.Profile.route, "Profile", Icons.Default.Person) {
+        fun createRoute(userId: String) = "profile/$userId"
+    }
+    object Settings : BottomNavItem(Screen.Settings.route, "Settings", Icons.Default.Settings)
 }

@@ -22,12 +22,14 @@ import com.example.minisocialnetworkapplication.ui.post.ComposePostScreen
 import com.example.minisocialnetworkapplication.ui.postdetail.PostDetailScreen
 import com.example.minisocialnetworkapplication.ui.profile.EditProfileScreen
 import com.example.minisocialnetworkapplication.ui.profile.ProfileScreen
+import com.example.minisocialnetworkapplication.ui.searchuser.SearchUserScreen
 import com.example.minisocialnetworkapplication.ui.settings.SettingsScreen
 
 @Composable
 fun NavGraph(
     navController: NavHostController = rememberNavController(),
-    startDestination: String
+    startDestination: String,
+    authViewModel: AuthViewModel = hiltViewModel()
 ) {
     NavHost(
         navController = navController,
@@ -60,8 +62,6 @@ fun NavGraph(
         }
 
         composable(Screen.Feed.route) {
-            val authViewModel: AuthViewModel = hiltViewModel()
-
             // Get result from ComposePost to trigger refresh
             val shouldRefresh = navController.currentBackStackEntry
                 ?.savedStateHandle
@@ -78,7 +78,6 @@ fun NavGraph(
                 ?.getStateFlow("profile_updated", false)
 
             FeedScreen(
-                navController = navController,
                 shouldRefresh = shouldRefresh,
                 postDeleted = postDeleted,
                 profileUpdated = profileUpdated,
@@ -160,7 +159,6 @@ fun NavGraph(
             }
 
             ProfileScreen(
-                navController = navController,
                 onNavigateBack = {
                     navController.popBackStack()
                 },
@@ -229,6 +227,17 @@ fun NavGraph(
                     }
                 }
             }
+        }
+
+        composable(Screen.SearchUser.route) {
+            SearchUserScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToProfile = { userId ->
+                    navController.navigate(Screen.Profile.createRoute(userId))
+                }
+            )
         }
     }
 }
