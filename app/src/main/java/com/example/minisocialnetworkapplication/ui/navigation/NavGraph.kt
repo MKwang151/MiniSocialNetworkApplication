@@ -22,7 +22,7 @@ import com.example.minisocialnetworkapplication.ui.post.ComposePostScreen
 import com.example.minisocialnetworkapplication.ui.postdetail.PostDetailScreen
 import com.example.minisocialnetworkapplication.ui.profile.EditProfileScreen
 import com.example.minisocialnetworkapplication.ui.profile.ProfileScreen
-import com.example.minisocialnetworkapplication.ui.searchuser.SearchUserScreen
+import com.example.minisocialnetworkapplication.ui.search.SearchUserScreen
 import com.example.minisocialnetworkapplication.ui.settings.SettingsScreen
 
 @Composable

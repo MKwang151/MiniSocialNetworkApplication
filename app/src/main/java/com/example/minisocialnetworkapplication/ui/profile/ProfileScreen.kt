@@ -1,5 +1,6 @@
 package com.example.minisocialnetworkapplication.ui.profile
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,10 +13,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -32,12 +35,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
+import com.example.minisocialnetworkapplication.core.domain.model.Friend
 import com.example.minisocialnetworkapplication.core.domain.model.Post
 import com.example.minisocialnetworkapplication.core.domain.model.User
 import com.example.minisocialnetworkapplication.ui.components.PostCard
@@ -99,10 +104,14 @@ fun ProfileScreen(
                 ProfileContent(
                     user = state.user,
                     isOwnProfile = state.isOwnProfile,
+                    isFriend = state.isFriend,
+                    userFriends = state.friends,
                     userPosts = userPosts,
                     onPostClicked = onNavigateToPostDetail,
                     onImageClicked = onNavigateToImageGallery,
                     onLikeClicked = viewModel::toggleLike,
+                    onFriendClick =
+                        if (!state.isFriend) viewModel::addFriend else viewModel::removeFriend,
                     modifier = Modifier.padding(paddingValues)
                 )
             }
@@ -121,10 +130,13 @@ fun ProfileScreen(
 fun ProfileContent(
     user: User,
     isOwnProfile: Boolean,
+    isFriend: Boolean,
+    userFriends: List<Friend>,
     userPosts: LazyPagingItems<Post>,
     onPostClicked: (String) -> Unit,
     onImageClicked: (String, Int) -> Unit = { _, _ -> },
     onLikeClicked: (Post) -> Unit,
+    onFriendClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -136,7 +148,10 @@ fun ProfileContent(
             ProfileHeader(
                 user = user,
                 isOwnProfile = isOwnProfile,
-                postCount = userPosts.itemCount
+                isFriend = isFriend,
+                friendCount = userFriends.count(),
+                postCount = userPosts.itemCount,
+                onFriendClick = onFriendClick
             )
             
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
@@ -162,8 +177,7 @@ fun ProfileContent(
                     onCommentClicked = { onPostClicked(post.id) },
                     onPostClicked = { onPostClicked(post.id) },
                     onAuthorClicked = {},
-                    onImageClicked = { imageIndex ->                        onImageClicked(post.id, imageIndex)
-                    },
+                    onImageClicked = { imageIndex -> onImageClicked(post.id, imageIndex) },
                     isOptimisticallyLiked = post.likedByMe
                 )
             }
@@ -215,7 +229,10 @@ fun ProfileContent(
 fun ProfileHeader(
     user: User,
     isOwnProfile: Boolean,
+    isFriend: Boolean,
+    friendCount: Int,
     postCount: Int,
+    onFriendClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -258,6 +275,25 @@ fun ProfileHeader(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        if (!isOwnProfile) {
+            Button(
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Transparent,   // white background
+                    contentColor = Color.Black
+                ),
+                border = BorderStroke(1.dp, Color(0x33000000)),
+                shape = RoundedCornerShape(12.dp),
+                onClick = onFriendClick
+            ) {
+                Text(
+                    text = if (!isFriend) "Add Friend" else "Remove Friend",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
         // Stats
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -267,7 +303,11 @@ fun ProfileHeader(
                 count = postCount,
                 label = "Posts"
             )
-            // Future: Add followers/following counts
+
+            StatItem(
+                count = friendCount,
+                label = "Friends"
+            )
         }
     }
 }
