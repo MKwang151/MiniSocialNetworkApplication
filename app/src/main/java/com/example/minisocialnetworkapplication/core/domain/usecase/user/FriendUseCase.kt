@@ -8,22 +8,22 @@ import javax.inject.Inject
 class FriendUseCase @Inject constructor(
     private val friendRepository: FriendRepository
 ) {
-    suspend fun getFriends(userId: String): Result<List<Friend>>{
-        return friendRepository.getFriends(userId)
+    suspend fun getUserFriends(userId: String): Result<List<Friend>>{
+        return friendRepository.getUserFriends(userId)
     }
 
-    fun addFriend(friendId: String): Result<Boolean> {
-        return addFriend(friendId)
+    suspend fun addFriend(friendId: String): Result<Unit> {
+        return friendRepository.addFriend(friendId)
     }
 
     /**
     * Remove friend for current user
     * */
-    fun removeFriend(friendId: String): Result<Boolean> {
-        return removeFriend(friendId)
+    suspend fun removeFriend(friendId: String): Result<Unit> {
+        return friendRepository.removeFriend(friendId)
     }
 
-    fun isFriend(friendId: String): Result<Boolean> {
-        return isFriend(friendId)
+    suspend fun isFriend(friendId: String): Result<Boolean> {
+        return friendRepository.isFriend(friendId)
     }
 }

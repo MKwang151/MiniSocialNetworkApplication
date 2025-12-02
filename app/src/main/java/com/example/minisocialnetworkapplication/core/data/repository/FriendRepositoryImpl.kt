@@ -19,7 +19,7 @@ class FriendRepositoryImpl @Inject constructor(
     private val userRepository: UserRepository
 ): FriendRepository {
 
-    override suspend fun getFriends(userId: String): Result<List<Friend>> {
+    override suspend fun getUserFriends(userId: String): Result<List<Friend>> {
         return try {
             val querySnapshot = firestore
                 .collection(Constants.COLLECTION_FRIENDS)
@@ -47,6 +47,9 @@ class FriendRepositoryImpl @Inject constructor(
     override suspend fun addFriend(friendId: String): Result<Unit> {
         val userId = auth.currentUser?.uid
             ?: return Result.Error(Exception("User not authenticated"))
+
+        if (friendId == userId) // also prevent error for `removeFriend` and `isFriend`
+            return Result.Error((Exception("User cannot be their own friend")))
 
         return try {
             // adding A-B and B-A

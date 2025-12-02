@@ -8,7 +8,7 @@ interface FriendRepository {
     /**
     * Get friends by uid
     */
-    suspend fun getFriends(userId: String): Result<List<Friend>>
+    suspend fun getUserFriends(userId: String): Result<List<Friend>>
 
     /**
      * Add friend for current user
