@@ -2,10 +2,12 @@ package com.example.minisocialnetworkapplication.core.di
 
 import com.example.minisocialnetworkapplication.core.data.repository.AuthRepositoryImpl
 import com.example.minisocialnetworkapplication.core.data.repository.CommentRepositoryImpl
+import com.example.minisocialnetworkapplication.core.data.repository.FriendRepositoryImpl
 import com.example.minisocialnetworkapplication.core.data.repository.PostRepositoryImpl
 import com.example.minisocialnetworkapplication.core.data.repository.UserRepositoryImpl
 import com.example.minisocialnetworkapplication.core.domain.repository.AuthRepository
 import com.example.minisocialnetworkapplication.core.domain.repository.CommentRepository
+import com.example.minisocialnetworkapplication.core.domain.repository.FriendRepository
 import com.example.minisocialnetworkapplication.core.domain.repository.PostRepository
 import com.example.minisocialnetworkapplication.core.domain.repository.UserRepository
 import dagger.Binds
@@ -41,5 +43,11 @@ abstract class RepositoryModule {
     abstract fun bindUserRepository(
         userRepositoryImpl: UserRepositoryImpl
     ): UserRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindFriendRepository(
+        friendRepositoryImpl: FriendRepositoryImpl
+    ): FriendRepository
 }
 
