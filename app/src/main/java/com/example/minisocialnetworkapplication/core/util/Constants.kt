@@ -6,6 +6,7 @@ object Constants {
     const val COLLECTION_POSTS = "posts"
     const val COLLECTION_COMMENTS = "comments"
     const val COLLECTION_LIKES = "likes"
+    const val COLLECTION_FRIENDS = "friends"
 
     // Firestore Fields
     const val FIELD_CREATED_AT = "createdAt"

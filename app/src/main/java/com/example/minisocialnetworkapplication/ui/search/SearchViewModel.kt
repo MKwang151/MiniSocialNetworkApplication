@@ -1,4 +1,4 @@
-package com.example.minisocialnetworkapplication.ui.searchuser
+package com.example.minisocialnetworkapplication.ui.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
