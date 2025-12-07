@@ -8,6 +8,7 @@ import com.example.minisocialnetworkapplication.core.domain.repository.AuthRepos
 import com.example.minisocialnetworkapplication.core.util.Constants
 import com.example.minisocialnetworkapplication.core.util.Result
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.channels.awaitClose
@@ -63,6 +64,19 @@ class AuthRepositoryImpl @Inject constructor(
             val firebaseUser = authResult.user
                 ?: return Result.Error(Exception("Login failed"))
 
+            // Set user as online immediately after login
+            firestore.collection(Constants.COLLECTION_USERS)
+                .document(firebaseUser.uid)
+                .update(
+                    mapOf(
+                        "isOnline" to true,
+                        "lastActive" to FieldValue.serverTimestamp()
+                    )
+                )
+                .await()
+            
+            Timber.d("User ${firebaseUser.uid} set as online")
+
             // Fetch user profile from Firestore
             val userDoc = firestore.collection(Constants.COLLECTION_USERS)
                 .document(firebaseUser.uid)
@@ -82,9 +96,26 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun logout(): Result<Unit> {
         return try {
+            val userId = auth.currentUser?.uid
+            
+            // Set user as offline before signing out
+            if (userId != null) {
+                firestore.collection(Constants.COLLECTION_USERS)
+                    .document(userId)
+                    .update(
+                        mapOf(
+                            "isOnline" to false,
+                            "lastActive" to FieldValue.serverTimestamp()
+                        )
+                    )
+                    .await()
+                Timber.d("User $userId set as offline")
+            }
+            
             // Clear local chat data to prevent data mixing between accounts
             conversationDao.clearAll()
             messageDao.clearAll()
+            participantDao.clearAll()
             Timber.d("Local chat data cleared")
             
             auth.signOut()

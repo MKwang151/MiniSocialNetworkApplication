@@ -1,6 +1,7 @@
 package com.example.minisocialnetworkapplication.core.domain.model
 
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.PropertyName
 import java.util.concurrent.TimeUnit
 
 data class User(
@@ -10,12 +11,16 @@ data class User(
     val avatarUrl: String? = null,
     val bio: String? = null,
     val fcmToken: String? = null,
-    val isOnline: Boolean = false,
+    @get:PropertyName("isOnline") @set:PropertyName("isOnline")
+    var online: Boolean = false,
     val lastActive: Timestamp? = null,
     val createdAt: Timestamp = Timestamp.now()
 ) {
     // Alias for uid to make code more readable
     val id: String get() = uid
+    
+    // Alias for online to maintain backward compatibility with isOnline usage
+    val isOnline: Boolean get() = online
     
     /**
      * Get minutes since last active. Returns null if > 60 min or no lastActive
