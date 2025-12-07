@@ -8,9 +8,10 @@ import androidx.room.RoomDatabase
         PostEntity::class, 
         RemoteKeys::class,
         ConversationEntity::class,
-        MessageEntity::class
+        MessageEntity::class,
+        ParticipantEntity::class
     ],
-    version = 2,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -18,6 +19,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun remoteKeysDao(): RemoteKeysDao
     abstract fun conversationDao(): ConversationDao
     abstract fun messageDao(): MessageDao
+    abstract fun participantDao(): ParticipantDao
 
     companion object {
         const val DATABASE_NAME = "mini_social_db"

@@ -2,6 +2,7 @@ package com.example.minisocialnetworkapplication.core.data.repository
 
 import com.example.minisocialnetworkapplication.core.data.local.ConversationDao
 import com.example.minisocialnetworkapplication.core.data.local.MessageDao
+import com.example.minisocialnetworkapplication.core.data.local.ParticipantDao
 import com.example.minisocialnetworkapplication.core.domain.model.User
 import com.example.minisocialnetworkapplication.core.domain.repository.AuthRepository
 import com.example.minisocialnetworkapplication.core.util.Constants
@@ -22,7 +23,8 @@ class AuthRepositoryImpl @Inject constructor(
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
     private val conversationDao: ConversationDao,
-    private val messageDao: MessageDao
+    private val messageDao: MessageDao,
+    private val participantDao: ParticipantDao
 ) : AuthRepository {
 
     override suspend fun register(email: String, password: String, name: String): Result<User> {
