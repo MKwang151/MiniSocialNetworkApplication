@@ -5,9 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
@@ -15,10 +13,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import com.example.minisocialnetworkapplication.core.domain.repository.UserRepository
 import com.example.minisocialnetworkapplication.core.util.LanguageManager
 import com.example.minisocialnetworkapplication.ui.auth.AuthViewModel
 import com.example.minisocialnetworkapplication.ui.navigation.MainScreen
@@ -26,6 +25,7 @@ import com.example.minisocialnetworkapplication.ui.navigation.Screen
 import com.example.minisocialnetworkapplication.ui.theme.MiniSocialNetworkApplicationTheme
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -33,6 +33,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var firebaseAuth: FirebaseAuth
+    
+    @Inject
+    lateinit var userRepository: UserRepository
 
     override fun attachBaseContext(newBase: Context) {
         // Apply saved language before activity is created
@@ -73,6 +76,26 @@ class MainActivity : ComponentActivity() {
 
                     MainScreen(startDestination = startDestination)
                 }
+            }
+        }
+    }
+    
+    override fun onStart() {
+        super.onStart()
+        // Set user as online when app is visible
+        if (firebaseAuth.currentUser != null) {
+            lifecycleScope.launch {
+                userRepository.updatePresence(true)
+            }
+        }
+    }
+    
+    override fun onStop() {
+        super.onStop()
+        // Set user as offline when app goes to background
+        if (firebaseAuth.currentUser != null) {
+            lifecycleScope.launch {
+                userRepository.updatePresence(false)
             }
         }
     }
