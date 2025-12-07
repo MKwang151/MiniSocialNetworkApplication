@@ -23,6 +23,7 @@ data class MessageEntity(
     val id: String,
     val localId: String, // UUID for optimistic UI
     val conversationId: String,
+    val sequenceId: Long = 0, // Auto-incrementing ID
     val senderId: String,
     val senderName: String,
     val senderAvatarUrl: String?,
@@ -68,6 +69,7 @@ data class MessageEntity(
             id = id,
             localId = localId,
             conversationId = conversationId,
+            sequenceId = sequenceId,
             senderId = senderId,
             senderName = senderName,
             senderAvatarUrl = senderAvatarUrl,
@@ -144,6 +146,7 @@ data class MessageEntity(
                 id = message.id,
                 localId = message.localId,
                 conversationId = message.conversationId,
+                sequenceId = message.sequenceId,
                 senderId = message.senderId,
                 senderName = message.senderName,
                 senderAvatarUrl = message.senderAvatarUrl,

@@ -499,6 +499,26 @@ class MessageRepositoryImpl @Inject constructor(
         }
     }
 
+    /**
+     * Get next sequenceId for a conversation using atomic increment
+     */
+    private suspend fun getNextSequenceId(conversationId: String): Long {
+        return try {
+            val convRef = firestore.collection(COLLECTION_CONVERSATIONS).document(conversationId)
+            val result = firestore.runTransaction { transaction ->
+                val snapshot = transaction.get(convRef)
+                val currentSeq = snapshot.getLong("lastSequenceId") ?: 0L
+                val nextSeq = currentSeq + 1
+                transaction.update(convRef, "lastSequenceId", nextSeq)
+                nextSeq
+            }.await()
+            result
+        } catch (e: Exception) {
+            timber.log.Timber.e(e, "Error getting next sequenceId")
+            System.currentTimeMillis() // Fallback to timestamp
+        }
+    }
+
     private suspend fun updateConversationLastMessage(
         conversationId: String,
         text: String,
@@ -507,13 +527,17 @@ class MessageRepositoryImpl @Inject constructor(
         senderName: String
     ) {
         try {
-            timber.log.Timber.d("updateConversationLastMessage: conversationId=$conversationId, text=$text")
+            // Get next sequenceId
+            val sequenceId = getNextSequenceId(conversationId)
+            
+            timber.log.Timber.d("updateConversationLastMessage: conversationId=$conversationId, text=$text, sequenceId=$sequenceId")
             
             val lastMessage = hashMapOf(
                 "text" to text,
                 "type" to type.name,
                 "senderId" to senderId,
                 "senderName" to senderName,
+                "sequenceId" to sequenceId,
                 "timestamp" to FieldValue.serverTimestamp()
             )
 
@@ -525,7 +549,18 @@ class MessageRepositoryImpl @Inject constructor(
                 )
                 .await()
             
-            timber.log.Timber.d("updateConversationLastMessage: SUCCESS")
+            // Update sender's lastReadSequenceId so their own messages don't count as unread
+            firestore.collection(COLLECTION_CONVERSATIONS)
+                .document(conversationId)
+                .collection("participants")
+                .document(senderId)
+                .set(mapOf(
+                    "lastReadSequenceId" to sequenceId,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                ))
+                .await()
+            
+            timber.log.Timber.d("updateConversationLastMessage: SUCCESS, updated sender's lastReadSequenceId=$sequenceId")
         } catch (e: Exception) {
             timber.log.Timber.e(e, "updateConversationLastMessage: FAILED")
         }
@@ -560,6 +595,7 @@ class MessageRepositoryImpl @Inject constructor(
             id = id,
             localId = id,
             conversationId = conversationId,
+            sequenceId = (data["sequenceId"] as? Long) ?: 0L,
             senderId = data["senderId"] as? String ?: "",
             senderName = data["senderName"] as? String ?: "",
             senderAvatarUrl = data["senderAvatarUrl"] as? String,
