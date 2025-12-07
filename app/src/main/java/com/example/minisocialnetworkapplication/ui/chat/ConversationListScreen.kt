@@ -55,7 +55,8 @@ import java.util.Locale
 fun ConversationListScreen(
     viewModel: ConversationListViewModel = hiltViewModel(),
     onNavigateToChat: (String) -> Unit,
-    onNavigateToNewChat: () -> Unit
+    onNavigateToNewChat: () -> Unit,
+    bottomBar: @Composable () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val currentUserId = viewModel.currentUserId
@@ -76,7 +77,8 @@ fun ConversationListScreen(
             ) {
                 Icon(Icons.Default.Edit, contentDescription = "New Chat")
             }
-        }
+        },
+        bottomBar = bottomBar
     ) { padding ->
         Column(
             modifier = Modifier

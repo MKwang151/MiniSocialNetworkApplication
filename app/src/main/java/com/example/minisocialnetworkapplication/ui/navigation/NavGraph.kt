@@ -251,5 +251,74 @@ fun NavGraph(
                 }
             )
         }
+
+        // Chat - Conversation List
+        composable(Screen.ConversationList.route) {
+            com.example.minisocialnetworkapplication.ui.chat.ConversationListScreen(
+                onNavigateToChat = { conversationId ->
+                    navController.navigate(Screen.ChatDetail.createRoute(conversationId))
+                },
+                onNavigateToNewChat = {
+                    navController.navigate(Screen.SearchUser.route)
+                },
+                bottomBar = {
+                    BottomNavBar(navController, authViewModel)
+                }
+            )
+        }
+
+        // Chat Detail
+        composable(Screen.ChatDetail.route) {
+            com.example.minisocialnetworkapplication.ui.chat.ChatDetailScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // Start Chat - Creates/gets conversation with a user
+        composable(Screen.StartChat.route) {
+            val viewModel: com.example.minisocialnetworkapplication.ui.chat.StartChatViewModel = hiltViewModel()
+            val uiState by viewModel.uiState.collectAsState()
+
+            when (val state = uiState) {
+                is com.example.minisocialnetworkapplication.ui.chat.StartChatUiState.Loading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+                is com.example.minisocialnetworkapplication.ui.chat.StartChatUiState.Success -> {
+                    androidx.compose.runtime.LaunchedEffect(state.conversationId) {
+                        navController.navigate(Screen.ChatDetail.createRoute(state.conversationId)) {
+                            popUpTo(Screen.StartChat.route) { inclusive = true }
+                        }
+                    }
+                }
+                is com.example.minisocialnetworkapplication.ui.chat.StartChatUiState.Error -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = state.message,
+                            color = androidx.compose.material3.MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+        }
+
+        // Friends Screen - TODO: Create FriendsScreen composable
+        composable(Screen.Friends.route) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Friends Screen - Coming Soon")
+            }
+        }
     }
 }
