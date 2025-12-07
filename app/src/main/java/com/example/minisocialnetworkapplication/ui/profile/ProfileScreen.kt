@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -121,6 +122,7 @@ fun ProfileScreen(
                         FriendStatus.REQUEST_RECEIVED -> viewModel::acceptRequest
                         FriendStatus.NONE -> viewModel::sendRequest
                     },
+                    onFriendDecline = viewModel::declineRequest,
                     modifier = Modifier.padding(paddingValues)
                 )
             }
@@ -146,6 +148,7 @@ fun ProfileContent(
     onLikeClicked: (Post) -> Unit,
     friendStatus: FriendStatus,
     onFriendClick: () -> Unit,
+    onFriendDecline: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -160,7 +163,8 @@ fun ProfileContent(
                 friendCount = userFriends.count(),
                 postCount = userPosts.itemCount,
                 friendStatus = friendStatus,
-                onFriendClick = onFriendClick
+                onFriendClick = onFriendClick,
+                onFriendDecline = onFriendDecline
             )
             
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
@@ -242,6 +246,7 @@ fun ProfileHeader(
     postCount: Int,
     friendStatus: FriendStatus,
     onFriendClick: () -> Unit,
+    onFriendDecline: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -285,24 +290,46 @@ fun ProfileHeader(
         Spacer(modifier = Modifier.height(16.dp))
 
         if (!isOwnProfile) {
-            Button(
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Transparent,   // white background
-                    contentColor = Color.Black
-                ),
-                border = BorderStroke(1.dp, Color(0x33000000)),
-                shape = RoundedCornerShape(12.dp),
-                onClick = onFriendClick
-            ) {
-                Text(
-                    text = when (friendStatus) {
-                        FriendStatus.FRIEND -> "Unfriend"
-                        FriendStatus.REQUEST_SENT -> "Cancel"
-                        FriendStatus.REQUEST_RECEIVED -> "Accept"
-                        FriendStatus.NONE -> "Add Friend"
-                    },
-                    style = MaterialTheme.typography.headlineSmall
-                )
+            Row {
+                Button(
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.Transparent,   // white background
+                        contentColor = Color.Black
+                    ),
+                    border = BorderStroke(1.dp, Color(0x33000000)),
+                    shape = RoundedCornerShape(12.dp),
+                    onClick = onFriendClick
+                ) {
+                    Text(
+                        text = when (friendStatus) {
+                            FriendStatus.FRIEND -> "Unfriend"
+                            FriendStatus.REQUEST_SENT -> "Cancel Request"
+                            FriendStatus.REQUEST_RECEIVED -> "Accept Request"
+                            FriendStatus.NONE -> "Add Friend"
+                        },
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+
+                if (friendStatus == FriendStatus.REQUEST_RECEIVED) {
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Button(
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Transparent,   // white background
+                            contentColor = Color.Black
+                        ),
+                        border = BorderStroke(1.dp, Color(0x33000000)),
+                        shape = RoundedCornerShape(12.dp),
+                        onClick = onFriendDecline
+                    ) {
+                        Text(
+                            text = "Decline Request",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
