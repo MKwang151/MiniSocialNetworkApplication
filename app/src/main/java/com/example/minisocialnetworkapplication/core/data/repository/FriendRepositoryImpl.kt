@@ -1,179 +1,287 @@
 package com.example.minisocialnetworkapplication.core.data.repository
 
 import com.example.minisocialnetworkapplication.core.domain.model.Friend
-import com.example.minisocialnetworkapplication.core.domain.model.User
+import com.example.minisocialnetworkapplication.core.domain.model.FriendStatus
 import com.example.minisocialnetworkapplication.core.domain.repository.FriendRepository
-import com.example.minisocialnetworkapplication.core.domain.repository.UserRepository
 import com.example.minisocialnetworkapplication.core.util.Constants
 import com.example.minisocialnetworkapplication.core.util.Result
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.tasks.asDeferred
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
 
 class FriendRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val auth: FirebaseAuth,
-    private val userRepository: UserRepository
+    private val auth: FirebaseAuth
 ): FriendRepository {
 
     override suspend fun getUserFriends(userId: String): Result<List<Friend>> {
         return try {
-            val querySnapshot = firestore
-                .collection(Constants.COLLECTION_FRIENDS)
-                .whereEqualTo("uid", userId)
+            val snapshot = firestore
+                .friends(userId)
                 .get()
                 .await()
 
-            val friendIds = querySnapshot.documents.mapNotNull { doc ->
-                Friend(
-                    uid = userId,
-                    friendId = doc.getString("friendId") ?: return@mapNotNull null,
-                    friendName = doc.getString("friendName") ?: "",
-                    friendAvatarUrl = doc.getString("friendAvatarUrl") ?: ""
-                )
-            }
+            val friendIds = snapshot.documents.map { it.id }
+            val friends = getFriendsData(friendIds)
 
-            Timber.d("Fetched ${friendIds.size}, uid = $userId")
-            Result.Success(friendIds)
+            Timber.d("Fetched ${friends.size} friends, uid=$userId")
+            Result.Success(friends)
         } catch (e: Exception) {
             Timber.e(e, "Failed to get user's friends")
             Result.Error(e)
         }
     }
 
-    override suspend fun addFriend(friendId: String): Result<Unit> {
+    override suspend fun getFriendRequests(): Result<List<Friend>> {
         val userId = auth.currentUser?.uid
-            ?: return Result.Error(Exception("User not authenticated"))
-
-        if (friendId == userId) // also prevent error for `removeFriend` and `isFriend`
-            return Result.Error((Exception("User cannot be their own friend")))
-
-        return try {
-            // adding A-B and B-A
-            val docRefOwn = firestore
-                .collection("friends")
-                .document("${userId}_$friendId")
-
-            if (docRefOwn.get().await().exists()) {
-                return Result.Error(Exception("Uid $userId already added uid $friendId"))
-            }
-
-            val docRefFriend = firestore
-                .collection("friends")
-                .document("${friendId}_$userId")
-
-            val userData = userRepository.getCurrentUser().getOrNull()
-                ?: return Result.Error(Exception("Error getting current user"))
-            val friendData = userRepository.getUser(friendId).getOrNull()
-                ?: return Result.Error(Exception("Error getting uid $friendId data"))
-
-            val batch = firestore.batch()
-            // Use SetOptions.merge() to avoid duplicates
-            batch.set(
-                docRefOwn,
-                createFriend(userData, friendData),
-                SetOptions.merge())
-            batch.set(docRefFriend,
-                createFriend(friendData, userData),
-                SetOptions.merge())
-
-            // Commit batch
-            batch.commit().await()
-
-            Timber.d("Uid $userId added uid $friendId")
-            Result.Success(Unit)
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to get user's friends")
-            Result.Error(e)
-        }
-    }
-
-    override suspend fun removeFriend(friendId: String): Result<Unit> {
-        val userId = auth.currentUser?.uid
-            ?: return Result.Error(Exception("User not authenticated"))
-
-        return try {
-            val docRefOwn = firestore
-                .collection("friends")
-                .document("${userId}_$friendId")
-
-            if (!docRefOwn.get().await().exists()) {
-                return Result.Error(Exception("Uid $userId haven't added uid $friendId"))
-            }
-
-            val docRefFriend = firestore
-                .collection("friends")
-                .document("${friendId}_$userId")
-
-            val batch = firestore.batch()
-            batch.delete(docRefOwn)
-            batch.delete(docRefFriend)
-
-            batch.commit().await()
-
-            Timber.d("Uid $userId unfriended uid $friendId")
-            Result.Success(Unit)
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to get user's friends")
-            Result.Error(e)
-        }
-    }
-
-    override suspend fun isFriend(friendId: String): Result<Boolean> {
-        val userId = auth.currentUser?.uid
-            ?: return Result.Error(Exception("User not authenticated"))
-
-        return try {
-            val document = firestore
-                .collection("friends")
-                .document("${userId}_$friendId")
-                .get()
-                .await()
-
-            Result.Success(document.exists())
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to get user's friends")
-            Result.Error(e)
-        }
-    }
-
-    override suspend fun updateFriendProfile(): Result<Unit> {
-        val user = userRepository.getCurrentUser().getOrNull()
             ?: return Result.Error(Exception("User not authenticated"))
 
         return try {
             val snapshot = firestore
-                .collection("friends")
-                .whereEqualTo("friendId", user.id)
+                .receivedRequests(userId)
                 .get()
                 .await()
 
-            val batch = firestore.batch()
-            snapshot.documents.forEach { doc ->
-                batch.update(doc.reference, mapOf(
-                    "friendName" to user.name,
-                    "friendAvatar" to user.name
-                ))
+            val friendIds = snapshot.documents.map { it.id }
+            val friends = getFriendsData(friendIds)
+
+            Timber.d("Fetched ${friends.size} requests, uid=$userId")
+            Result.Success(friends)
+        }
+        catch (e: Exception) {
+            Timber.e(e, "Failed to get user's friend requests")
+            Result.Error(e)
+        }
+    }
+
+    override suspend fun sendFriendRequest(friendId: String): Result<Unit> {
+        val userId = auth.currentUser?.uid
+            ?: return Result.Error(Exception("User not authenticated"))
+
+        if (friendId == userId) // also prevent error for `removeFriend`, `isFriend`, etc
+            return Result.Error((Exception("Cannot send friend request to yourself")))
+
+        return try {
+            val theirRequestRef = firestore
+                .sentRequests(friendId)
+                .document(userId)
+
+            // mutual request -> auto accept
+            if (theirRequestRef.get().await().exists()) {
+                return acceptFriendRequest(friendId)   // accept their request
             }
+
+            val batch = firestore.batch()
+
+            val senderRef = firestore
+                .sentRequests(userId) // current user is sender
+                .document(friendId)
+
+            if (senderRef.get().await().exists()) {
+                return Result.Error(Exception("Uid=$userId already sent friend request to uid=$friendId"))
+            }
+
+            val receiverRef = firestore
+                .receivedRequests(friendId)
+                .document(userId)
+
+            val friendData = mapOf("timestamp" to Timestamp.now())
+
+            // Use SetOptions.merge() to avoid duplicates (should not happen but ok)
+            batch.set(senderRef, friendData, SetOptions.merge())
+            batch.set(receiverRef, friendData, SetOptions.merge())
+
+            // Commit batch
+            batch.commit().await()
+
+            Timber.d("Uid=$userId sent friend request to uid=$friendId")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to get user's friends")
+            Result.Error(e)
+        }
+    }
+
+    override suspend fun acceptFriendRequest(friendId: String): Result<Unit> {
+        val userId = auth.currentUser?.uid
+            ?: return Result.Error(Exception("User not authenticated"))
+
+        return try {
+            val batch = firestore.batch()
+
+            val ownRef = firestore
+                .friends(userId)
+                .document(friendId)
+
+            val friendRef = firestore
+                .friends(friendId)
+                .document(userId)
+
+            val senderRef = firestore // current user is not sender
+                .sentRequests(friendId)
+                .document(userId)
+
+            val receiverRef = firestore
+                .receivedRequests(userId)
+                .document(friendId)
+
+            val friendData = mapOf("timestamp" to Timestamp.now())
+
+            batch.set(ownRef, friendData)
+            batch.set(friendRef, friendData)
+            batch.delete(receiverRef)
+            batch.delete(senderRef)
 
             batch.commit().await()
 
             Result.Success(Unit)
         } catch (e: Exception) {
-            Timber.e(e, "Failed to update uid ${user.id} friend profile")
+            Timber.e(e, "Failed to get user's friend requests")
             Result.Error(e)
         }
     }
 
-    fun createFriend(user: User, friend: User): Friend {
-        return Friend(
-            uid = user.id,
-            friendId = friend.id,
-            friendName = friend.name,
-            friendAvatarUrl = friend.avatarUrl
-        )
+    override suspend fun removeFriendRequest(friendId: String, isSender: Boolean): Result<Unit> {
+        val userId = auth.currentUser?.uid
+            ?: return Result.Error(Exception("User not authenticated"))
+
+        return try {
+            val batch = firestore.batch()
+
+            val ownRef = firestore
+                .userDoc(userId)
+                .collection(
+                    if (isSender) Constants.COLLECTION_SENT_REQUESTS
+                    else Constants.COLLECTION_RECEIVED_REQUESTS
+                )
+                .document(friendId)
+
+            val friendRef = firestore
+                .userDoc(friendId)
+                .collection(
+                    if (isSender) Constants.COLLECTION_RECEIVED_REQUESTS
+                    else Constants.COLLECTION_SENT_REQUESTS
+                )
+                .document(userId)
+
+            batch.delete(ownRef)
+            batch.delete(friendRef)
+
+            batch.commit().await()
+
+            Timber.d("Uid=$userId removed friend request ${if (isSender) "to" else "of"} uid=$friendId")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to get user's friends")
+            Result.Error(e)
+        }
     }
+
+    override suspend fun unfriend(friendId: String): Result<Unit> {
+        val userId = auth.currentUser?.uid
+            ?: return Result.Error(Exception("User not authenticated"))
+
+        return try {
+            val ownRef = firestore
+                .friends(userId)
+                .document(friendId)
+
+            if (!ownRef.get().await().exists()) {
+                return Result.Error(Exception("Uid=$userId haven't added uid=$friendId"))
+            }
+
+            val friendRef = firestore
+                .friends(friendId)
+                .document(userId)
+
+            val batch = firestore.batch()
+            batch.delete(ownRef)
+            batch.delete(friendRef)
+
+            batch.commit().await()
+
+            Timber.d("Uid=$userId unfriended uid=$friendId")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to get user's friends")
+            Result.Error(e)
+        }
+    }
+
+    override suspend fun getFriendStatus(friendId: String): Result<FriendStatus> {
+        val userId = auth.currentUser?.uid
+            ?: return Result.Error(Exception("User not authenticated"))
+
+        return try {
+            val userFriendRef = firestore
+                .friends(userId)
+                .document(friendId)
+
+            val sentRef = firestore
+                .sentRequests(userId)
+                .document(friendId)
+
+            val receivedRef = firestore
+                .receivedRequests(userId)
+                .document(friendId)
+
+            // Run all 3 reads in parallel for speed
+            val (friend, sent, received) = awaitAll(
+                userFriendRef.get().asDeferred(),
+                sentRef.get().asDeferred(),
+                receivedRef.get().asDeferred()
+            )
+
+            val status = when {
+                friend.exists() -> FriendStatus.FRIEND
+                sent.exists() -> FriendStatus.REQUEST_SENT
+                received.exists() -> FriendStatus.REQUEST_RECEIVED
+                else -> FriendStatus.NONE
+            }
+
+            Result.Success(status)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to get user's friends")
+            Result.Error(e)
+        }
+    }
+
+    //
+    // HELPER FUNCTIONS
+    //
+    
+    private suspend fun getFriendsData(friendIds: List<String>): MutableList<Friend> {
+        val chunks = friendIds.chunked(10) // whereIn limit
+        val friends = mutableListOf<Friend>()
+
+        for (chunk in chunks) {
+            val snapshot = firestore
+                .collection(Constants.COLLECTION_USERS)
+                .whereIn(FieldPath.documentId(), chunk)
+                .get()
+                .await()
+            friends += snapshot.toObjects(Friend::class.java)
+        }
+
+        return friends
+    }
+
+    private fun FirebaseFirestore.userDoc(userId: String) =
+        this.collection(Constants.COLLECTION_USERS).document(userId)
+
+    private fun FirebaseFirestore.friends(userId: String) =
+        userDoc(userId).collection(Constants.COLLECTION_FRIENDS)
+
+    private fun FirebaseFirestore.sentRequests(userId: String) =
+        userDoc(userId).collection(Constants.COLLECTION_SENT_REQUESTS)
+
+    private fun FirebaseFirestore.receivedRequests(userId: String) =
+        userDoc(userId).collection(Constants.COLLECTION_RECEIVED_REQUESTS)
 }
