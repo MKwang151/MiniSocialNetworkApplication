@@ -17,6 +17,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.minisocialnetworkapplication.ui.auth.AuthViewModel
 import com.example.minisocialnetworkapplication.ui.auth.LoginScreen
 import com.example.minisocialnetworkapplication.ui.auth.RegisterScreen
+import com.example.minisocialnetworkapplication.ui.components.BottomNavBar
 import com.example.minisocialnetworkapplication.ui.feed.FeedScreen
 import com.example.minisocialnetworkapplication.ui.post.ComposePostScreen
 import com.example.minisocialnetworkapplication.ui.postdetail.PostDetailScreen
@@ -27,11 +28,11 @@ import com.example.minisocialnetworkapplication.ui.settings.SettingsScreen
 
 @Composable
 fun NavGraph(
-    modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
     startDestination: String,
     authViewModel: AuthViewModel = hiltViewModel()
 ) {
+
     NavHost(
         navController = navController,
         startDestination = startDestination
@@ -79,7 +80,6 @@ fun NavGraph(
                 ?.getStateFlow("profile_updated", false)
 
             FeedScreen(
-                modifier = modifier,
                 shouldRefresh = shouldRefresh,
                 postDeleted = postDeleted,
                 profileUpdated = profileUpdated,
@@ -105,6 +105,9 @@ fun NavGraph(
                             inclusive = true
                         }
                     }
+                },
+                bottomBar = {
+                    BottomNavBar(navController, authViewModel)
                 }
             )
         }
@@ -123,9 +126,11 @@ fun NavGraph(
 
         composable(Screen.Settings.route) {
             SettingsScreen(
-                modifier = modifier,
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                bottomBar = {
+                    BottomNavBar(navController, authViewModel)
                 }
             )
         }
@@ -162,7 +167,6 @@ fun NavGraph(
             }
 
             ProfileScreen(
-                modifier = modifier,
                 onNavigateBack = {
                     navController.popBackStack()
                 },
@@ -175,7 +179,10 @@ fun NavGraph(
                 onNavigateToEditProfile = { userId ->
                     navController.navigate(Screen.EditProfile.createRoute(userId))
                 },
-                shouldRefresh = profileUpdated
+                shouldRefresh = profileUpdated,
+                bottomBar = {
+                    BottomNavBar(navController, authViewModel)
+                }
             )
         }
 
@@ -192,8 +199,7 @@ fun NavGraph(
 
                     // Also set flag for FeedScreen to refresh
                     navController.getBackStackEntry(Screen.Feed.route)
-                        .savedStateHandle
-                        .set("profile_updated", true)
+                        .savedStateHandle["profile_updated"] = true
 
                     navController.popBackStack()
                 }
@@ -235,12 +241,14 @@ fun NavGraph(
 
         composable(Screen.SearchUser.route) {
             SearchUserScreen(
-                modifier = modifier,
                 onNavigateBack = {
                     navController.popBackStack()
                 },
                 onNavigateToProfile = { userId ->
                     navController.navigate(Screen.Profile.createRoute(userId))
+                },
+                bottomBar = {
+                    BottomNavBar(navController, authViewModel)
                 }
             )
         }

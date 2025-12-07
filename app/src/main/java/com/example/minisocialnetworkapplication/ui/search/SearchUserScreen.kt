@@ -24,6 +24,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -51,6 +52,7 @@ fun SearchUserScreen(
     modifier: Modifier = Modifier,
     onNavigateBack: () -> Unit,
     onNavigateToProfile: (String) -> Unit,
+    bottomBar: @Composable () -> Unit,
     viewModel: SearchViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -73,45 +75,51 @@ fun SearchUserScreen(
         }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp)
+    Scaffold(
+        bottomBar = bottomBar
+    ) { paddingValues ->
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .statusBarsPadding()
         ) {
-            IconButton(onClick = onNavigateBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-            }
-
-            CompactSearchField(
-                value = query,
-                onValueChange = { viewModel.onQueryChange(it) },
-                placeholder = "Search someone",
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(36.dp)
-                    .weight(1f)
-                    .clip(RoundedCornerShape(24.dp))
-            )
-        }
+                    .padding(8.dp)
+            ) {
+                IconButton(onClick = onNavigateBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                }
 
-        HorizontalDivider(thickness = 2.dp, color = Color.Gray)
-
-        // Search results
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(searchResult) { result ->
-                SearchResultItem(
-                    user = result,
-                    onNavigateToProfile = onNavigateToProfile
+                CompactSearchField(
+                    value = query,
+                    onValueChange = { viewModel.onQueryChange(it) },
+                    placeholder = "Search someone",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(36.dp)
+                        .weight(1f)
+                        .clip(RoundedCornerShape(24.dp))
                 )
+            }
+
+            HorizontalDivider(thickness = 2.dp, color = Color.Gray)
+
+            // Search results
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(searchResult) { result ->
+                    SearchResultItem(
+                        user = result,
+                        onNavigateToProfile = onNavigateToProfile
+                    )
+                }
             }
         }
     }
+
 }
 
 @Composable

@@ -45,6 +45,7 @@ import timber.log.Timber
 fun SettingsScreen(
     modifier: Modifier = Modifier,
     onNavigateBack: () -> Unit,
+    bottomBar: @Composable () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -68,7 +69,8 @@ fun SettingsScreen(
                     }
                 }
             )
-        }
+        },
+        bottomBar = bottomBar
     ) { paddingValues ->
         Column(
             modifier = Modifier

@@ -64,6 +64,7 @@ fun FeedScreen(
     shouldRefresh: StateFlow<Boolean>? = null,
     postDeleted: StateFlow<Boolean>? = null,
     profileUpdated: StateFlow<Boolean>? = null,
+    bottomBar: @Composable () -> Unit,
     viewModel: FeedViewModel = hiltViewModel()
 ) {
     val lazyPagingItems = viewModel.feedPosts.collectAsLazyPagingItems()
@@ -146,6 +147,7 @@ fun FeedScreen(
                 }
             )
         },
+        bottomBar = bottomBar,
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onNavigateToComposePost,
