@@ -69,12 +69,12 @@ class FriendRepositoryImpl @Inject constructor(
             return Result.Error((Exception("Cannot send friend request to yourself")))
 
         return try {
-            val theirRequestRef = firestore
-                .sentRequests(friendId)
-                .document(userId)
+            val receivedRequest = firestore
+                .receivedRequests(userId)
+                .document(friendId)
 
             // mutual request -> auto accept
-            if (theirRequestRef.get().await().exists()) {
+            if (receivedRequest.get().await().exists()) {
                 return acceptFriendRequest(friendId)   // accept their request
             }
 
