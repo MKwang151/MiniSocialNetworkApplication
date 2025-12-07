@@ -43,6 +43,7 @@ import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.example.minisocialnetworkapplication.core.domain.model.Friend
+import com.example.minisocialnetworkapplication.core.domain.model.FriendStatus
 import com.example.minisocialnetworkapplication.core.domain.model.Post
 import com.example.minisocialnetworkapplication.core.domain.model.User
 import com.example.minisocialnetworkapplication.ui.components.PostCard
@@ -56,6 +57,7 @@ fun ProfileScreen(
     onNavigateToImageGallery: (String, Int) -> Unit = { _, _ -> },
     onNavigateToEditProfile: (String) -> Unit = {},
     shouldRefresh: Boolean = false,
+    bottomBar: @Composable () -> Unit,
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -96,7 +98,8 @@ fun ProfileScreen(
                     }
                 }
             )
-        }
+        },
+        bottomBar = bottomBar
     ) { paddingValues ->
         when (val state = uiState) {
             is ProfileUiState.Loading -> {
@@ -106,14 +109,18 @@ fun ProfileScreen(
                 ProfileContent(
                     user = state.user,
                     isOwnProfile = state.isOwnProfile,
-                    isFriend = state.isFriend,
                     userFriends = state.friends,
                     userPosts = userPosts,
                     onPostClicked = onNavigateToPostDetail,
                     onImageClicked = onNavigateToImageGallery,
                     onLikeClicked = viewModel::toggleLike,
-                    onFriendClick =
-                        if (!state.isFriend) viewModel::addFriend else viewModel::removeFriend,
+                    friendStatus = state.friendStatus,
+                    onFriendClick = when (state.friendStatus) {
+                        FriendStatus.FRIEND -> viewModel::unfriend
+                        FriendStatus.REQUEST_SENT -> viewModel::cancelRequest
+                        FriendStatus.REQUEST_RECEIVED -> viewModel::acceptRequest
+                        FriendStatus.NONE -> viewModel::sendRequest
+                    },
                     modifier = Modifier.padding(paddingValues)
                 )
             }
@@ -132,12 +139,12 @@ fun ProfileScreen(
 fun ProfileContent(
     user: User,
     isOwnProfile: Boolean,
-    isFriend: Boolean,
     userFriends: List<Friend>,
     userPosts: LazyPagingItems<Post>,
     onPostClicked: (String) -> Unit,
     onImageClicked: (String, Int) -> Unit = { _, _ -> },
     onLikeClicked: (Post) -> Unit,
+    friendStatus: FriendStatus,
     onFriendClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -150,9 +157,9 @@ fun ProfileContent(
             ProfileHeader(
                 user = user,
                 isOwnProfile = isOwnProfile,
-                isFriend = isFriend,
                 friendCount = userFriends.count(),
                 postCount = userPosts.itemCount,
+                friendStatus = friendStatus,
                 onFriendClick = onFriendClick
             )
             
@@ -231,9 +238,9 @@ fun ProfileContent(
 fun ProfileHeader(
     user: User,
     isOwnProfile: Boolean,
-    isFriend: Boolean,
     friendCount: Int,
     postCount: Int,
+    friendStatus: FriendStatus,
     onFriendClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -288,7 +295,12 @@ fun ProfileHeader(
                 onClick = onFriendClick
             ) {
                 Text(
-                    text = if (!isFriend) "Add Friend" else "Remove Friend",
+                    text = when (friendStatus) {
+                        FriendStatus.FRIEND -> "Unfriend"
+                        FriendStatus.REQUEST_SENT -> "Cancel"
+                        FriendStatus.REQUEST_RECEIVED -> "Accept"
+                        FriendStatus.NONE -> "Add Friend"
+                    },
                     style = MaterialTheme.typography.headlineSmall
                 )
             }
