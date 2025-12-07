@@ -32,6 +32,7 @@ data class LastMessage(
     val type: MessageType = MessageType.TEXT,
     val senderId: String = "",
     val senderName: String = "",
+    val sequenceId: Long = 0, // Sequential ID for unread count calculation
     val timestamp: Timestamp = Timestamp.now()
 ) {
     /**

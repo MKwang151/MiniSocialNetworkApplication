@@ -22,17 +22,18 @@ data class ConversationEntity(
     val lastMessageSenderId: String?,
     val lastMessageSenderName: String?,
     val lastMessageTime: Long?,
-    val unreadCount: Int = 0,
+    val lastMessageSequenceId: Long = 0, // SequenceId of last message
+    val unreadCount: Int = 0, // Cached value, will be calculated from participants
     val isPinned: Boolean = false,
     val isMuted: Boolean = false,
     val createdAt: Long,
-    val updatedAt: Long,
-    val lastReadTimestamp: Long = 0 // When user last read this conversation
+    val updatedAt: Long
 ) {
     /**
      * Convert to domain model
+     * Note: unreadCount will be provided externally from Participant join
      */
-    fun toDomainModel(): Conversation {
+    fun toDomainModel(unreadCount: Int = this.unreadCount): Conversation {
         val participantIdsList = try {
             val jsonArray = JSONArray(participantIds)
             (0 until jsonArray.length()).map { jsonArray.getString(it) }
@@ -46,6 +47,7 @@ data class ConversationEntity(
                 type = try { MessageType.valueOf(lastMessageType ?: "TEXT") } catch (e: Exception) { MessageType.TEXT },
                 senderId = lastMessageSenderId ?: "",
                 senderName = lastMessageSenderName ?: "",
+                sequenceId = lastMessageSequenceId,
                 timestamp = lastMessageTime?.let { Timestamp(java.util.Date(it)) } ?: Timestamp.now()
             )
         } else null
@@ -83,6 +85,7 @@ data class ConversationEntity(
                 lastMessageSenderId = conversation.lastMessage?.senderId,
                 lastMessageSenderName = conversation.lastMessage?.senderName,
                 lastMessageTime = conversation.lastMessage?.timestamp?.toDate()?.time,
+                lastMessageSequenceId = conversation.lastMessage?.sequenceId ?: 0,
                 unreadCount = conversation.unreadCount,
                 isPinned = conversation.isPinned,
                 isMuted = conversation.isMuted,

@@ -93,22 +93,17 @@ interface ConversationDao {
     suspend fun incrementUnreadCount(conversationId: String)
 
     /**
-     * Reset unread count to 0 and update lastReadTimestamp
+     * Mark as read - reset cached unread count
+     * Actual read status is tracked in ParticipantEntity
      */
-    @Query("UPDATE conversations SET unreadCount = 0, lastReadTimestamp = :timestamp WHERE id = :conversationId")
-    suspend fun markAsRead(conversationId: String, timestamp: Long)
+    @Query("UPDATE conversations SET unreadCount = 0 WHERE id = :conversationId")
+    suspend fun markAsRead(conversationId: String)
 
     /**
-     * Reset unread count to 0 (legacy, use markAsRead instead)
+     * Reset unread count to 0
      */
     @Query("UPDATE conversations SET unreadCount = 0 WHERE id = :conversationId")
     suspend fun resetUnreadCount(conversationId: String)
-
-    /**
-     * Get lastReadTimestamp for a conversation
-     */
-    @Query("SELECT lastReadTimestamp FROM conversations WHERE id = :conversationId")
-    suspend fun getLastReadTimestamp(conversationId: String): Long?
 
     /**
      * Update pinned status

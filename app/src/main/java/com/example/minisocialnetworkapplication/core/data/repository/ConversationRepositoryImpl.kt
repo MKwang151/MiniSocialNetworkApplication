@@ -2,6 +2,7 @@ package com.example.minisocialnetworkapplication.core.data.repository
 
 import com.example.minisocialnetworkapplication.core.data.local.ConversationDao
 import com.example.minisocialnetworkapplication.core.data.local.ConversationEntity
+import com.example.minisocialnetworkapplication.core.data.local.ParticipantDao
 import com.example.minisocialnetworkapplication.core.domain.model.Conversation
 import com.example.minisocialnetworkapplication.core.domain.model.ConversationType
 import com.example.minisocialnetworkapplication.core.domain.model.LastMessage
@@ -25,46 +26,33 @@ import javax.inject.Singleton
 class ConversationRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val auth: FirebaseAuth,
-    private val conversationDao: ConversationDao
+    private val conversationDao: ConversationDao,
+    private val participantDao: ParticipantDao
 ) : ConversationRepository {
 
     companion object {
         private const val COLLECTION_CONVERSATIONS = "conversations"
         private const val COLLECTION_MESSAGES = "messages"
+        private const val COLLECTION_PARTICIPANTS = "participants"
     }
     
     /**
-     * Count unread messages in a conversation from Firestore
+     * Get user's lastReadSequenceId for a conversation from Firestore participants subcollection
      */
-    private suspend fun countUnreadMessages(
-        conversationId: String,
-        currentUserId: String,
-        lastReadTimestamp: Long
-    ): Int {
+    private suspend fun getLastReadSequenceId(conversationId: String, userId: String): Long {
         return try {
-            val query = if (lastReadTimestamp > 0) {
-                // Count messages after lastReadTimestamp from others
-                firestore.collection(COLLECTION_CONVERSATIONS)
-                    .document(conversationId)
-                    .collection(COLLECTION_MESSAGES)
-                    .whereNotEqualTo("senderId", currentUserId)
-                    .whereGreaterThan("timestamp", Timestamp(java.util.Date(lastReadTimestamp)))
-                    .get()
-                    .await()
-            } else {
-                // New conversation - count all messages from others
-                firestore.collection(COLLECTION_CONVERSATIONS)
-                    .document(conversationId)
-                    .collection(COLLECTION_MESSAGES)
-                    .whereNotEqualTo("senderId", currentUserId)
-                    .get()
-                    .await()
-            }
-            query.size()
+            val doc = firestore.collection(COLLECTION_CONVERSATIONS)
+                .document(conversationId)
+                .collection(COLLECTION_PARTICIPANTS)
+                .document(userId)
+                .get()
+                .await()
+            val result = doc.getLong("lastReadSequenceId") ?: 0L
+            timber.log.Timber.d("getLastReadSequenceId: conv=$conversationId, user=$userId, exists=${doc.exists()}, result=$result, data=${doc.data}")
+            result
         } catch (e: Exception) {
-            timber.log.Timber.e(e, "Error counting unread messages for $conversationId")
-            // Fallback: if there's a lastMessage from someone else, at least 1 unread
-            1
+            timber.log.Timber.e(e, "Error getting lastReadSequenceId for $conversationId/$userId")
+            0L
         }
     }
 
@@ -75,13 +63,10 @@ class ConversationRepositoryImpl @Inject constructor(
             return@callbackFlow
         }
 
-        // Note: Removed orderBy to avoid composite index requirement
-        // Sorting is done in-memory instead
         val listener = firestore.collection(COLLECTION_CONVERSATIONS)
             .whereArrayContains("participantIds", currentUserId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    // On error, try to load from local cache
                     kotlinx.coroutines.runBlocking {
                         val localConversations = conversationDao.getAllConversationsSync()
                         trySend(localConversations.map { it.toDomainModel() })
@@ -90,80 +75,55 @@ class ConversationRepositoryImpl @Inject constructor(
                 }
 
                 kotlinx.coroutines.runBlocking {
-                    // Get local data first
-                    val localConversations = conversationDao.getAllConversationsSync()
-                    val localData = localConversations.associateBy { it.id }
-
-                    // Process changes for unread count
-                    snapshot?.documentChanges?.forEach { change ->
-                        val data = change.document.data
-                        val lastMessage = data["lastMessage"] as? Map<*, *>
-                        val senderId = lastMessage?.get("senderId") as? String
-                        val msgTimestamp = (lastMessage?.get("timestamp") as? com.google.firebase.Timestamp)?.toDate()?.time ?: 0L
-                        
-                        when (change.type) {
-                            com.google.firebase.firestore.DocumentChange.Type.ADDED -> {
-                                // New conversation loaded
-                                val existing = localData[change.document.id]
-                                if (existing == null && senderId != null && senderId != currentUserId) {
-                                    // Brand new conversation with message from others
-                                    timber.log.Timber.d("New conversation ${change.document.id} - counting unread messages")
-                                }
-                            }
-                            com.google.firebase.firestore.DocumentChange.Type.MODIFIED -> {
-                                // Existing conversation updated
-                                val existing = localData[change.document.id]
-                                if (senderId != null && senderId != currentUserId) {
-                                    val lastRead = existing?.lastReadTimestamp ?: 0L
-                                    if (msgTimestamp > lastRead) {
-                                        timber.log.Timber.d("New message in ${change.document.id}, incrementing unread")
-                                        conversationDao.incrementUnreadCount(change.document.id)
-                                    }
-                                }
-                            }
-                            else -> {}
-                        }
-                    }
-
-                    // Refresh local data after increments
-                    val updatedLocalConversations = conversationDao.getAllConversationsSync()
-                    val updatedLocalData = updatedLocalConversations.associateBy { it.id }
-
                     val conversations = snapshot?.documents?.mapNotNull { doc ->
                         try {
                             val conv = parseConversation(doc.id, doc.data ?: emptyMap())
-                            val localEntity = updatedLocalData[conv.id]
+                            
+                            // Get lastMessageSequenceId from Firestore
+                            val lastMessage = doc.data?.get("lastMessage") as? Map<*, *>
+                            val lastMsgSequenceId = (lastMessage?.get("sequenceId") as? Long) ?: 0L
+                            
+                            // Get user's lastReadSequenceId from participants subcollection
+                            val lastReadSeqId = getLastReadSequenceId(conv.id, currentUserId)
                             
                             // Calculate unread count
-                            val unreadCount = if (localEntity != null) {
-                                localEntity.unreadCount
+                            val unreadCount = if (lastMsgSequenceId > lastReadSeqId) {
+                                (lastMsgSequenceId - lastReadSeqId).toInt()
                             } else {
-                                // New conversation - count actual unread messages from Firestore
-                                val lastMessage = doc.data?.get("lastMessage") as? Map<*, *>
-                                val senderId = lastMessage?.get("senderId") as? String
-                                if (senderId != null && senderId != currentUserId) {
-                                    countUnreadMessages(conv.id, currentUserId, 0)
-                                } else {
-                                    0
-                                }
+                                0
                             }
                             
-                            timber.log.Timber.d("Conversation ${conv.id}: unreadCount=$unreadCount")
+                            timber.log.Timber.d("Conversation ${conv.id}: lastMsgSeq=$lastMsgSequenceId, lastReadSeq=$lastReadSeqId, unread=$unreadCount")
+                            
                             conv.copy(
-                                unreadCount = unreadCount,
-                                isPinned = localEntity?.isPinned ?: false,
-                                isMuted = localEntity?.isMuted ?: false
+                                unreadCount = unreadCount
                             )
                         } catch (e: Exception) {
+                            timber.log.Timber.e(e, "Error parsing conversation ${doc.id}")
                             null
                         }
                     }?.sortedByDescending { it.updatedAt.toDate() } ?: emptyList()
 
-                    // Create entities preserving lastReadTimestamp from local
+                    // Save to local DB
                     val entities = conversations.map { conv ->
-                        val localEntity = updatedLocalData[conv.id]
-                        ConversationEntity.fromDomainModel(conv).copy(
-                            lastReadTimestamp = localEntity?.lastReadTimestamp ?: 0L
+                        val lastMessage = conv.lastMessage
+                        ConversationEntity(
+                            id = conv.id,
+                            type = conv.type.name,
+                            name = conv.name,
+                            avatarUrl = conv.avatarUrl,
+                            participantIds = org.json.JSONArray(conv.participantIds).toString(),
+                            lastMessageText = lastMessage?.text,
+                            lastMessageType = lastMessage?.type?.name,
+                            lastMessageSenderId = lastMessage?.senderId,
+                            lastMessageSenderName = lastMessage?.senderName,
+                            lastMessageTime = lastMessage?.timestamp?.toDate()?.time,
+                            lastMessageSequenceId = lastMessage?.sequenceId ?: 0L,
+                            unreadCount = conv.unreadCount,
+                            isPinned = conv.isPinned,
+                            isMuted = conv.isMuted,
+                            createdAt = conv.createdAt.toDate().time,
+                            updatedAt = conv.updatedAt.toDate().time
                         )
                     }
                     conversationDao.insertAll(entities)
@@ -174,6 +134,7 @@ class ConversationRepositoryImpl @Inject constructor(
 
         awaitClose { listener.remove() }
     }
+
 
     override suspend fun getConversation(conversationId: String): Result<Conversation> {
         return try {
@@ -318,11 +279,34 @@ class ConversationRepositoryImpl @Inject constructor(
 
     override suspend fun markConversationAsRead(conversationId: String): Result<Unit> {
         return try {
-            val currentTimestamp = System.currentTimeMillis()
-            conversationDao.markAsRead(conversationId, currentTimestamp)
-            timber.log.Timber.d("Marked conversation $conversationId as read at $currentTimestamp")
+            val currentUserId = auth.currentUser?.uid 
+                ?: return Result.Error(Exception("Not authenticated"))
+            
+            // Get current conversation to get lastMessageSequenceId
+            val localConv = conversationDao.getConversationById(conversationId)
+            val lastMsgSeqId = localConv?.lastMessageSequenceId ?: 0L
+            
+            // Update local participant's lastReadSequenceId
+            participantDao.updateLastRead(conversationId, currentUserId, lastMsgSeqId)
+            
+            // Update conversation cached unread count
+            conversationDao.markAsRead(conversationId)
+            
+            // Sync to Firestore participants subcollection
+            firestore.collection(COLLECTION_CONVERSATIONS)
+                .document(conversationId)
+                .collection(COLLECTION_PARTICIPANTS)
+                .document(currentUserId)
+                .set(mapOf(
+                    "lastReadSequenceId" to lastMsgSeqId,
+                    "updatedAt" to FieldValue.serverTimestamp()
+                ))
+                .await()
+            
+            timber.log.Timber.d("Marked conversation $conversationId as read, lastReadSeqId=$lastMsgSeqId")
             Result.Success(Unit)
         } catch (e: Exception) {
+            timber.log.Timber.e(e, "Error marking conversation as read")
             Result.Error(e)
         }
     }
@@ -360,6 +344,7 @@ class ConversationRepositoryImpl @Inject constructor(
                 },
                 senderId = lastMessageData["senderId"] as? String ?: "",
                 senderName = lastMessageData["senderName"] as? String ?: "",
+                sequenceId = (lastMessageData["sequenceId"] as? Long) ?: 0L,
                 timestamp = lastMessageData["timestamp"] as? Timestamp ?: Timestamp.now()
             )
         } else null
