@@ -54,7 +54,54 @@ class ConversationRepositoryImpl @Inject constructor(
                 }
 
                 kotlinx.coroutines.runBlocking {
-                    // Get local unread counts to preserve them
+                    // FIRST: Check for new messages and set/increment unread count
+                    snapshot?.documentChanges?.forEach { change ->
+                        val data = change.document.data
+                        val lastMessage = data["lastMessage"] as? Map<*, *>
+                        val senderId = lastMessage?.get("senderId") as? String
+                        
+                        when (change.type) {
+                            com.google.firebase.firestore.DocumentChange.Type.ADDED -> {
+                                // Conversation first loaded - check if has unread message
+                                if (senderId != null && senderId != currentUserId) {
+                                    // Check if this conversation already exists locally
+                                    val existing = conversationDao.getConversationById(change.document.id)
+                                    if (existing == null) {
+                                        // New conversation with message from someone else
+                                        timber.log.Timber.d("New conversation ${change.document.id} has unread message, setting unreadCount=1")
+                                        // Will be set when we insert below
+                                    }
+                                }
+                            }
+                            com.google.firebase.firestore.DocumentChange.Type.MODIFIED -> {
+                                if (senderId != null && senderId != currentUserId) {
+                                    // New message from someone else, increment unread
+                                    timber.log.Timber.d("Incrementing unread for conversation ${change.document.id}")
+                                    conversationDao.incrementUnreadCount(change.document.id)
+                                }
+                            }
+                            else -> {}
+                        }
+                    }
+
+                    // Collect IDs of new conversations with unread messages
+                    val newConversationIds = mutableSetOf<String>()
+                    snapshot?.documentChanges?.forEach { change ->
+                        if (change.type == com.google.firebase.firestore.DocumentChange.Type.ADDED) {
+                            val data = change.document.data
+                            val lastMessage = data["lastMessage"] as? Map<*, *>
+                            val senderId = lastMessage?.get("senderId") as? String
+                            if (senderId != null && senderId != currentUserId) {
+                                val existing = conversationDao.getConversationById(change.document.id)
+                                if (existing == null) {
+                                    timber.log.Timber.d("New conversation ${change.document.id} has unread message")
+                                    newConversationIds.add(change.document.id)
+                                }
+                            }
+                        }
+                    }
+
+                    // THEN: Get local unread counts (now includes the increment)
                     val localConversations = conversationDao.getAllConversationsSync()
                     val localUnreadCounts = localConversations.associate { it.id to it.unreadCount }
                     val localPinned = localConversations.associate { it.id to it.isPinned }
@@ -63,9 +110,15 @@ class ConversationRepositoryImpl @Inject constructor(
                     val conversations = snapshot?.documents?.mapNotNull { doc ->
                         try {
                             val conv = parseConversation(doc.id, doc.data ?: emptyMap())
-                            // Preserve local unread count, pinned, and muted status
+                            // For new conversations with unread, set unreadCount=1
+                            // For existing ones, preserve local unread count
+                            val unreadCount = when {
+                                newConversationIds.contains(conv.id) -> 1
+                                else -> localUnreadCounts[conv.id] ?: 0
+                            }
+                            timber.log.Timber.d("Conversation ${conv.id}: unreadCount=$unreadCount")
                             conv.copy(
-                                unreadCount = localUnreadCounts[conv.id] ?: 0,
+                                unreadCount = unreadCount,
                                 isPinned = localPinned[conv.id] ?: false,
                                 isMuted = localMuted[conv.id] ?: false
                             )
@@ -73,19 +126,6 @@ class ConversationRepositoryImpl @Inject constructor(
                             null
                         }
                     }?.sortedByDescending { it.updatedAt.toDate() } ?: emptyList()
-
-                    // Check for new messages (conversation updated but senderId != current user)
-                    snapshot?.documentChanges?.forEach { change ->
-                        if (change.type == com.google.firebase.firestore.DocumentChange.Type.MODIFIED) {
-                            val data = change.document.data
-                            val lastMessage = data["lastMessage"] as? Map<*, *>
-                            val senderId = lastMessage?.get("senderId") as? String
-                            if (senderId != null && senderId != currentUserId) {
-                                // New message from someone else, increment unread
-                                conversationDao.incrementUnreadCount(change.document.id)
-                            }
-                        }
-                    }
 
                     val entities = conversations.map { ConversationEntity.fromDomainModel(it) }
                     conversationDao.insertAll(entities)

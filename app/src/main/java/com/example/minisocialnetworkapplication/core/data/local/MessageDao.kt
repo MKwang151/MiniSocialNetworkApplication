@@ -104,7 +104,7 @@ interface MessageDao {
      * Update message status by local ID (don't update id to avoid conflict with Firestore listener)
      */
     @Query("UPDATE messages SET status = :status WHERE localId = :localId")
-    suspend fun updateMessageStatusByLocalId(localId: String, status: String, serverId: String)
+    suspend fun updateMessageStatusByLocalId(localId: String, status: String)
 
     /**
      * Mark message as revoked

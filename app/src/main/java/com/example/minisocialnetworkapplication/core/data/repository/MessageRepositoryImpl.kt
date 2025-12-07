@@ -188,7 +188,7 @@ class MessageRepositoryImpl @Inject constructor(
             messageRef.set(messageData).await()
             timber.log.Timber.d("sendTextMessage: sent to Firestore, messageId=${messageRef.id}")
 
-            messageDao.updateMessageStatusByLocalId(localId, MessageStatus.SENT.name, messageRef.id)
+            messageDao.updateMessageStatusByLocalId(localId, MessageStatus.SENT.name)
             timber.log.Timber.d("sendTextMessage: about to call updateConversationLastMessage")
             updateConversationLastMessage(conversationId, text, MessageType.TEXT, currentUser.uid, userName)
             timber.log.Timber.d("sendTextMessage: SUCCESS")
@@ -277,7 +277,7 @@ class MessageRepositoryImpl @Inject constructor(
             )
 
             messageRef.set(messageData).await()
-            messageDao.updateMessageStatusByLocalId(localId, MessageStatus.SENT.name, messageRef.id)
+            messageDao.updateMessageStatusByLocalId(localId, MessageStatus.SENT.name)
 
             val previewText = when (type) {
                 MessageType.IMAGE -> "📷 Photo"

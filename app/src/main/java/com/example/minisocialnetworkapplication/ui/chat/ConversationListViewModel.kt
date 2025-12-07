@@ -116,6 +116,18 @@ class ConversationListViewModel @Inject constructor(
     fun markAsRead(conversationId: String) {
         viewModelScope.launch {
             conversationRepository.markConversationAsRead(conversationId)
+            
+            // Update UI state immediately
+            val updatedConversations = _uiState.value.conversations.map { convWithUser ->
+                if (convWithUser.conversation.id == conversationId) {
+                    convWithUser.copy(
+                        conversation = convWithUser.conversation.copy(unreadCount = 0)
+                    )
+                } else {
+                    convWithUser
+                }
+            }
+            _uiState.value = _uiState.value.copy(conversations = updatedConversations)
         }
     }
 
