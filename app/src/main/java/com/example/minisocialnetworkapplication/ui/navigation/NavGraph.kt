@@ -178,6 +178,9 @@ fun NavGraph(
                 onNavigateToEditProfile = { userId ->
                     navController.navigate(Screen.EditProfile.createRoute(userId))
                 },
+                onNavigateToChat = { otherUserId ->
+                    navController.navigate(Screen.StartChat.createRoute(otherUserId))
+                },
                 shouldRefresh = profileUpdated,
                 bottomBar = {
                     BottomNavBar(navController, authViewModel)
