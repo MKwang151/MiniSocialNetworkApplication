@@ -27,6 +27,7 @@ import com.example.minisocialnetworkapplication.ui.settings.SettingsScreen
 
 @Composable
 fun NavGraph(
+    modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
     startDestination: String,
     authViewModel: AuthViewModel = hiltViewModel()
@@ -78,6 +79,7 @@ fun NavGraph(
                 ?.getStateFlow("profile_updated", false)
 
             FeedScreen(
+                modifier = modifier,
                 shouldRefresh = shouldRefresh,
                 postDeleted = postDeleted,
                 profileUpdated = profileUpdated,
@@ -121,6 +123,7 @@ fun NavGraph(
 
         composable(Screen.Settings.route) {
             SettingsScreen(
+                modifier = modifier,
                 onNavigateBack = {
                     navController.popBackStack()
                 }
@@ -159,6 +162,7 @@ fun NavGraph(
             }
 
             ProfileScreen(
+                modifier = modifier,
                 onNavigateBack = {
                     navController.popBackStack()
                 },
@@ -231,6 +235,7 @@ fun NavGraph(
 
         composable(Screen.SearchUser.route) {
             SearchUserScreen(
+                modifier = modifier,
                 onNavigateBack = {
                     navController.popBackStack()
                 },

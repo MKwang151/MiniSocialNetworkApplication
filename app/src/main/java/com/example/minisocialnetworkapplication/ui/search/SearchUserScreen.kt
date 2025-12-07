@@ -48,6 +48,7 @@ import com.example.minisocialnetworkapplication.core.domain.model.User
 
 @Composable
 fun SearchUserScreen(
+    modifier: Modifier = Modifier,
     onNavigateBack: () -> Unit,
     onNavigateToProfile: (String) -> Unit,
     viewModel: SearchViewModel = hiltViewModel()
@@ -73,7 +74,7 @@ fun SearchUserScreen(
     }
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .statusBarsPadding()
     ) {

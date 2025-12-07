@@ -50,6 +50,7 @@ import com.example.minisocialnetworkapplication.ui.components.PostCard
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
+    modifier: Modifier = Modifier,
     onNavigateBack: () -> Unit,
     onNavigateToPostDetail: (String) -> Unit,
     onNavigateToImageGallery: (String, Int) -> Unit = { _, _ -> },
@@ -69,6 +70,7 @@ fun ProfileScreen(
     }
 
     Scaffold(
+        modifier = modifier,
         topBar = {
             TopAppBar(
                 title = { Text("Profile") },

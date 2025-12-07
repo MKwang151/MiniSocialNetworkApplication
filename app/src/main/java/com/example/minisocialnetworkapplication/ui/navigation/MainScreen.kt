@@ -1,8 +1,10 @@
 package com.example.minisocialnetworkapplication.ui.navigation
 
 import android.annotation.SuppressLint
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -30,8 +32,9 @@ fun MainScreen(startDestination: String) {
                 BottomNavBar(navController, authViewModel)
             }
         }
-    ) { _ ->
+    ) { paddingValues ->
         NavGraph(
+            modifier = Modifier.padding(paddingValues),
             navController = navController,
             startDestination = startDestination,
             authViewModel = authViewModel
