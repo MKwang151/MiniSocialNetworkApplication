@@ -3,6 +3,8 @@ package com.example.minisocialnetworkapplication.core.di
 import android.content.Context
 import androidx.room.Room
 import com.example.minisocialnetworkapplication.core.data.local.AppDatabase
+import com.example.minisocialnetworkapplication.core.data.local.ConversationDao
+import com.example.minisocialnetworkapplication.core.data.local.MessageDao
 import com.example.minisocialnetworkapplication.core.data.local.PostDao
 import com.example.minisocialnetworkapplication.core.data.local.RemoteKeysDao
 import dagger.Module
@@ -23,7 +25,9 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             AppDatabase.DATABASE_NAME
-        ).build()
+        )
+            .fallbackToDestructiveMigration() // Per user request: reset DB on version change
+            .build()
     }
 
     @Provides
@@ -37,5 +41,16 @@ object DatabaseModule {
     fun provideRemoteKeysDao(database: AppDatabase): RemoteKeysDao {
         return database.remoteKeysDao()
     }
-}
 
+    @Provides
+    @Singleton
+    fun provideConversationDao(database: AppDatabase): ConversationDao {
+        return database.conversationDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideMessageDao(database: AppDatabase): MessageDao {
+        return database.messageDao()
+    }
+}

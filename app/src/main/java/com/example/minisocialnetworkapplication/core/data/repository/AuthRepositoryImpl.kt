@@ -1,5 +1,7 @@
 package com.example.minisocialnetworkapplication.core.data.repository
 
+import com.example.minisocialnetworkapplication.core.data.local.ConversationDao
+import com.example.minisocialnetworkapplication.core.data.local.MessageDao
 import com.example.minisocialnetworkapplication.core.domain.model.User
 import com.example.minisocialnetworkapplication.core.domain.repository.AuthRepository
 import com.example.minisocialnetworkapplication.core.util.Constants
@@ -18,7 +20,9 @@ import javax.inject.Singleton
 @Singleton
 class AuthRepositoryImpl @Inject constructor(
     private val auth: FirebaseAuth,
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val conversationDao: ConversationDao,
+    private val messageDao: MessageDao
 ) : AuthRepository {
 
     override suspend fun register(email: String, password: String, name: String): Result<User> {
@@ -76,6 +80,11 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun logout(): Result<Unit> {
         return try {
+            // Clear local chat data to prevent data mixing between accounts
+            conversationDao.clearAll()
+            messageDao.clearAll()
+            Timber.d("Local chat data cleared")
+            
             auth.signOut()
             Timber.d("User logged out successfully")
             Result.Success(Unit)

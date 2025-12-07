@@ -6,7 +6,13 @@ sealed class Screen(val route: String) {
     data object Feed : Screen("feed")
     data object ComposePost : Screen("compose_post")
     data object Settings : Screen("settings")
-    data object Chat : Screen("chat")
+    data object ConversationList : Screen("conversation_list")
+    data object ChatDetail : Screen("chat_detail/{conversationId}") {
+        fun createRoute(conversationId: String) = "chat_detail/$conversationId"
+    }
+    data object StartChat : Screen("start_chat/{userId}") {
+        fun createRoute(userId: String) = "start_chat/$userId"
+    }
     data object Friends : Screen("friends")
     data object SearchUser: Screen("search")
     data object PostDetail : Screen("post_detail/{postId}") {
@@ -22,4 +28,3 @@ sealed class Screen(val route: String) {
         fun createRoute(postId: String, initialIndex: Int = 0) = "image_gallery/$postId/$initialIndex"
     }
 }
-

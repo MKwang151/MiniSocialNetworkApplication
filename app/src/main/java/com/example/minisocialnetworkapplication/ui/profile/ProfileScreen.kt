@@ -12,12 +12,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -44,7 +44,6 @@ import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.example.minisocialnetworkapplication.core.domain.model.Friend
-import com.example.minisocialnetworkapplication.core.domain.model.FriendStatus
 import com.example.minisocialnetworkapplication.core.domain.model.Post
 import com.example.minisocialnetworkapplication.core.domain.model.User
 import com.example.minisocialnetworkapplication.ui.components.PostCard
@@ -52,13 +51,12 @@ import com.example.minisocialnetworkapplication.ui.components.PostCard
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
-    modifier: Modifier = Modifier,
     onNavigateBack: () -> Unit,
     onNavigateToPostDetail: (String) -> Unit,
     onNavigateToImageGallery: (String, Int) -> Unit = { _, _ -> },
     onNavigateToEditProfile: (String) -> Unit = {},
+    onNavigateToChat: (String) -> Unit = {},
     shouldRefresh: Boolean = false,
-    bottomBar: @Composable () -> Unit,
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -73,7 +71,6 @@ fun ProfileScreen(
     }
 
     Scaffold(
-        modifier = modifier,
         topBar = {
             TopAppBar(
                 title = { Text("Profile") },
@@ -99,8 +96,7 @@ fun ProfileScreen(
                     }
                 }
             )
-        },
-        bottomBar = bottomBar
+        }
     ) { paddingValues ->
         when (val state = uiState) {
             is ProfileUiState.Loading -> {
@@ -115,6 +111,7 @@ fun ProfileScreen(
                     onPostClicked = onNavigateToPostDetail,
                     onImageClicked = onNavigateToImageGallery,
                     onLikeClicked = viewModel::toggleLike,
+                    onMessageClick = { onNavigateToChat(state.user.uid) },
                     friendStatus = state.friendStatus,
                     onFriendClick = when (state.friendStatus) {
                         FriendStatus.FRIEND -> viewModel::unfriend
@@ -149,6 +146,7 @@ fun ProfileContent(
     friendStatus: FriendStatus,
     onFriendClick: () -> Unit,
     onFriendDecline: () -> Unit,
+    onMessageClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -164,7 +162,8 @@ fun ProfileContent(
                 postCount = userPosts.itemCount,
                 friendStatus = friendStatus,
                 onFriendClick = onFriendClick,
-                onFriendDecline = onFriendDecline
+                onFriendDecline = onFriendDecline,
+                onMessageClick = onMessageClick
             )
             
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
@@ -246,6 +245,7 @@ fun ProfileHeader(
     postCount: Int,
     friendStatus: FriendStatus,
     onFriendClick: () -> Unit,
+    onMessageClick: () -> Unit = {},
     onFriendDecline: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -290,7 +290,9 @@ fun ProfileHeader(
         Spacer(modifier = Modifier.height(16.dp))
 
         if (!isOwnProfile) {
-            Row {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Button(
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color.Transparent,   // white background
@@ -307,7 +309,7 @@ fun ProfileHeader(
                             FriendStatus.REQUEST_RECEIVED -> "Accept Request"
                             FriendStatus.NONE -> "Add Friend"
                         },
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.labelLarge
                     )
                 }
 
@@ -325,10 +327,30 @@ fun ProfileHeader(
                     ) {
                         Text(
                             text = "Decline Request",
-                            style = MaterialTheme.typography.bodyLarge
+                            style = MaterialTheme.typography.labelLarge
                         )
                     }
+                }
 
+                // Message button
+                Button(
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    onClick = onMessageClick
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Message,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.size(4.dp))
+                    Text(
+                        text = "Message",
+                        style = MaterialTheme.typography.labelLarge
+                    )
                 }
             }
 
