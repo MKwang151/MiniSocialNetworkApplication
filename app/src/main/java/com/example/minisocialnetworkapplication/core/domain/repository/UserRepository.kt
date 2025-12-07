@@ -35,6 +35,11 @@ interface UserRepository {
      * Search users by name
      */
     suspend fun searchUsers(query: String): Result<List<User>>
+    
+    /**
+     * Update user online presence
+     */
+    suspend fun updatePresence(isOnline: Boolean): Result<Unit>
 }
 
 

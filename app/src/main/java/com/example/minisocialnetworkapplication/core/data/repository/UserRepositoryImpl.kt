@@ -199,4 +199,31 @@ class UserRepositoryImpl @Inject constructor(
             Result.Error(e)
         }
     }
+
+    override suspend fun updatePresence(isOnline: Boolean): Result<Unit> {
+        return try {
+            val userId = auth.currentUser?.uid
+            if (userId == null) {
+                return Result.Error(Exception("User not authenticated"))
+            }
+
+            val updates = mapOf(
+                "isOnline" to isOnline,
+                "lastActive" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+            )
+
+            firestore
+                .collection(Constants.COLLECTION_USERS)
+                .document(userId)
+                .update(updates)
+                .await()
+
+            Timber.d("Presence updated: isOnline=$isOnline for user $userId")
+            Result.Success(Unit)
+
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to update presence")
+            Result.Error(e)
+        }
+    }
 }
