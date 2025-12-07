@@ -10,6 +10,7 @@ data class Message(
     val id: String = "",
     val localId: String = UUID.randomUUID().toString(), // For optimistic UI
     val conversationId: String = "",
+    val sequenceId: Long = 0, // Auto-incrementing ID for unread count calculation
     val senderId: String = "",
     val senderName: String = "",
     val senderAvatarUrl: String? = null,

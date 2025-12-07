@@ -3,6 +3,7 @@ package com.example.minisocialnetworkapplication.core.di
 import android.content.Context
 import com.example.minisocialnetworkapplication.core.data.local.ConversationDao
 import com.example.minisocialnetworkapplication.core.data.local.MessageDao
+import com.example.minisocialnetworkapplication.core.data.local.ParticipantDao
 import com.example.minisocialnetworkapplication.core.data.repository.ConversationRepositoryImpl
 import com.example.minisocialnetworkapplication.core.data.repository.MessageRepositoryImpl
 import com.example.minisocialnetworkapplication.core.domain.repository.ConversationRepository
@@ -26,12 +27,14 @@ object ChatModule {
     fun provideConversationRepository(
         firestore: FirebaseFirestore,
         auth: FirebaseAuth,
-        conversationDao: ConversationDao
+        conversationDao: ConversationDao,
+        participantDao: ParticipantDao
     ): ConversationRepository {
         return ConversationRepositoryImpl(
             firestore = firestore,
             auth = auth,
-            conversationDao = conversationDao
+            conversationDao = conversationDao,
+            participantDao = participantDao
         )
     }
 

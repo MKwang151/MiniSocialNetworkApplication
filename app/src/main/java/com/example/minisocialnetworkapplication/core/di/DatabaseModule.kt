@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.example.minisocialnetworkapplication.core.data.local.AppDatabase
 import com.example.minisocialnetworkapplication.core.data.local.ConversationDao
 import com.example.minisocialnetworkapplication.core.data.local.MessageDao
+import com.example.minisocialnetworkapplication.core.data.local.ParticipantDao
 import com.example.minisocialnetworkapplication.core.data.local.PostDao
 import com.example.minisocialnetworkapplication.core.data.local.RemoteKeysDao
 import dagger.Module
@@ -52,5 +53,11 @@ object DatabaseModule {
     @Singleton
     fun provideMessageDao(database: AppDatabase): MessageDao {
         return database.messageDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideParticipantDao(database: AppDatabase): ParticipantDao {
+        return database.participantDao()
     }
 }
