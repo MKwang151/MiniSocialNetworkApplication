@@ -54,6 +54,7 @@ import kotlinx.coroutines.flow.StateFlow
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedScreen(
+    modifier: Modifier = Modifier,
     onNavigateToComposePost: () -> Unit,
     onNavigateToPostDetail: (String) -> Unit,
     onNavigateToProfile: (String) -> Unit,
@@ -63,6 +64,7 @@ fun FeedScreen(
     shouldRefresh: StateFlow<Boolean>? = null,
     postDeleted: StateFlow<Boolean>? = null,
     profileUpdated: StateFlow<Boolean>? = null,
+    bottomBar: @Composable () -> Unit,
     viewModel: FeedViewModel = hiltViewModel()
 ) {
     val lazyPagingItems = viewModel.feedPosts.collectAsLazyPagingItems()
@@ -125,6 +127,7 @@ fun FeedScreen(
     }
 
     Scaffold(
+        modifier = modifier,
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.feed)) },
@@ -144,6 +147,7 @@ fun FeedScreen(
                 }
             )
         },
+        bottomBar = bottomBar,
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onNavigateToComposePost,

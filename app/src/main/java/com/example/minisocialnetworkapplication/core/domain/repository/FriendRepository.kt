@@ -1,6 +1,7 @@
 package com.example.minisocialnetworkapplication.core.domain.repository
 
 import com.example.minisocialnetworkapplication.core.domain.model.Friend
+import com.example.minisocialnetworkapplication.core.domain.model.FriendStatus
 import com.example.minisocialnetworkapplication.core.util.Result
 
 interface FriendRepository {
@@ -11,23 +12,32 @@ interface FriendRepository {
     suspend fun getUserFriends(userId: String): Result<List<Friend>>
 
     /**
-     * Add friend for current user
+     * Get current user's friend requests
      */
-    suspend fun addFriend(friendId: String): Result<Unit>
+    suspend fun getFriendRequests(): Result<List<Friend>>
+
+    /**
+     * Send friend request to uid=friendId
+     */
+    suspend fun sendFriendRequest(friendId: String): Result<Unit>
+
+    /**
+     * Accept friend request
+     */
+    suspend fun acceptFriendRequest(friendId: String): Result<Unit>
+
+    /**
+     * Remove friend request to uid=friendId
+     */
+    suspend fun removeFriendRequest(friendId: String, isSender: Boolean): Result<Unit>
 
     /**
      * Remove friend for current user
      */
-    suspend fun removeFriend(friendId: String): Result<Unit>
+    suspend fun unfriend(friendId: String): Result<Unit>
 
     /**
-     * Check current user friend status with {friendId}
+     * Check current user friend status with {friendId} (Pending/Added)
      */
-    suspend fun isFriend(friendId: String): Result<Boolean>
-
-    /**
-     * Update current user friend profile (name, avatarUrl) when they edit their profile
-     * This method should be called using a Worker
-     */
-    suspend fun updateFriendProfile(): Result<Unit>
+    suspend fun getFriendStatus(friendId: String): Result<FriendStatus>
 }

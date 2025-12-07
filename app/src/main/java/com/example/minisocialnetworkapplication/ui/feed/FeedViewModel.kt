@@ -57,7 +57,7 @@ class FeedViewModel @Inject constructor(
                 likedByMe = newLikedState,
                 likeCount = newLikeCount
             )
-            _optimisticLikes.value = _optimisticLikes.value + (postId to updatedPost)
+            _optimisticLikes.value += (postId to updatedPost)
 
             Timber.d("Optimistic like: postId=$postId, newState=$newLikedState, newCount=$newLikeCount")
 
@@ -67,11 +67,11 @@ class FeedViewModel @Inject constructor(
                     // Success - remove from optimistic map, let real data show
                     val serverState = result.data
                     Timber.d("Like synced successfully: postId=$postId, state=$serverState")
-                    _optimisticLikes.value = _optimisticLikes.value - postId
+                    _optimisticLikes.value -= postId
                 }
                 is Result.Error -> {
                     // Rollback optimistic update
-                    _optimisticLikes.value = _optimisticLikes.value - postId
+                    _optimisticLikes.value -= postId
                     _uiState.value = FeedUiState.Error(result.message ?: "Failed to toggle like")
                     Timber.e("Like failed: ${result.message}")
                 }

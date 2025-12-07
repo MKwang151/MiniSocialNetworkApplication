@@ -28,9 +28,7 @@ class UserRepositoryImpl @Inject constructor(
             }
 
             val user = document.toObject(User::class.java)
-            if (user == null) {
-                return Result.Error(Exception("Failed to parse user data"))
-            }
+                ?: return Result.Error(Exception("Failed to parse user data"))
 
             Result.Success(user)
 
@@ -43,9 +41,7 @@ class UserRepositoryImpl @Inject constructor(
     override suspend fun getCurrentUser(): Result<User> {
         return try {
             val userId = auth.currentUser?.uid
-            if (userId == null) {
-                return Result.Error(Exception("User not authenticated"))
-            }
+                    ?: return Result.Error(Exception("User not authenticated"))
 
             getUser(userId)
 
@@ -58,9 +54,7 @@ class UserRepositoryImpl @Inject constructor(
     override suspend fun updateUser(user: User): Result<Unit> {
         return try {
             val userId = auth.currentUser?.uid
-            if (userId == null) {
-                return Result.Error(Exception("User not authenticated"))
-            }
+                ?: return Result.Error(Exception("User not authenticated"))
 
             if (userId != user.id) {
                 return Result.Error(Exception("Cannot update other user's profile"))
@@ -145,9 +139,7 @@ class UserRepositoryImpl @Inject constructor(
     override suspend fun updateAvatar(avatarUrl: String): Result<Unit> {
         return try {
             val userId = auth.currentUser?.uid
-            if (userId == null) {
-                return Result.Error(Exception("User not authenticated"))
-            }
+                ?: return Result.Error(Exception("User not authenticated"))
 
             firestore
                 .collection(Constants.COLLECTION_USERS)
