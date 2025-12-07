@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -54,6 +55,7 @@ fun ProfileScreen(
     onNavigateToPostDetail: (String) -> Unit,
     onNavigateToImageGallery: (String, Int) -> Unit = { _, _ -> },
     onNavigateToEditProfile: (String) -> Unit = {},
+    onNavigateToChat: (String) -> Unit = {},
     shouldRefresh: Boolean = false,
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
@@ -112,6 +114,7 @@ fun ProfileScreen(
                     onLikeClicked = viewModel::toggleLike,
                     onFriendClick =
                         if (!state.isFriend) viewModel::addFriend else viewModel::removeFriend,
+                    onMessageClick = { onNavigateToChat(state.user.uid) },
                     modifier = Modifier.padding(paddingValues)
                 )
             }
@@ -137,6 +140,7 @@ fun ProfileContent(
     onImageClicked: (String, Int) -> Unit = { _, _ -> },
     onLikeClicked: (Post) -> Unit,
     onFriendClick: () -> Unit,
+    onMessageClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -151,7 +155,8 @@ fun ProfileContent(
                 isFriend = isFriend,
                 friendCount = userFriends.count(),
                 postCount = userPosts.itemCount,
-                onFriendClick = onFriendClick
+                onFriendClick = onFriendClick,
+                onMessageClick = onMessageClick
             )
             
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
@@ -233,6 +238,7 @@ fun ProfileHeader(
     friendCount: Int,
     postCount: Int,
     onFriendClick: () -> Unit,
+    onMessageClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -276,19 +282,45 @@ fun ProfileHeader(
         Spacer(modifier = Modifier.height(16.dp))
 
         if (!isOwnProfile) {
-            Button(
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Transparent,   // white background
-                    contentColor = Color.Black
-                ),
-                border = BorderStroke(1.dp, Color(0x33000000)),
-                shape = RoundedCornerShape(12.dp),
-                onClick = onFriendClick
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = if (!isFriend) "Add Friend" else "Remove Friend",
-                    style = MaterialTheme.typography.headlineSmall
-                )
+                // Add/Remove Friend button
+                Button(
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.Transparent,
+                        contentColor = Color.Black
+                    ),
+                    border = BorderStroke(1.dp, Color(0x33000000)),
+                    shape = RoundedCornerShape(12.dp),
+                    onClick = onFriendClick
+                ) {
+                    Text(
+                        text = if (!isFriend) "Add Friend" else "Remove Friend",
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
+
+                // Message button
+                Button(
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    onClick = onMessageClick
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Message,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.size(4.dp))
+                    Text(
+                        text = "Message",
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

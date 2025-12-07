@@ -1,15 +1,17 @@
 package com.example.minisocialnetworkapplication.ui.navigation
 
 import android.annotation.SuppressLint
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.minisocialnetworkapplication.ui.auth.AuthViewModel
 import com.example.minisocialnetworkapplication.ui.components.BottomNavBar
 
-@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun MainScreen(startDestination: String) {
     val navController = rememberNavController()
@@ -21,7 +23,7 @@ fun MainScreen(startDestination: String) {
 
             if (currentRoute in listOf(
                     Screen.Feed.route,
-                    Screen.Chat.route,
+                    Screen.ConversationList.route,
                     Screen.Settings.route,
                     Screen.Profile.route,
                     Screen.SearchUser.route
@@ -30,11 +32,13 @@ fun MainScreen(startDestination: String) {
                 BottomNavBar(navController, authViewModel)
             }
         }
-    ) { _ ->
-        NavGraph(
-            navController = navController,
-            startDestination = startDestination,
-            authViewModel = authViewModel
-        )
+    ) { paddingValues ->
+        Box(modifier = Modifier.padding(paddingValues)) {
+            NavGraph(
+                navController = navController,
+                startDestination = startDestination,
+                authViewModel = authViewModel
+            )
+        }
     }
 }
