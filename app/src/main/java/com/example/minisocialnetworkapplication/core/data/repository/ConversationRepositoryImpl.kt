@@ -56,6 +56,9 @@ class ConversationRepositoryImpl @Inject constructor(
         }
     }
 
+    // In-memory cache for lastReadSequenceId per conversation
+    private val lastReadSeqIdCache = mutableMapOf<String, Long>()
+    
     override fun getConversations(): Flow<List<Conversation>> = callbackFlow {
         val currentUserId = auth.currentUser?.uid ?: run {
             trySend(emptyList())
@@ -63,7 +66,103 @@ class ConversationRepositoryImpl @Inject constructor(
             return@callbackFlow
         }
 
-        val listener = firestore.collection(COLLECTION_CONVERSATIONS)
+        // Cached conversations list for re-calculating when participants change
+        var cachedConversationDocs: List<com.google.firebase.firestore.DocumentSnapshot> = emptyList()
+        
+        // Function to process and emit conversations with current cache
+        fun processAndEmit() {
+            kotlinx.coroutines.runBlocking {
+                val conversations = cachedConversationDocs.mapNotNull { doc ->
+                    try {
+                        val conv = parseConversation(doc.id, doc.data ?: emptyMap())
+                        
+                        // Get lastMessageSequenceId from Firestore
+                        val lastMessage = doc.data?.get("lastMessage") as? Map<*, *>
+                        val lastMsgSequenceId = (lastMessage?.get("sequenceId") as? Long) ?: 0L
+                        
+                        // Get cached lastReadSequenceId
+                        val lastReadSeqId = lastReadSeqIdCache[conv.id] ?: 0L
+                        
+                        // Calculate unread count
+                        val unreadCount = if (lastMsgSequenceId > lastReadSeqId) {
+                            (lastMsgSequenceId - lastReadSeqId).toInt()
+                        } else {
+                            0
+                        }
+                        
+                        conv.copy(unreadCount = unreadCount)
+                    } catch (e: Exception) {
+                        timber.log.Timber.e(e, "Error parsing conversation ${doc.id}")
+                        null
+                    }
+                }.sortedByDescending { it.updatedAt.toDate() }
+                
+                // Save to local DB
+                val entities = conversations.map { conv ->
+                    val lastMessage = conv.lastMessage
+                    ConversationEntity(
+                        id = conv.id,
+                        type = conv.type.name,
+                        name = conv.name,
+                        avatarUrl = conv.avatarUrl,
+                        participantIds = org.json.JSONArray(conv.participantIds).toString(),
+                        lastMessageText = lastMessage?.text,
+                        lastMessageType = lastMessage?.type?.name,
+                        lastMessageSenderId = lastMessage?.senderId,
+                        lastMessageSenderName = lastMessage?.senderName,
+                        lastMessageTime = lastMessage?.timestamp?.toDate()?.time,
+                        lastMessageSequenceId = lastMessage?.sequenceId ?: 0L,
+                        unreadCount = conv.unreadCount,
+                        isPinned = conv.isPinned,
+                        isMuted = conv.isMuted,
+                        createdAt = conv.createdAt.toDate().time,
+                        updatedAt = conv.updatedAt.toDate().time
+                    )
+                }
+                if (entities.isNotEmpty()) {
+                    conversationDao.insertAll(entities)
+                }
+                
+                trySend(conversations)
+            }
+        }
+        
+        
+        // Listeners for each conversation's participants subcollection (current user's doc)
+        val participantListeners = mutableMapOf<String, com.google.firebase.firestore.ListenerRegistration>()
+        
+        // Function to set up participant listeners for current conversations
+        fun setupParticipantListeners(convIds: List<String>) {
+            // Remove listeners for conversations no longer in list
+            val currentIds = convIds.toSet()
+            participantListeners.keys.filter { it !in currentIds }.forEach { oldConvId ->
+                participantListeners[oldConvId]?.remove()
+                participantListeners.remove(oldConvId)
+            }
+            
+            // Add listeners for new conversations
+            convIds.filter { it !in participantListeners.keys }.forEach { convId ->
+                val listener = firestore.collection(COLLECTION_CONVERSATIONS)
+                    .document(convId)
+                    .collection(COLLECTION_PARTICIPANTS)
+                    .document(currentUserId)
+                    .addSnapshotListener { doc, error ->
+                        if (error != null || doc == null) return@addSnapshotListener
+                        
+                        val lastReadSeqId = doc.getLong("lastReadSequenceId") ?: 0L
+                        val oldValue = lastReadSeqIdCache[convId]
+                        if (oldValue != lastReadSeqId) {
+                            timber.log.Timber.d("Participant listener: conv=$convId, lastReadSeqId updated $oldValue -> $lastReadSeqId")
+                            lastReadSeqIdCache[convId] = lastReadSeqId
+                            processAndEmit()
+                        }
+                    }
+                participantListeners[convId] = listener
+            }
+        }
+        
+        // Modify the conversations listener to also set up participant listeners
+        val conversationsListener = firestore.collection(COLLECTION_CONVERSATIONS)
             .whereArrayContains("participantIds", currentUserId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
@@ -73,66 +172,32 @@ class ConversationRepositoryImpl @Inject constructor(
                     }
                     return@addSnapshotListener
                 }
-
+                
+                cachedConversationDocs = snapshot?.documents ?: emptyList()
+                val convIds = cachedConversationDocs.map { it.id }
+                
+                // Initial fetch of lastReadSequenceId for new conversations only
                 kotlinx.coroutines.runBlocking {
-                    val conversations = snapshot?.documents?.mapNotNull { doc ->
-                        try {
-                            val conv = parseConversation(doc.id, doc.data ?: emptyMap())
-                            
-                            // Get lastMessageSequenceId from Firestore
-                            val lastMessage = doc.data?.get("lastMessage") as? Map<*, *>
-                            val lastMsgSequenceId = (lastMessage?.get("sequenceId") as? Long) ?: 0L
-                            
-                            // Get user's lastReadSequenceId from participants subcollection
-                            val lastReadSeqId = getLastReadSequenceId(conv.id, currentUserId)
-                            
-                            // Calculate unread count
-                            val unreadCount = if (lastMsgSequenceId > lastReadSeqId) {
-                                (lastMsgSequenceId - lastReadSeqId).toInt()
-                            } else {
-                                0
-                            }
-                            
-                            timber.log.Timber.d("Conversation ${conv.id}: lastMsgSeq=$lastMsgSequenceId, lastReadSeq=$lastReadSeqId, unread=$unreadCount")
-                            
-                            conv.copy(
-                                unreadCount = unreadCount
-                            )
-                        } catch (e: Exception) {
-                            timber.log.Timber.e(e, "Error parsing conversation ${doc.id}")
-                            null
+                    for (doc in cachedConversationDocs) {
+                        val convId = doc.id
+                        if (!lastReadSeqIdCache.containsKey(convId)) {
+                            // Fetch initial value
+                            val seqId = getLastReadSequenceId(convId, currentUserId)
+                            lastReadSeqIdCache[convId] = seqId
                         }
-                    }?.sortedByDescending { it.updatedAt.toDate() } ?: emptyList()
-
-                    // Save to local DB
-                    val entities = conversations.map { conv ->
-                        val lastMessage = conv.lastMessage
-                        ConversationEntity(
-                            id = conv.id,
-                            type = conv.type.name,
-                            name = conv.name,
-                            avatarUrl = conv.avatarUrl,
-                            participantIds = org.json.JSONArray(conv.participantIds).toString(),
-                            lastMessageText = lastMessage?.text,
-                            lastMessageType = lastMessage?.type?.name,
-                            lastMessageSenderId = lastMessage?.senderId,
-                            lastMessageSenderName = lastMessage?.senderName,
-                            lastMessageTime = lastMessage?.timestamp?.toDate()?.time,
-                            lastMessageSequenceId = lastMessage?.sequenceId ?: 0L,
-                            unreadCount = conv.unreadCount,
-                            isPinned = conv.isPinned,
-                            isMuted = conv.isMuted,
-                            createdAt = conv.createdAt.toDate().time,
-                            updatedAt = conv.updatedAt.toDate().time
-                        )
                     }
-                    conversationDao.insertAll(entities)
-
-                    trySend(conversations)
                 }
+                
+                // Set up real-time listeners for participant docs
+                setupParticipantListeners(convIds)
+                
+                processAndEmit()
             }
 
-        awaitClose { listener.remove() }
+        awaitClose { 
+            conversationsListener.remove()
+            participantListeners.values.forEach { it.remove() }
+        }
     }
 
 
@@ -292,6 +357,9 @@ class ConversationRepositoryImpl @Inject constructor(
             val lastMsgSeqId = (lastMessageData?.get("sequenceId") as? Long) ?: 0L
             
             timber.log.Timber.d("markConversationAsRead: got lastMsgSeqId=$lastMsgSeqId from Firestore")
+            
+            // Optimistic cache update for instant UI feedback
+            lastReadSeqIdCache[conversationId] = lastMsgSeqId
             
             // Update local participant's lastReadSequenceId
             participantDao.updateLastRead(conversationId, currentUserId, lastMsgSeqId)
