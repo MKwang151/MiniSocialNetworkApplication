@@ -252,12 +252,16 @@ class ChatDetailViewModel @Inject constructor(
     }
 
     fun revokeMessage(messageId: String) {
+        timber.log.Timber.d("revokeMessage: called with messageId=$messageId, conversationId=$conversationId")
         viewModelScope.launch {
             when (val result = messageRepository.revokeMessage(conversationId, messageId)) {
                 is Result.Error -> {
+                    timber.log.Timber.e("revokeMessage: FAILED - ${result.message}")
                     _uiState.value = _uiState.value.copy(error = result.message)
                 }
-                is Result.Success -> { /* success */ }
+                is Result.Success -> { 
+                    timber.log.Timber.d("revokeMessage: SUCCESS")
+                }
                 is Result.Loading -> { /* ignore */ }
             }
         }

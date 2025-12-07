@@ -16,6 +16,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -41,6 +43,8 @@ import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -61,9 +65,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -244,15 +251,15 @@ fun ChatDetailScreen(
                                 items = uiState.messages,
                                 key = { it.localId }
                             ) { message ->
-                                MessageBubble(
+                                SwipeableMessageBubble(
                                     message = message,
                                     isOutgoing = message.isOutgoing(currentUserId),
                                     senderAvatarUrl = if (message.isOutgoing(currentUserId)) null else uiState.otherUser?.avatarUrl,
-                                    onLongClick = {
-                                        // Show message actions
-                                    },
-                                    onReplyClick = {
+                                    onReply = {
                                         viewModel.setReplyToMessage(message)
+                                    },
+                                    onDelete = {
+                                        viewModel.revokeMessage(message.id)
                                     }
                                 )
                             }
@@ -301,6 +308,159 @@ fun ChatDetailScreen(
                 },
                 isSending = uiState.isSending
             )
+        }
+    }
+}
+
+/**
+ * Swipeable wrapper for MessageBubble to trigger reply on swipe
+ * Also handles long press context menu
+ * - Incoming messages: swipe right to reply
+ * - Outgoing messages: swipe left to reply
+ */
+@Composable
+private fun SwipeableMessageBubble(
+    message: Message,
+    isOutgoing: Boolean,
+    senderAvatarUrl: String? = null,
+    onReply: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var offsetX by remember { mutableStateOf(0f) }
+    var showContextMenu by remember { mutableStateOf(false) }
+    val swipeThreshold = 80f
+    val maxSwipe = 100f
+    
+    // Calculate swipe progress for visual feedback
+    val swipeProgress = (kotlin.math.abs(offsetX) / swipeThreshold).coerceIn(0f, 1f)
+    val triggerReply = kotlin.math.abs(offsetX) >= swipeThreshold
+
+    Box(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        // Reply icon shown during swipe
+        if (offsetX != 0f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                contentAlignment = if (isOutgoing) Alignment.CenterEnd else Alignment.CenterStart
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .size((24 * swipeProgress).coerceAtLeast(16f).dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (triggerReply) 
+                                MaterialTheme.colorScheme.primary 
+                            else 
+                                MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Send,
+                        contentDescription = "Reply",
+                        modifier = Modifier.size((16 * swipeProgress).coerceAtLeast(12f).dp),
+                        tint = if (triggerReply) 
+                            MaterialTheme.colorScheme.onPrimary 
+                        else 
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+        
+        // Message bubble with drag gesture
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(offsetX.toInt(), 0) }
+                .pointerInput(isOutgoing) {
+                    detectHorizontalDragGestures(
+                        onDragStart = { },
+                        onDragEnd = {
+                            // Check threshold at the moment of release
+                            val shouldReply = kotlin.math.abs(offsetX) >= swipeThreshold
+                            if (shouldReply) {
+                                onReply()
+                            }
+                            offsetX = 0f
+                        },
+                        onDragCancel = {
+                            offsetX = 0f
+                        },
+                        onHorizontalDrag = { change, dragAmount ->
+                            change.consume()
+                            // Outgoing: allow only left swipe (negative)
+                            // Incoming: allow only right swipe (positive)
+                            val newOffset = if (isOutgoing) {
+                                (offsetX + dragAmount).coerceIn(-maxSwipe, 0f)
+                            } else {
+                                (offsetX + dragAmount).coerceIn(0f, maxSwipe)
+                            }
+                            offsetX = newOffset
+                        }
+                    )
+                }
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = if (isOutgoing) Arrangement.End else Arrangement.Start
+            ) {
+                Box {
+                    MessageBubble(
+                        message = message,
+                        isOutgoing = isOutgoing,
+                        senderAvatarUrl = senderAvatarUrl,
+                        onLongClick = { showContextMenu = true },
+                        onReplyClick = onReply
+                    )
+                    
+                    // Context menu dropdown - anchored to the message bubble
+                    DropdownMenu(
+                        expanded = showContextMenu,
+                        onDismissRequest = { showContextMenu = false }
+                    ) {
+                        if (isOutgoing) {
+                            // Options for own messages
+                            DropdownMenuItem(
+                                text = { Text("🗑️ Delete") },
+                                onClick = {
+                                    showContextMenu = false
+                                    onDelete()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("↗️ Forward") },
+                                onClick = {
+                                    showContextMenu = false
+                                    // TODO: Implement forward
+                                },
+                                enabled = false
+                            )
+                        } else {
+                            // Options for other user's messages
+                            DropdownMenuItem(
+                                text = { Text("↩️ Reply") },
+                                onClick = {
+                                    showContextMenu = false
+                                    onReply()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("↗️ Forward") },
+                                onClick = {
+                                    showContextMenu = false
+                                    // TODO: Implement forward
+                                },
+                                enabled = false
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
