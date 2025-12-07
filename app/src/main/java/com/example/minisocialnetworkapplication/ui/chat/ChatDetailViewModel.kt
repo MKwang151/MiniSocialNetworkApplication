@@ -156,10 +156,11 @@ class ChatDetailViewModel @Inject constructor(
     
     /**
      * Public function to mark all messages as read - called when leaving the screen
+     * Uses NonCancellable to ensure the write completes even when ViewModel is destroyed
      */
     fun markAllAsRead() {
         timber.log.Timber.d("markAllAsRead: called on dispose for conv=$conversationId")
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.NonCancellable) {
             markMessagesAsReadUseCase(conversationId)
         }
     }
