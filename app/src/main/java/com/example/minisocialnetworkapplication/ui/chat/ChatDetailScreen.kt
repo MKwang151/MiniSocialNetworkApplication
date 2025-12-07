@@ -1,5 +1,9 @@
 package com.example.minisocialnetworkapplication.ui.chat
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -27,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.CircularProgressIndicator
@@ -63,6 +68,7 @@ import com.example.minisocialnetworkapplication.core.domain.model.MessageType
 import java.text.SimpleDateFormat
 import java.util.Locale
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatDetailScreen(
@@ -74,6 +80,15 @@ fun ChatDetailScreen(
 
     var messageText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
+
+    // Image picker launcher
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 10)
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            viewModel.sendMediaMessage(uris, MessageType.IMAGE)
+        }
+    }
 
     // Scroll to bottom when new messages arrive
     LaunchedEffect(uiState.messages.size) {
@@ -234,6 +249,11 @@ fun ChatDetailScreen(
                 onSendClick = {
                     viewModel.sendMessage(messageText)
                     messageText = ""
+                },
+                onAttachClick = {
+                    imagePickerLauncher.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
                 },
                 isSending = uiState.isSending
             )
@@ -442,6 +462,7 @@ private fun MessageInput(
     text: String,
     onTextChange: (String) -> Unit,
     onSendClick: () -> Unit,
+    onAttachClick: () -> Unit,
     isSending: Boolean
 ) {
     Row(
@@ -451,6 +472,18 @@ private fun MessageInput(
             .padding(8.dp),
         verticalAlignment = Alignment.Bottom
     ) {
+        // Attach button
+        IconButton(
+            onClick = onAttachClick,
+            enabled = !isSending
+        ) {
+            Icon(
+                imageVector = Icons.Default.AttachFile,
+                contentDescription = "Attach image",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
         OutlinedTextField(
             value = text,
             onValueChange = onTextChange,

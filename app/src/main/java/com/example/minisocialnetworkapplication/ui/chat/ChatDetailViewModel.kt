@@ -1,11 +1,13 @@
 package com.example.minisocialnetworkapplication.ui.chat
 
+import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.minisocialnetworkapplication.core.domain.model.Conversation
 import com.example.minisocialnetworkapplication.core.domain.model.ConversationType
 import com.example.minisocialnetworkapplication.core.domain.model.Message
+import com.example.minisocialnetworkapplication.core.domain.model.MessageType
 import com.example.minisocialnetworkapplication.core.domain.model.User
 import com.example.minisocialnetworkapplication.core.domain.repository.ConversationRepository
 import com.example.minisocialnetworkapplication.core.domain.repository.MessageRepository
@@ -143,6 +145,32 @@ class ChatDetailViewModel @Inject constructor(
                         replyToMessage = null
                     )
                     setTypingStatus(false)
+                }
+                is Result.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isSending = false,
+                        error = result.message
+                    )
+                }
+                is Result.Loading -> { /* ignore */ }
+            }
+        }
+    }
+
+    fun sendMediaMessage(uris: List<Uri>, type: MessageType = MessageType.IMAGE, caption: String? = null) {
+        if (uris.isEmpty()) return
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSending = true)
+
+            val replyToId = _uiState.value.replyToMessage?.id
+
+            when (val result = sendMessageUseCase.sendMedia(conversationId, type, uris, caption, replyToId)) {
+                is Result.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        isSending = false,
+                        replyToMessage = null
+                    )
                 }
                 is Result.Error -> {
                     _uiState.value = _uiState.value.copy(
