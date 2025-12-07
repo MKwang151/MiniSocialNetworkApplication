@@ -41,6 +41,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
@@ -225,16 +226,41 @@ private fun ConversationItem(
                 }
             }
             
-            // Online indicator dot
-            if (otherUser?.isOnline == true) {
-                Box(
-                    modifier = Modifier
-                        .size(14.dp)
-                        .align(Alignment.BottomEnd)
-                        .background(MaterialTheme.colorScheme.surface, CircleShape)
-                        .padding(2.dp)
-                        .background(Color(0xFF4CAF50), CircleShape)
-                )
+            // Online/Status indicator
+            val minutesAgo = otherUser?.getMinutesAgo()
+            when {
+                otherUser?.isOnline == true -> {
+                    // Green dot for online
+                    Box(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .align(Alignment.BottomEnd)
+                            .background(MaterialTheme.colorScheme.surface, CircleShape)
+                            .padding(2.dp)
+                            .background(Color(0xFF4CAF50), CircleShape)
+                    )
+                }
+                minutesAgo != null -> {
+                    // Show minutes if offline < 60 min
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .background(MaterialTheme.colorScheme.surface, CircleShape)
+                            .padding(1.dp)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                            .padding(horizontal = 3.dp, vertical = 1.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "${minutesAgo}m",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = 8.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                // else: offline > 60 min, show nothing
             }
         }
 

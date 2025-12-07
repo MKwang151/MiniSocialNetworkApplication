@@ -5,6 +5,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -45,6 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -96,6 +103,13 @@ fun ChatDetailScreen(
             listState.animateScrollToItem(0)
         }
     }
+    
+    // Mark as read when leaving the screen (ensure no unread when navigating back)
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.markAllAsRead()
+        }
+    }
 
     // Determine title
     val title = when {
@@ -114,27 +128,41 @@ fun ChatDetailScreen(
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Avatar
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (avatarUrl != null) {
-                                AsyncImage(
-                                    model = avatarUrl,
-                                    contentDescription = null,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp),
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        // Avatar with online indicator
+                        Box(modifier = Modifier.size(40.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (avatarUrl != null) {
+                                    AsyncImage(
+                                        model = avatarUrl,
+                                        contentDescription = null,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+                            
+                            // Online indicator dot
+                            if (uiState.otherUser?.isOnline == true) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(12.dp)
+                                        .align(Alignment.BottomEnd)
+                                        .background(MaterialTheme.colorScheme.surface, CircleShape)
+                                        .padding(2.dp)
+                                        .background(Color(0xFF4CAF50), CircleShape)
                                 )
                             }
                         }
@@ -148,13 +176,17 @@ fun ChatDetailScreen(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-
-                            // Typing indicator or online status
-                            if (uiState.typingUsers.isNotEmpty()) {
+                            
+                            // Status text: "Active now" or "Active Xm/h ago"
+                            val statusText = uiState.otherUser?.getStatusText() ?: ""
+                            if (statusText.isNotEmpty()) {
                                 Text(
-                                    text = "typing...",
+                                    text = statusText,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary
+                                    color = if (uiState.otherUser?.isOnline == true) 
+                                        Color(0xFF4CAF50) 
+                                    else 
+                                        MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -203,7 +235,10 @@ fun ChatDetailScreen(
                             modifier = Modifier.fillMaxSize(),
                             state = listState,
                             reverseLayout = true, // Newest messages at bottom
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                bottom = if (uiState.typingUsers.isNotEmpty()) 56.dp else 0.dp
+                            )
                         ) {
                             items(
                                 items = uiState.messages,
@@ -212,6 +247,7 @@ fun ChatDetailScreen(
                                 MessageBubble(
                                     message = message,
                                     isOutgoing = message.isOutgoing(currentUserId),
+                                    senderAvatarUrl = if (message.isOutgoing(currentUserId)) null else uiState.otherUser?.avatarUrl,
                                     onLongClick = {
                                         // Show message actions
                                     },
@@ -222,6 +258,14 @@ fun ChatDetailScreen(
                             }
                         }
                     }
+                }
+                
+                // Typing indicator bubble - positioned at bottom
+                if (uiState.typingUsers.isNotEmpty()) {
+                    TypingIndicatorBubble(
+                        avatarUrl = uiState.otherUser?.avatarUrl,
+                        modifier = Modifier.align(Alignment.BottomStart)
+                    )
                 }
             }
 
@@ -265,6 +309,7 @@ fun ChatDetailScreen(
 private fun MessageBubble(
     message: Message,
     isOutgoing: Boolean,
+    senderAvatarUrl: String? = null,
     onLongClick: () -> Unit,
     onReplyClick: () -> Unit
 ) {
@@ -280,14 +325,44 @@ private fun MessageBubble(
         MaterialTheme.colorScheme.onSurfaceVariant
     }
 
-    val alignment = if (isOutgoing) Alignment.End else Alignment.Start
-
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 2.dp),
-        horizontalAlignment = alignment
+        horizontalArrangement = if (isOutgoing) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.Bottom
     ) {
+        // Avatar for incoming messages
+        if (!isOutgoing) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                if (senderAvatarUrl != null) {
+                    AsyncImage(
+                        model = senderAvatarUrl,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+
+        Column(
+            horizontalAlignment = if (isOutgoing) Alignment.End else Alignment.Start
+        ) {
         // Reply preview if this message is a reply
         message.replyToMessage?.let { reply ->
             Box(
@@ -386,6 +461,7 @@ private fun MessageBubble(
                 }
             }
         }
+        }
     }
 }
 
@@ -410,6 +486,99 @@ private fun MessageStatusIcon(status: MessageStatus, color: Color) {
         style = MaterialTheme.typography.labelSmall,
         color = statusColor
     )
+}
+
+/**
+ * Messenger-style typing indicator bubble with animated dots
+ */
+@Composable
+private fun TypingIndicatorBubble(
+    avatarUrl: String?,
+    modifier: Modifier = Modifier
+) {
+    val dotCount = 3
+    val infiniteTransition = rememberInfiniteTransition(label = "typing")
+    
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.Bottom
+    ) {
+        // Avatar
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            if (avatarUrl != null) {
+                AsyncImage(
+                    model = avatarUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Icon(
+                    Icons.Default.Person,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.width(8.dp))
+        
+        // Typing bubble with animated dots
+        Box(
+            modifier = Modifier
+                .clip(
+                    RoundedCornerShape(
+                        topStart = 16.dp,
+                        topEnd = 16.dp,
+                        bottomStart = 4.dp,
+                        bottomEnd = 16.dp
+                    )
+                )
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                repeat(dotCount) { index ->
+                    val delay = index * 150
+                    val alpha by infiniteTransition.animateFloat(
+                        initialValue = 0.3f,
+                        targetValue = 1f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(
+                                durationMillis = 600,
+                                delayMillis = delay,
+                                easing = FastOutSlowInEasing
+                            ),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "dot$index"
+                    )
+                    
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
+                            )
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable

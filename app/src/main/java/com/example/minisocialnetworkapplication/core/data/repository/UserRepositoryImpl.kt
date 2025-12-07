@@ -6,6 +6,7 @@ import com.example.minisocialnetworkapplication.core.util.Constants
 import com.example.minisocialnetworkapplication.core.util.Result
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
@@ -218,4 +219,22 @@ class UserRepositoryImpl @Inject constructor(
             Result.Error(e)
         }
     }
+    
+    override fun observeUser(userId: String): kotlinx.coroutines.flow.Flow<User?> = 
+        kotlinx.coroutines.flow.callbackFlow {
+            val listener = firestore.collection(Constants.COLLECTION_USERS)
+                .document(userId)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        Timber.e(error, "Failed to observe user: $userId")
+                        return@addSnapshotListener
+                    }
+                    
+                    val user = snapshot?.toObject(User::class.java)
+                    Timber.d("observeUser: $userId isOnline=${user?.isOnline}")
+                    trySend(user)
+                }
+            
+            awaitClose { listener.remove() }
+        }
 }

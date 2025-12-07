@@ -78,13 +78,8 @@ class ChatDetailViewModel @Inject constructor(
                     if (conversation.type == ConversationType.DIRECT) {
                         val otherUserId = conversation.participantIds.find { it != currentUserId }
                         otherUserId?.let { id ->
-                            when (val userResult = userRepository.getUser(id)) {
-                                is Result.Success -> {
-                                    _uiState.value = _uiState.value.copy(otherUser = userResult.data)
-                                }
-                                is Result.Error -> { /* ignore */ }
-                                is Result.Loading -> { /* ignore */ }
-                            }
+                            // Observe user real-time for online status updates
+                            observeOtherUser(id)
                         }
                     }
                 }
@@ -95,9 +90,19 @@ class ChatDetailViewModel @Inject constructor(
             }
         }
     }
+    
+    private fun observeOtherUser(userId: String) {
+        viewModelScope.launch {
+            userRepository.observeUser(userId).collect { user ->
+                _uiState.value = _uiState.value.copy(otherUser = user)
+            }
+        }
+    }
 
     private fun loadMessages() {
         viewModelScope.launch {
+            var lastMessageCount = 0
+            
             getMessagesUseCase(conversationId)
                 .catch { e ->
                     _uiState.value = _uiState.value.copy(
@@ -106,11 +111,28 @@ class ChatDetailViewModel @Inject constructor(
                     )
                 }
                 .collect { messages ->
+                    val currentCount = messages.size
+                    timber.log.Timber.d("loadMessages: received $currentCount messages, lastCount=$lastMessageCount")
+                    
                     _uiState.value = _uiState.value.copy(
                         messages = messages,
                         isLoading = false,
                         error = null
                     )
+                    
+                    // Mark as read whenever new messages arrive (count changed means new message or initial load)
+                    // BUT skip if latest message is from current user (sendMessage already handles lastReadSequenceId)
+                    if (currentCount != lastMessageCount) {
+                        val latestMessage = messages.firstOrNull()
+                        val isFromCurrentUser = latestMessage?.senderId == currentUserId
+                        timber.log.Timber.d("loadMessages: message count changed $lastMessageCount -> $currentCount, latestSenderId=${latestMessage?.senderId}, isFromCurrentUser=$isFromCurrentUser")
+                        lastMessageCount = currentCount
+                        
+                        // Only call markAsRead if the message is from someone else
+                        if (!isFromCurrentUser) {
+                            markAsRead()
+                        }
+                    }
                 }
         }
     }
@@ -126,6 +148,17 @@ class ChatDetailViewModel @Inject constructor(
     }
 
     private fun markAsRead() {
+        timber.log.Timber.d("markAsRead: called for conv=$conversationId")
+        viewModelScope.launch {
+            markMessagesAsReadUseCase(conversationId)
+        }
+    }
+    
+    /**
+     * Public function to mark all messages as read - called when leaving the screen
+     */
+    fun markAllAsRead() {
+        timber.log.Timber.d("markAllAsRead: called on dispose for conv=$conversationId")
         viewModelScope.launch {
             markMessagesAsReadUseCase(conversationId)
         }
@@ -133,6 +166,10 @@ class ChatDetailViewModel @Inject constructor(
 
     fun sendMessage(text: String) {
         if (text.isBlank()) return
+
+        // Cancel any pending typing job and clear typing status immediately
+        typingJob?.cancel()
+        setTypingStatus(false)
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSending = true)
@@ -145,7 +182,6 @@ class ChatDetailViewModel @Inject constructor(
                         isSending = false,
                         replyToMessage = null
                     )
-                    setTypingStatus(false)
                 }
                 is Result.Error -> {
                     _uiState.value = _uiState.value.copy(

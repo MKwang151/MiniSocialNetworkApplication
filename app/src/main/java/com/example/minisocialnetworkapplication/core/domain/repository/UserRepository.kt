@@ -40,6 +40,11 @@ interface UserRepository {
      * Update user online presence
      */
     suspend fun updatePresence(isOnline: Boolean): Result<Unit>
+    
+    /**
+     * Observe user status real-time (for online/offline indicator)
+     */
+    fun observeUser(userId: String): kotlinx.coroutines.flow.Flow<User?>
 }
 
 

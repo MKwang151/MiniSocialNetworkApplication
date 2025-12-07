@@ -282,9 +282,16 @@ class ConversationRepositoryImpl @Inject constructor(
             val currentUserId = auth.currentUser?.uid 
                 ?: return Result.Error(Exception("Not authenticated"))
             
-            // Get current conversation to get lastMessageSequenceId
-            val localConv = conversationDao.getConversationById(conversationId)
-            val lastMsgSeqId = localConv?.lastMessageSequenceId ?: 0L
+            // Get lastMessage.sequenceId directly from Firestore (avoid stale local cache)
+            val conversationDoc = firestore.collection(COLLECTION_CONVERSATIONS)
+                .document(conversationId)
+                .get()
+                .await()
+            
+            val lastMessageData = conversationDoc.get("lastMessage") as? Map<*, *>
+            val lastMsgSeqId = (lastMessageData?.get("sequenceId") as? Long) ?: 0L
+            
+            timber.log.Timber.d("markConversationAsRead: got lastMsgSeqId=$lastMsgSeqId from Firestore")
             
             // Update local participant's lastReadSequenceId
             participantDao.updateLastRead(conversationId, currentUserId, lastMsgSeqId)

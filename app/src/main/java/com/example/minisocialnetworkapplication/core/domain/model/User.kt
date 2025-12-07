@@ -18,7 +18,29 @@ data class User(
     val id: String get() = uid
     
     /**
-     * Get display text for user's online status
+     * Get minutes since last active. Returns null if > 60 min or no lastActive
+     */
+    fun getMinutesAgo(): Int? {
+        if (isOnline) return null
+        val lastActiveTime = lastActive?.toDate()?.time ?: return null
+        val diffMs = System.currentTimeMillis() - lastActiveTime
+        val minutes = TimeUnit.MILLISECONDS.toMinutes(diffMs).toInt()
+        return if (minutes in 1..59) minutes else null
+    }
+    
+    /**
+     * Check if should show status indicator (online or active within 24h)
+     */
+    fun shouldShowStatus(): Boolean {
+        if (isOnline) return true
+        val lastActiveTime = lastActive?.toDate()?.time ?: return false
+        val diffMs = System.currentTimeMillis() - lastActiveTime
+        return diffMs < TimeUnit.DAYS.toMillis(1)
+    }
+    
+    /**
+     * Get display text for user's online status (for ChatDetail header)
+     * Returns empty string if inactive for more than 24 hours
      */
     fun getStatusText(): String {
         if (isOnline) return "Active now"
@@ -37,11 +59,7 @@ data class User(
                 val hours = TimeUnit.MILLISECONDS.toHours(diffMs)
                 "Active ${hours}h ago"
             }
-            else -> {
-                val days = TimeUnit.MILLISECONDS.toDays(diffMs)
-                if (days == 1L) "Active yesterday" else "Active ${days}d ago"
-            }
+            else -> "" // Don't show anything if more than 24h
         }
     }
 }
-
