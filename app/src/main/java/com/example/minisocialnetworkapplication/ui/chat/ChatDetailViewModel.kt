@@ -119,6 +119,7 @@ class ChatDetailViewModel @Inject constructor(
         viewModelScope.launch {
             messageRepository.observeTypingStatus(conversationId)
                 .collect { typingUserIds ->
+                    timber.log.Timber.d("observeTypingStatus: received typingUserIds=$typingUserIds for conv=$conversationId")
                     _uiState.value = _uiState.value.copy(typingUsers = typingUserIds)
                 }
         }
@@ -197,6 +198,7 @@ class ChatDetailViewModel @Inject constructor(
     }
 
     private fun setTypingStatus(isTyping: Boolean) {
+        timber.log.Timber.d("setTypingStatus: isTyping=$isTyping, conversationId=$conversationId")
         viewModelScope.launch {
             messageRepository.setTypingStatus(conversationId, isTyping)
         }

@@ -466,21 +466,31 @@ class MessageRepositoryImpl @Inject constructor(
 
     override fun observeTypingStatus(conversationId: String): Flow<List<String>> = callbackFlow {
         val currentUserId = auth.currentUser?.uid
+        timber.log.Timber.d("observeTypingStatus: START for conv=$conversationId, currentUserId=$currentUserId")
 
         val listener = firestore.collection(COLLECTION_CONVERSATIONS)
             .document(conversationId)
             .collection(COLLECTION_TYPING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
+                    timber.log.Timber.e(error, "observeTypingStatus: ERROR")
                     close(error)
                     return@addSnapshotListener
                 }
 
+                timber.log.Timber.d("observeTypingStatus: snapshot, docs=${snapshot?.documents?.size}")
+                
                 val typingUserIds = snapshot?.documents
-                    ?.filter { it.id != currentUserId && it.getBoolean("isTyping") == true }
+                    ?.filter { 
+                        val isTyping = it.getBoolean("isTyping") == true
+                        val isNotMe = it.id != currentUserId
+                        timber.log.Timber.d("observeTypingStatus: doc=${it.id}, isTyping=$isTyping, isNotMe=$isNotMe")
+                        isNotMe && isTyping
+                    }
                     ?.map { it.id }
                     ?: emptyList()
 
+                timber.log.Timber.d("observeTypingStatus: typingUserIds=$typingUserIds")
                 trySend(typingUserIds)
             }
 
