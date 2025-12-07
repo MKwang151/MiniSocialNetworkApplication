@@ -43,7 +43,9 @@ import timber.log.Timber
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    modifier: Modifier = Modifier,
     onNavigateBack: () -> Unit,
+    bottomBar: @Composable () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -54,6 +56,7 @@ fun SettingsScreen(
     var pendingLanguageCode by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
+        modifier = modifier,
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.settings)) },
@@ -66,7 +69,8 @@ fun SettingsScreen(
                     }
                 }
             )
-        }
+        },
+        bottomBar = bottomBar
     ) { paddingValues ->
         Column(
             modifier = Modifier

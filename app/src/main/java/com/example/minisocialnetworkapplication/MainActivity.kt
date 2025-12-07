@@ -20,7 +20,7 @@ import androidx.lifecycle.lifecycleScope
 import com.example.minisocialnetworkapplication.core.domain.repository.UserRepository
 import com.example.minisocialnetworkapplication.core.util.LanguageManager
 import com.example.minisocialnetworkapplication.ui.auth.AuthViewModel
-import com.example.minisocialnetworkapplication.ui.navigation.MainScreen
+import com.example.minisocialnetworkapplication.ui.navigation.NavGraph
 import com.example.minisocialnetworkapplication.ui.navigation.Screen
 import com.example.minisocialnetworkapplication.ui.theme.MiniSocialNetworkApplicationTheme
 import com.google.firebase.auth.FirebaseAuth
@@ -74,7 +74,7 @@ class MainActivity : ComponentActivity() {
                         hasNavigated = true
                     }
 
-                    MainScreen(startDestination = startDestination)
+                    NavGraph(startDestination = startDestination)
                 }
             }
         }

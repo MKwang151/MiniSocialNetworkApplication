@@ -12,12 +12,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.automirrored.filled.Message
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -44,6 +45,7 @@ import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.example.minisocialnetworkapplication.core.domain.model.Friend
+import com.example.minisocialnetworkapplication.core.domain.model.FriendStatus
 import com.example.minisocialnetworkapplication.core.domain.model.Post
 import com.example.minisocialnetworkapplication.core.domain.model.User
 import com.example.minisocialnetworkapplication.ui.components.PostCard
@@ -57,6 +59,7 @@ fun ProfileScreen(
     onNavigateToEditProfile: (String) -> Unit = {},
     onNavigateToChat: (String) -> Unit = {},
     shouldRefresh: Boolean = false,
+    bottomBar: @Composable () -> Unit,
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -96,7 +99,8 @@ fun ProfileScreen(
                     }
                 }
             )
-        }
+        },
+        bottomBar = bottomBar
     ) { paddingValues ->
         when (val state = uiState) {
             is ProfileUiState.Loading -> {
@@ -106,15 +110,20 @@ fun ProfileScreen(
                 ProfileContent(
                     user = state.user,
                     isOwnProfile = state.isOwnProfile,
-                    isFriend = state.isFriend,
                     userFriends = state.friends,
                     userPosts = userPosts,
                     onPostClicked = onNavigateToPostDetail,
                     onImageClicked = onNavigateToImageGallery,
                     onLikeClicked = viewModel::toggleLike,
-                    onFriendClick =
-                        if (!state.isFriend) viewModel::addFriend else viewModel::removeFriend,
                     onMessageClick = { onNavigateToChat(state.user.uid) },
+                    friendStatus = state.friendStatus,
+                    onFriendClick = when (state.friendStatus) {
+                        FriendStatus.FRIEND -> viewModel::unfriend
+                        FriendStatus.REQUEST_SENT -> viewModel::cancelRequest
+                        FriendStatus.REQUEST_RECEIVED -> viewModel::acceptRequest
+                        FriendStatus.NONE -> viewModel::sendRequest
+                    },
+                    onFriendDecline = viewModel::declineRequest,
                     modifier = Modifier.padding(paddingValues)
                 )
             }
@@ -133,13 +142,14 @@ fun ProfileScreen(
 fun ProfileContent(
     user: User,
     isOwnProfile: Boolean,
-    isFriend: Boolean,
     userFriends: List<Friend>,
     userPosts: LazyPagingItems<Post>,
     onPostClicked: (String) -> Unit,
     onImageClicked: (String, Int) -> Unit = { _, _ -> },
     onLikeClicked: (Post) -> Unit,
+    friendStatus: FriendStatus,
     onFriendClick: () -> Unit,
+    onFriendDecline: () -> Unit,
     onMessageClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -152,10 +162,11 @@ fun ProfileContent(
             ProfileHeader(
                 user = user,
                 isOwnProfile = isOwnProfile,
-                isFriend = isFriend,
                 friendCount = userFriends.count(),
                 postCount = userPosts.itemCount,
+                friendStatus = friendStatus,
                 onFriendClick = onFriendClick,
+                onFriendDecline = onFriendDecline,
                 onMessageClick = onMessageClick
             )
             
@@ -234,11 +245,12 @@ fun ProfileContent(
 fun ProfileHeader(
     user: User,
     isOwnProfile: Boolean,
-    isFriend: Boolean,
     friendCount: Int,
     postCount: Int,
+    friendStatus: FriendStatus,
     onFriendClick: () -> Unit,
     onMessageClick: () -> Unit = {},
+    onFriendDecline: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -285,10 +297,9 @@ fun ProfileHeader(
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Add/Remove Friend button
                 Button(
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Transparent,
+                        containerColor = Color.Transparent,   // white background
                         contentColor = Color.Black
                     ),
                     border = BorderStroke(1.dp, Color(0x33000000)),
@@ -296,9 +307,33 @@ fun ProfileHeader(
                     onClick = onFriendClick
                 ) {
                     Text(
-                        text = if (!isFriend) "Add Friend" else "Remove Friend",
+                        text = when (friendStatus) {
+                            FriendStatus.FRIEND -> "Unfriend"
+                            FriendStatus.REQUEST_SENT -> "Cancel Request"
+                            FriendStatus.REQUEST_RECEIVED -> "Accept Request"
+                            FriendStatus.NONE -> "Add Friend"
+                        },
                         style = MaterialTheme.typography.labelLarge
                     )
+                }
+
+                if (friendStatus == FriendStatus.REQUEST_RECEIVED) {
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Button(
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Transparent,   // white background
+                            contentColor = Color.Black
+                        ),
+                        border = BorderStroke(1.dp, Color(0x33000000)),
+                        shape = RoundedCornerShape(12.dp),
+                        onClick = onFriendDecline
+                    ) {
+                        Text(
+                            text = "Decline Request",
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
                 }
 
                 // Message button

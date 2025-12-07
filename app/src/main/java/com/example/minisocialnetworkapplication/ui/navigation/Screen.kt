@@ -13,6 +13,7 @@ sealed class Screen(val route: String) {
     data object StartChat : Screen("start_chat/{userId}") {
         fun createRoute(userId: String) = "start_chat/$userId"
     }
+    data object Friends : Screen("friends")
     data object SearchUser: Screen("search")
     data object PostDetail : Screen("post_detail/{postId}") {
         fun createRoute(postId: String) = "post_detail/$postId"

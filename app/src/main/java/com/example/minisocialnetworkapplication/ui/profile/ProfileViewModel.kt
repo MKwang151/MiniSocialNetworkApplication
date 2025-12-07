@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.example.minisocialnetworkapplication.core.domain.model.Friend
+import com.example.minisocialnetworkapplication.core.domain.model.FriendStatus
 import com.example.minisocialnetworkapplication.core.domain.model.Post
 import com.example.minisocialnetworkapplication.core.domain.model.User
 import com.example.minisocialnetworkapplication.core.domain.repository.PostRepository
@@ -29,7 +30,8 @@ sealed interface ProfileUiState {
         val user: User,
         val isOwnProfile: Boolean,
         val friends: List<Friend>,
-        val isFriend: Boolean) : ProfileUiState
+        val friendStatus: FriendStatus
+    ) : ProfileUiState
     data class Error(val message: String) : ProfileUiState
 }
 
@@ -67,8 +69,10 @@ class ProfileViewModel @Inject constructor(
                         _uiState.value = ProfileUiState.Success(
                             user = result.data,
                             isOwnProfile = userId == currentUserId,
-                            friends = friendUseCase.getUserFriends(userId).getOrNull() ?: emptyList(),
-                            isFriend = friendUseCase.isFriend(userId).getOrNull() ?: false
+                            friends = friendUseCase.getUserFriends(userId).getOrNull()
+                                ?: emptyList(),
+                            friendStatus = friendUseCase.getFriendStatus(userId).getOrNull()
+                                ?: FriendStatus.NONE
                         )
                     }
                     is Result.Error -> {
@@ -105,11 +109,11 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    fun addFriend() {
+    fun sendRequest() {
         viewModelScope.launch {
-            when (val result = friendUseCase.addFriend(userId)) {
+            when (val result = friendUseCase.sendFriendRequest(userId)) {
                 is Result.Success -> {
-                    Timber.d("Uid $currentUserId added uid $userId")
+                    Timber.d("Uid=$currentUserId sent friend request to uid=$userId")
                     refresh()
                 }
                 is Result.Error -> {
@@ -122,11 +126,62 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    fun removeFriend() {
+    fun acceptRequest() {
         viewModelScope.launch {
-            when (val result = friendUseCase.removeFriend(userId)) {
+            when (val result = friendUseCase.acceptFriendRequest(userId)) {
                 is Result.Success -> {
-                    Timber.d("Uid $currentUserId unfriended uid $userId")
+                    Timber.d("Uid=$currentUserId added uid=$userId")
+                    refresh()
+                }
+                is Result.Error -> {
+                    Timber.e("Failed to add friend: ${result.exception.message}")
+                }
+                is Result.Loading -> {
+                    // Loading
+                }
+            }
+        }
+    }
+
+    fun declineRequest() {
+        viewModelScope.launch {
+            when (val result = friendUseCase.removeFriendRequest(userId, isSender = false)) {
+                is Result.Success -> {
+                    Timber.d("Uid=$currentUserId declined friend request of uid=$userId")
+                    refresh()
+                }
+                is Result.Error -> {
+                    Timber.e("Failed to add friend: ${result.exception.message}")
+                }
+                is Result.Loading -> {
+                    // Loading
+                }
+            }
+        }
+    }
+
+    fun cancelRequest() {
+        viewModelScope.launch {
+            when (val result = friendUseCase.removeFriendRequest(userId, isSender = true)) {
+                is Result.Success -> {
+                    Timber.d("Uid=$currentUserId cancelled friend request to uid=$userId")
+                    refresh()
+                }
+                is Result.Error -> {
+                    Timber.e("Failed to cancel friend request: ${result.exception.message}")
+                }
+                is Result.Loading -> {
+                    // Loading
+                }
+            }
+        }
+    }
+
+    fun unfriend() {
+        viewModelScope.launch {
+            when (val result = friendUseCase.unfriend(userId)) {
+                is Result.Success -> {
+                    Timber.d("Uid=$currentUserId unfriended uid=$userId")
                     refresh()
                 }
                 is Result.Error -> {

@@ -17,8 +17,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.minisocialnetworkapplication.ui.auth.AuthViewModel
 import com.example.minisocialnetworkapplication.ui.auth.LoginScreen
 import com.example.minisocialnetworkapplication.ui.auth.RegisterScreen
-import com.example.minisocialnetworkapplication.ui.chat.ChatDetailScreen
-import com.example.minisocialnetworkapplication.ui.chat.ConversationListScreen
+import com.example.minisocialnetworkapplication.ui.components.BottomNavBar
 import com.example.minisocialnetworkapplication.ui.feed.FeedScreen
 import com.example.minisocialnetworkapplication.ui.post.ComposePostScreen
 import com.example.minisocialnetworkapplication.ui.postdetail.PostDetailScreen
@@ -105,6 +104,9 @@ fun NavGraph(
                             inclusive = true
                         }
                     }
+                },
+                bottomBar = {
+                    BottomNavBar(navController, authViewModel)
                 }
             )
         }
@@ -125,6 +127,9 @@ fun NavGraph(
             SettingsScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                bottomBar = {
+                    BottomNavBar(navController, authViewModel)
                 }
             )
         }
@@ -173,10 +178,10 @@ fun NavGraph(
                 onNavigateToEditProfile = { userId ->
                     navController.navigate(Screen.EditProfile.createRoute(userId))
                 },
-                onNavigateToChat = { otherUserId ->
-                    navController.navigate(Screen.StartChat.createRoute(otherUserId))
-                },
-                shouldRefresh = profileUpdated
+                shouldRefresh = profileUpdated,
+                bottomBar = {
+                    BottomNavBar(navController, authViewModel)
+                }
             )
         }
 
@@ -193,8 +198,7 @@ fun NavGraph(
 
                     // Also set flag for FeedScreen to refresh
                     navController.getBackStackEntry(Screen.Feed.route)
-                        .savedStateHandle
-                        .set("profile_updated", true)
+                        .savedStateHandle["profile_updated"] = true
 
                     navController.popBackStack()
                 }
@@ -241,64 +245,11 @@ fun NavGraph(
                 },
                 onNavigateToProfile = { userId ->
                     navController.navigate(Screen.Profile.createRoute(userId))
-                }
-            )
-        }
-
-        composable(Screen.ConversationList.route) {
-            ConversationListScreen(
-                onNavigateToChat = { conversationId ->
-                    navController.navigate(Screen.ChatDetail.createRoute(conversationId))
                 },
-                onNavigateToNewChat = {
-                    // For now, navigate to search to find a user to chat with
-                    navController.navigate(Screen.SearchUser.route)
+                bottomBar = {
+                    BottomNavBar(navController, authViewModel)
                 }
             )
-        }
-
-        composable(Screen.ChatDetail.route) {
-            ChatDetailScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        // StartChat - Creates/gets conversation with a user and navigates to ChatDetail
-        composable(Screen.StartChat.route) {
-            val viewModel: com.example.minisocialnetworkapplication.ui.chat.StartChatViewModel = hiltViewModel()
-            val uiState by viewModel.uiState.collectAsState()
-
-            when (val state = uiState) {
-                is com.example.minisocialnetworkapplication.ui.chat.StartChatUiState.Loading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
-                is com.example.minisocialnetworkapplication.ui.chat.StartChatUiState.Success -> {
-                    // Navigate to ChatDetail and remove StartChat from back stack
-                    androidx.compose.runtime.LaunchedEffect(state.conversationId) {
-                        navController.navigate(Screen.ChatDetail.createRoute(state.conversationId)) {
-                            popUpTo(Screen.StartChat.route) { inclusive = true }
-                        }
-                    }
-                }
-                is com.example.minisocialnetworkapplication.ui.chat.StartChatUiState.Error -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = state.message,
-                            color = androidx.compose.material3.MaterialTheme.colorScheme.error
-                        )
-                    }
-                }
-            }
         }
     }
 }
