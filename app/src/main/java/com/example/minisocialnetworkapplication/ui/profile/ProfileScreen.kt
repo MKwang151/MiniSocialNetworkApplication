@@ -12,12 +12,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.automirrored.filled.Message
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -44,6 +45,7 @@ import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.example.minisocialnetworkapplication.core.domain.model.Friend
+import com.example.minisocialnetworkapplication.core.domain.model.FriendStatus
 import com.example.minisocialnetworkapplication.core.domain.model.Post
 import com.example.minisocialnetworkapplication.core.domain.model.User
 import com.example.minisocialnetworkapplication.ui.components.PostCard
@@ -57,6 +59,7 @@ fun ProfileScreen(
     onNavigateToEditProfile: (String) -> Unit = {},
     onNavigateToChat: (String) -> Unit = {},
     shouldRefresh: Boolean = false,
+    bottomBar: @Composable () -> Unit,
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -96,7 +99,8 @@ fun ProfileScreen(
                     }
                 }
             )
-        }
+        },
+        bottomBar = bottomBar
     ) { paddingValues ->
         when (val state = uiState) {
             is ProfileUiState.Loading -> {
