@@ -170,18 +170,27 @@ class UserRepositoryImpl @Inject constructor(
                 return Result.Success(emptyList())
             }
 
+            val queryLower = query.lowercase().trim()
+            val currentUserId = auth.currentUser?.uid
+
+            // Firestore doesn't support case-insensitive search or OR queries well
+            // So we fetch all users and filter client-side
+            // For production, consider using Algolia or ElasticSearch
             val snapshot = firestore
                 .collection(Constants.COLLECTION_USERS)
-                .orderBy("name")
-                .startAt(query)
-                .endAt(query + "\uf8ff")
-                .limit(20)
+                .limit(100) // Limit to prevent loading too many users
                 .get()
                 .await()
 
             val users = snapshot.documents.mapNotNull { doc ->
                 doc.toObject(User::class.java)
-            }
+            }.filter { user ->
+                // Exclude current user from results
+                user.id != currentUserId &&
+                // Match by name or email (case-insensitive, contains)
+                (user.name.lowercase().contains(queryLower) ||
+                 user.email.lowercase().contains(queryLower))
+            }.take(20) // Limit results
 
             Result.Success(users)
 
