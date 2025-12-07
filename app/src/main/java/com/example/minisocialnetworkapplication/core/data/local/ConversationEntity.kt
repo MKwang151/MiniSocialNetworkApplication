@@ -26,7 +26,8 @@ data class ConversationEntity(
     val isPinned: Boolean = false,
     val isMuted: Boolean = false,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val lastReadTimestamp: Long = 0 // When user last read this conversation
 ) {
     /**
      * Convert to domain model
