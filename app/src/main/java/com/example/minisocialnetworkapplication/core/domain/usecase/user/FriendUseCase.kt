@@ -29,7 +29,7 @@ class FriendUseCase @Inject constructor(
         return friendRepository.removeFriendRequest(friendId, isSender)
     }
 
-    suspend fun removeFriend(friendId: String): Result<Unit> {
+    suspend fun unfriend(friendId: String): Result<Unit> {
         return friendRepository.unfriend(friendId)
     }
 
