@@ -63,7 +63,7 @@ fun BottomNavBar(
 sealed class BottomNavItem(val route: String, val label: String, val icon: ImageVector) {
     object Home : BottomNavItem(Screen.Feed.route, "Home", Icons.Default.Home)
     object Search: BottomNavItem(Screen.SearchUser.route, "Search", Icons.Default.Search)
-    object Chat: BottomNavItem(Screen.Chat.route, "Chat", Icons.Default.Inbox)
+    object Chat: BottomNavItem(Screen.ConversationList.route, "Chat", Icons.Default.Inbox)
     // navController returns Screen.Profile.route (profile/{userId})
     // actual route is profile/$userId
     object Profile : BottomNavItem(Screen.Profile.route, "Profile", Icons.Default.Person) {
