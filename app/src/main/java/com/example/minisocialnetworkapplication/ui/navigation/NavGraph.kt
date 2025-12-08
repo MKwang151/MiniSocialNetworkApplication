@@ -19,6 +19,7 @@ import com.example.minisocialnetworkapplication.ui.auth.LoginScreen
 import com.example.minisocialnetworkapplication.ui.auth.RegisterScreen
 import com.example.minisocialnetworkapplication.ui.components.BottomNavBar
 import com.example.minisocialnetworkapplication.ui.feed.FeedScreen
+import com.example.minisocialnetworkapplication.ui.friends.FriendScreen
 import com.example.minisocialnetworkapplication.ui.post.ComposePostScreen
 import com.example.minisocialnetworkapplication.ui.postdetail.PostDetailScreen
 import com.example.minisocialnetworkapplication.ui.profile.EditProfileScreen
@@ -314,14 +315,18 @@ fun NavGraph(
             }
         }
 
-        // Friends Screen - TODO: Create FriendsScreen composable
         composable(Screen.Friends.route) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Friends Screen - Coming Soon")
-            }
+            FriendScreen(
+                onNavigateToProfile = { userId ->
+                    navController.navigate(Screen.PostDetail.createRoute(userId))
+                },
+                onNavigateToSearch = {
+                    navController.navigate(Screen.SearchUser.route)
+                },
+                bottomBar = {
+                    BottomNavBar(navController, authViewModel)
+                }
+            )
         }
     }
 }
