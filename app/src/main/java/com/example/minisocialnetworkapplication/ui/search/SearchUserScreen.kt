@@ -82,7 +82,6 @@ fun SearchUserScreen(
             modifier = modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .statusBarsPadding()
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
