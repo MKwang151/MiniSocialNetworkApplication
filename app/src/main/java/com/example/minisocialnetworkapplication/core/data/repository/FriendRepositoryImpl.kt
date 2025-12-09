@@ -2,6 +2,7 @@ package com.example.minisocialnetworkapplication.core.data.repository
 
 import com.example.minisocialnetworkapplication.core.domain.model.Friend
 import com.example.minisocialnetworkapplication.core.domain.model.FriendStatus
+import com.example.minisocialnetworkapplication.core.domain.model.User
 import com.example.minisocialnetworkapplication.core.domain.repository.FriendRepository
 import com.example.minisocialnetworkapplication.core.util.Constants
 import com.example.minisocialnetworkapplication.core.util.Result
@@ -28,8 +29,8 @@ class FriendRepositoryImpl @Inject constructor(
                 .get()
                 .await()
 
-            val friendIds = snapshot.documents.map { it.id }
-            val friends = getFriendsData(friendIds)
+            val friendIds = snapshot.documents.map { it.id }.toSet()
+            val friends = getFriendsData(friendIds.toList(), friendIds)
 
             Timber.d("Fetched ${friends.size} friends, uid=$userId")
             Result.Success(friends)
@@ -50,7 +51,12 @@ class FriendRepositoryImpl @Inject constructor(
                 .await()
 
             val friendIds = snapshot.documents.map { it.id }
-            val friends = getFriendsData(friendIds)
+            
+            // Need my friends to calc mutuals
+            val myFriendsSnapshot = firestore.friends(userId).get().await()
+            val myFriendIds = myFriendsSnapshot.documents.map { it.id }.toSet()
+
+            val friends = getFriendsData(friendIds, myFriendIds)
 
             Timber.d("Fetched ${friends.size} requests, uid=$userId")
             Result.Success(friends)
@@ -257,7 +263,7 @@ class FriendRepositoryImpl @Inject constructor(
     // HELPER FUNCTIONS
     //
     
-    private suspend fun getFriendsData(friendIds: List<String>): MutableList<Friend> {
+    private suspend fun getFriendsData(friendIds: List<String>, myFriendIds: Set<String>): MutableList<Friend> {
         val chunks = friendIds.chunked(10) // whereIn limit
         val friends = mutableListOf<Friend>()
 
@@ -267,7 +273,30 @@ class FriendRepositoryImpl @Inject constructor(
                 .whereIn(FieldPath.documentId(), chunk)
                 .get()
                 .await()
-            friends += snapshot.toObjects(Friend::class.java)
+            
+            val users = snapshot.toObjects(User::class.java)
+
+            // Calculate mutual friends for each user
+            val friendsWithMutuals = users.map { user ->
+                // Fetch this user's friends to compare
+                val theirFriendsSnapshot = firestore
+                    .collection(Constants.COLLECTION_USERS)
+                    .document(user.uid)
+                    .collection(Constants.COLLECTION_FRIENDS)
+                    .get()
+                    .await()
+                
+                val theirFriendIds = theirFriendsSnapshot.documents.map { it.id }.toSet()
+                val mutualCount = theirFriendIds.intersect(myFriendIds).size
+
+                Friend(
+                    friendId = user.uid,
+                    friendName = user.name,
+                    friendAvatarUrl = user.avatarUrl,
+                    mutualFriends = mutualCount
+                )
+            }
+            friends += friendsWithMutuals
         }
 
         return friends
