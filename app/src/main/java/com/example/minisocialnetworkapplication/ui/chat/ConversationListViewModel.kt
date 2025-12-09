@@ -70,6 +70,9 @@ class ConversationListViewModel @Inject constructor(
                         ConversationWithUser(conversation, otherUser)
                     }
 
+                    // Save to cache for filtering
+                    allConversations = enrichedConversations
+                    
                     _uiState.value = _uiState.value.copy(
                         conversations = enrichedConversations,
                         isLoading = false,
@@ -79,19 +82,33 @@ class ConversationListViewModel @Inject constructor(
         }
     }
 
+    // Cache of all conversations for filtering
+    private var allConversations: List<ConversationWithUser> = emptyList()
+
     fun onSearchQueryChange(query: String) {
         _uiState.value = _uiState.value.copy(searchQuery = query)
         
         if (query.isBlank()) {
-            loadConversations()
+            // Show all conversations
+            _uiState.value = _uiState.value.copy(conversations = allConversations)
         } else {
-            viewModelScope.launch {
-                conversationRepository.searchConversations(query)
-                    .collect { conversations ->
-                        val enrichedConversations = conversations.map { ConversationWithUser(it, null) }
-                        _uiState.value = _uiState.value.copy(conversations = enrichedConversations)
-                    }
+            // Filter conversations by user name (for direct) or conversation name (for group)
+            val filtered = allConversations.filter { conversationWithUser ->
+                val conversation = conversationWithUser.conversation
+                val otherUser = conversationWithUser.otherUser
+                
+                // Search by user name (for direct chats)
+                val matchesUserName = otherUser?.name?.contains(query, ignoreCase = true) == true
+                
+                // Search by conversation name (for group chats)
+                val matchesConversationName = conversation.name?.contains(query, ignoreCase = true) == true
+                
+                // Search by last message content
+                val matchesLastMessage = conversation.lastMessage?.text?.contains(query, ignoreCase = true) == true
+                
+                matchesUserName || matchesConversationName || matchesLastMessage
             }
+            _uiState.value = _uiState.value.copy(conversations = filtered)
         }
     }
 
@@ -110,6 +127,22 @@ class ConversationListViewModel @Inject constructor(
     fun deleteConversation(conversationId: String) {
         viewModelScope.launch {
             conversationRepository.deleteConversation(conversationId)
+        }
+    }
+
+    /**
+     * Hide conversation for current user only.
+     * Other users in the conversation will still see it.
+     */
+    fun hideConversationForUser(conversationId: String) {
+        viewModelScope.launch {
+            conversationRepository.hideConversationForUser(conversationId)
+            // Remove from local state immediately
+            val updatedConversations = _uiState.value.conversations.filter { 
+                it.conversation.id != conversationId 
+            }
+            allConversations = allConversations.filter { it.conversation.id != conversationId }
+            _uiState.value = _uiState.value.copy(conversations = updatedConversations)
         }
     }
 
