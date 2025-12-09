@@ -2,6 +2,8 @@ package com.example.minisocialnetworkapplication.ui.chat
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,14 +28,19 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,6 +73,10 @@ fun ConversationListScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val currentUserId = viewModel.currentUserId
     
+    // State for long press bottom sheet
+    var selectedConversation by remember { mutableStateOf<ConversationWithUser?>(null) }
+    val sheetState = rememberModalBottomSheetState()
+    
     // Refresh when screen resumes (e.g., after navigating back from chat)
     // This uses cached data, not fresh Firestore fetch
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -78,6 +89,66 @@ fun ConversationListScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    // Bottom sheet for conversation actions
+    if (selectedConversation != null) {
+        val conv = selectedConversation!!
+        val isPinned = conv.conversation.isPinned
+        
+        ModalBottomSheet(
+            onDismissRequest = { selectedConversation = null },
+            sheetState = sheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp)
+            ) {
+                // Pin/Unpin option
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            viewModel.pinConversation(conv.conversation.id, !isPinned)
+                            selectedConversation = null
+                        }
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isPinned) "📍" else "📌",
+                        modifier = Modifier.padding(end = 12.dp)
+                    )
+                    Text(
+                        text = if (isPinned) "Unpin conversation" else "Pin conversation",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+                
+                // Delete option
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            viewModel.hideConversationForUser(conv.conversation.id)
+                            selectedConversation = null
+                        }
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "🗑️",
+                        modifier = Modifier.padding(end = 12.dp)
+                    )
+                    Text(
+                        text = "Delete conversation",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
         }
     }
 
@@ -175,6 +246,9 @@ fun ConversationListScreen(
                                 onClick = {
                                     viewModel.markAsRead(conversationWithUser.conversation.id)
                                     onNavigateToChat(conversationWithUser.conversation.id)
+                                },
+                                onLongClick = {
+                                    selectedConversation = conversationWithUser
                                 }
                             )
                         }
@@ -185,11 +259,13 @@ fun ConversationListScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ConversationItem(
     conversationWithUser: ConversationWithUser,
     currentUserId: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: () -> Unit = {}
 ) {
     val conversation = conversationWithUser.conversation
     val otherUser = conversationWithUser.otherUser
@@ -213,7 +289,10 @@ private fun ConversationItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -294,14 +373,24 @@ private fun ConversationItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = displayName,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = if (conversation.unreadCount > 0) FontWeight.Bold else FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (conversation.isPinned) {
+                        Text(
+                            text = "📌",
+                            modifier = Modifier.padding(end = 4.dp)
+                        )
+                    }
+                    Text(
+                        text = displayName,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = if (conversation.unreadCount > 0) FontWeight.Bold else FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
 
                 Text(
                     text = lastMessageTime,
