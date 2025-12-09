@@ -99,4 +99,14 @@ interface MessageRepository {
      * Search messages in a conversation
      */
     fun searchMessages(conversationId: String, query: String): Flow<List<Message>>
+
+    /**
+     * Pin a message in conversation
+     */
+    suspend fun pinMessage(conversationId: String, messageId: String): Result<Unit>
+
+    /**
+     * Unpin a message in conversation
+     */
+    suspend fun unpinMessage(conversationId: String, messageId: String): Result<Unit>
 }
