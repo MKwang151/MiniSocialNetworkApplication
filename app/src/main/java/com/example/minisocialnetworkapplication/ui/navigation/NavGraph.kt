@@ -318,10 +318,14 @@ fun NavGraph(
         composable(Screen.Friends.route) {
             FriendScreen(
                 onNavigateToProfile = { userId ->
-                    navController.navigate(Screen.PostDetail.createRoute(userId))
+                    // Corrected route: Navigate to Profile, not PostDetail
+                    navController.navigate(Screen.Profile.createRoute(userId))
                 },
                 onNavigateToSearch = {
                     navController.navigate(Screen.SearchUser.route)
+                },
+                onNavigateToChat = { userId ->
+                    navController.navigate(Screen.StartChat.createRoute(userId))
                 },
                 bottomBar = {
                     BottomNavBar(navController, authViewModel)
