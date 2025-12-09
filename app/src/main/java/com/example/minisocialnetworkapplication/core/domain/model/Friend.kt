@@ -10,5 +10,6 @@ enum class FriendStatus {
 data class Friend(
     val friendId: String = "",
     val friendName: String = "",
-    val friendAvatarUrl: String? = ""
+    val friendAvatarUrl: String? = "",
+    val mutualFriends: Int = 0
 )
