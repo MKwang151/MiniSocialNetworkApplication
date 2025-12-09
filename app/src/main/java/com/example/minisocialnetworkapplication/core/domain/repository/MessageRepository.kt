@@ -17,6 +17,11 @@ interface MessageRepository {
     fun getMessages(conversationId: String): Flow<List<Message>>
 
     /**
+     * Get all media messages (images) for a conversation (local)
+     */
+    fun getMediaMessages(conversationId: String): Flow<List<Message>>
+
+    /**
      * Get a specific message by ID
      */
     suspend fun getMessage(conversationId: String, messageId: String): Result<Message>

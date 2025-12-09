@@ -27,4 +27,13 @@ sealed class Screen(val route: String) {
     data object ImageGallery : Screen("image_gallery/{postId}/{initialIndex}") {
         fun createRoute(postId: String, initialIndex: Int = 0) = "image_gallery/$postId/$initialIndex"
     }
+    data object ChatSettings : Screen("chat_settings/{conversationId}") {
+        fun createRoute(conversationId: String) = "chat_settings/$conversationId"
+    }
+    data object ChatMedia : Screen("chat_media/{conversationId}") {
+        fun createRoute(conversationId: String) = "chat_media/$conversationId"
+    }
+    data object MessageSearch : Screen("message_search/{conversationId}") {
+        fun createRoute(conversationId: String) = "message_search/$conversationId"
+    }
 }

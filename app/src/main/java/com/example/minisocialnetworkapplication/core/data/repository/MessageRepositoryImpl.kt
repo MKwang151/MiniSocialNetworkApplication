@@ -102,6 +102,12 @@ class MessageRepositoryImpl @Inject constructor(
         awaitClose { listener.remove() }
     }
 
+    override fun getMediaMessages(conversationId: String): Flow<List<Message>> {
+        return messageDao.getMediaMessages(conversationId).map { entities ->
+            entities.map { it.toDomainModel() }
+        }
+    }
+
     override suspend fun getMessage(conversationId: String, messageId: String): Result<Message> {
         return try {
             val local = messageDao.getMessageById(messageId)

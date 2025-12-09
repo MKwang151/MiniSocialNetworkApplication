@@ -62,6 +62,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -96,7 +97,9 @@ import java.util.Locale
 @Composable
 fun ChatDetailScreen(
     viewModel: ChatDetailViewModel = hiltViewModel(),
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onNavigateToSettings: (String) -> Unit,
+    scrollToMessageId: String? = null
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val currentUserId = viewModel.currentUserId ?: ""
@@ -121,9 +124,38 @@ fun ChatDetailScreen(
         }
     }
 
+    // Scroll to specific message if requested
+    // We use a flag to track if we are in "search result mode" to prevent auto-scrolling to bottom
+    var focusingOnSearchResult by remember { mutableStateOf(false) }
+
+    LaunchedEffect(scrollToMessageId, uiState.messages) {
+        if (scrollToMessageId != null && uiState.messages.isNotEmpty()) {
+            val index = uiState.messages.indexOfFirst { it.id == scrollToMessageId }
+            if (index != -1) {
+                focusingOnSearchResult = true
+                listState.animateScrollToItem(index)
+                highlightedMessageId = scrollToMessageId
+                // Reset focus mode after a delay or interaction? 
+                // For now, let's keep it until user manual scroll? 
+                // Actually, just preventing the immediate next auto-scroll is enough.
+            } else {
+                // Fallback: fuzzy match by timestamp if ID mismatch (Local vs Remote)
+                // Try finding message with same timestamp (ignoring millis)
+                // Note: We don't have the target timestamp/content here, only ID. 
+                // So we can't fuzzy match unless we pass more info.
+                // But given duplicate fix in Search, ID should match if message is in list.
+            }
+        }
+    }
+
     // Scroll to bottom when new messages arrive
+    // ONLY if not currently focusing on a search result
     LaunchedEffect(uiState.messages.size) {
-        if (uiState.messages.isNotEmpty()) {
+        if (uiState.messages.isNotEmpty() && !focusingOnSearchResult) {
+            // Check if we are already at bottom?
+            // If user scrolled up, we might not want to force scroll unless it's a NEW message from SELF?
+            // But existing behavior was "scroll on size change". 
+            // We just add the guard.
             listState.animateScrollToItem(0)
         }
     }
@@ -252,7 +284,16 @@ fun ChatDetailScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                uiState.conversation?.id?.let { conversationId ->
+                                    onNavigateToSettings(conversationId)
+                                }
+                            }
+                    ) {
                         // Avatar with online indicator
                         Box(modifier = Modifier.size(40.dp)) {
                             Box(

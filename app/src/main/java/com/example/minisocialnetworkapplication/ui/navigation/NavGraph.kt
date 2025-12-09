@@ -272,11 +272,20 @@ fun NavGraph(
         }
 
         // Chat Detail
-        composable(Screen.ChatDetail.route) {
+        composable(Screen.ChatDetail.route) { backStackEntry ->
+            val scrollToMessageId = backStackEntry.savedStateHandle.get<String>("scroll_to_message_id")
+            if (scrollToMessageId != null) {
+                backStackEntry.savedStateHandle.remove<String>("scroll_to_message_id")
+            }
+
             com.example.minisocialnetworkapplication.ui.chat.ChatDetailScreen(
                 onNavigateBack = {
                     navController.popBackStack()
-                }
+                },
+                onNavigateToSettings = { conversationId ->
+                    navController.navigate(Screen.ChatSettings.createRoute(conversationId))
+                },
+                scrollToMessageId = scrollToMessageId
             )
         }
 
@@ -329,6 +338,74 @@ fun NavGraph(
                 },
                 bottomBar = {
                     BottomNavBar(navController, authViewModel)
+                }
+            )
+        }
+
+        composable(Screen.ChatSettings.route) { backStackEntry ->
+            val conversationId = backStackEntry.arguments?.getString("conversationId") ?: ""
+            com.example.minisocialnetworkapplication.ui.settings.ChatSettingsScreen(
+                conversationId = conversationId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToProfile = { userId ->
+                    navController.navigate(Screen.Profile.createRoute(userId))
+                },
+                onNavigateToSearch = { 
+                    navController.navigate(Screen.MessageSearch.createRoute(conversationId))
+                },
+                onNavigateToMedia = { 
+                    navController.navigate(Screen.ChatMedia.createRoute(conversationId))
+                },
+                onChatDeleted = {
+                    // Navigate back to conversation list, popping everything up to it
+                    navController.navigate(Screen.ConversationList.route) {
+                        popUpTo(Screen.ConversationList.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(Screen.ChatMedia.route) { backStackEntry ->
+             val conversationId = backStackEntry.arguments?.getString("conversationId") ?: ""
+             com.example.minisocialnetworkapplication.ui.media.ChatMediaScreen(
+                 conversationId = conversationId,
+                 onNavigateBack = {
+                     navController.popBackStack()
+                 }
+             )
+        }
+
+        composable(Screen.MessageSearch.route) { backStackEntry ->
+            val conversationId = backStackEntry.arguments?.getString("conversationId") ?: ""
+            com.example.minisocialnetworkapplication.ui.search.MessageSearchScreen(
+                conversationId = conversationId,
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onMessageClick = { messageId ->
+                    // Set result on the ChatDetailScreen's back stack entry
+                    // We need to find the back stack entry for ChatDetail.
+                    // Since the route contains params, we can try to find by route prefix or just popBackStack to it.
+                    // But popping doesn't let us set handle before popping unless we have the entry.
+                    
+                    // Simple hack: We assume ChatDetail is exactly 2 steps back (Detail -> Settings -> Search)
+                    // Or 1 step back if came from Detail -> Search (Wait, path is Settings -> Search).
+                    // Detail -> Settings -> Search. 
+                    // So previous is Settings. entries[size-2] is Settings. entries[size-3] is ChatDetail.
+                    
+                    // Better approach utilizing Route string:
+                    // navController.getBackStackEntry(Screen.ChatDetail.createRoute(conversationId)).savedStateHandle
+                    // This requires reconstructing the exact route string used.
+                    try {
+                        val chatDetailRoute = Screen.ChatDetail.createRoute(conversationId)
+                        navController.getBackStackEntry(chatDetailRoute).savedStateHandle["scroll_to_message_id"] = messageId
+                        
+                        // Pop everything up to ChatDetail (inclusive=false means we stay on ChatDetail)
+                        navController.popBackStack(chatDetailRoute, inclusive = false)
+                    } catch (e: Exception) {
+                        // Fallback in case finding entry fails (should not happen if flow is correct)
+                        navController.popBackStack() 
+                    }
                 }
             )
         }
