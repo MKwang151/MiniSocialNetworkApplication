@@ -59,6 +59,46 @@ class ConversationRepositoryImpl @Inject constructor(
     // In-memory cache for lastReadSequenceId per conversation
     private val lastReadSeqIdCache = mutableMapOf<String, Long>()
     
+    // In-memory cache for deletedAt timestamp per conversation (for soft delete)
+    private val deletedAtCache = mutableMapOf<String, com.google.firebase.Timestamp?>()
+    
+    // In-memory cache for isPinned per conversation (per-user)
+    private val isPinnedCache = mutableMapOf<String, Boolean>()
+    
+    /**
+     * Get user's deletedAt timestamp for a conversation
+     */
+    private suspend fun getDeletedAtForUser(conversationId: String, userId: String): com.google.firebase.Timestamp? {
+        return try {
+            val doc = firestore.collection(COLLECTION_CONVERSATIONS)
+                .document(conversationId)
+                .collection(COLLECTION_PARTICIPANTS)
+                .document(userId)
+                .get()
+                .await()
+            doc.getTimestamp("deletedAt")
+        } catch (e: Exception) {
+            null
+        }
+    }
+    
+    /**
+     * Get user's isPinned status for a conversation
+     */
+    private suspend fun getIsPinnedForUser(conversationId: String, userId: String): Boolean {
+        return try {
+            val doc = firestore.collection(COLLECTION_CONVERSATIONS)
+                .document(conversationId)
+                .collection(COLLECTION_PARTICIPANTS)
+                .document(userId)
+                .get()
+                .await()
+            doc.getBoolean("isPinned") ?: false
+        } catch (e: Exception) {
+            false
+        }
+    }
+    
     override fun getConversations(): Flow<List<Conversation>> = callbackFlow {
         val currentUserId = auth.currentUser?.uid ?: run {
             trySend(emptyList())
@@ -76,9 +116,28 @@ class ConversationRepositoryImpl @Inject constructor(
                     try {
                         val conv = parseConversation(doc.id, doc.data ?: emptyMap())
                         
-                        // Get lastMessageSequenceId from Firestore
+                        // Get lastMessage timestamp from Firestore
                         val lastMessage = doc.data?.get("lastMessage") as? Map<*, *>
+                        val lastMsgTimestamp = lastMessage?.get("timestamp") as? com.google.firebase.Timestamp
                         val lastMsgSequenceId = (lastMessage?.get("sequenceId") as? Long) ?: 0L
+                        
+                        // Check if user has soft-deleted this conversation
+                        val deletedAt = deletedAtCache[conv.id] ?: getDeletedAtForUser(conv.id, currentUserId)
+                        deletedAtCache[conv.id] = deletedAt
+                        
+                        // If deleted and no new message after deletion, skip
+                        if (deletedAt != null) {
+                            val hasNewMessage = lastMsgTimestamp != null && 
+                                lastMsgTimestamp.toDate().after(deletedAt.toDate())
+                            if (!hasNewMessage) {
+                                return@mapNotNull null // Skip - no new messages since deletion
+                            }
+                            // Has new message - clear deletion when entering chat
+                        }
+                        
+                        // Get isPinned from cache or fetch
+                        val isPinned = isPinnedCache[conv.id] ?: getIsPinnedForUser(conv.id, currentUserId)
+                        isPinnedCache[conv.id] = isPinned
                         
                         // Get cached lastReadSequenceId
                         val lastReadSeqId = lastReadSeqIdCache[conv.id] ?: 0L
@@ -90,12 +149,16 @@ class ConversationRepositoryImpl @Inject constructor(
                             0
                         }
                         
-                        conv.copy(unreadCount = unreadCount)
+                        conv.copy(unreadCount = unreadCount, isPinned = isPinned)
                     } catch (e: Exception) {
                         timber.log.Timber.e(e, "Error parsing conversation ${doc.id}")
                         null
                     }
-                }.sortedByDescending { it.updatedAt.toDate() }
+                }
+                // Sort: pinned first, then by updatedAt descending
+                .sortedWith(compareByDescending<Conversation> { it.isPinned }
+                    .thenByDescending { it.updatedAt.toDate() }
+                )
                 
                 // Save to local DB
                 val entities = conversations.map { conv ->
@@ -203,17 +266,18 @@ class ConversationRepositoryImpl @Inject constructor(
 
     override suspend fun getConversation(conversationId: String): Result<Conversation> {
         return try {
-            val local = conversationDao.getConversationById(conversationId)
-            if (local != null) {
-                return Result.Success(local.toDomainModel())
-            }
-
+            // Always fetch from Firestore first to get fresh pinnedMessageIds
             val doc = firestore.collection(COLLECTION_CONVERSATIONS)
                 .document(conversationId)
                 .get()
                 .await()
 
             if (!doc.exists()) {
+                // Fallback to local cache if document not found
+                val local = conversationDao.getConversationById(conversationId)
+                if (local != null) {
+                    return Result.Success(local.toDomainModel())
+                }
                 return Result.Error(Exception("Conversation not found"))
             }
 
@@ -221,6 +285,11 @@ class ConversationRepositoryImpl @Inject constructor(
             conversationDao.insertConversation(ConversationEntity.fromDomainModel(conversation))
             Result.Success(conversation)
         } catch (e: Exception) {
+            // On error, fallback to local cache
+            val local = conversationDao.getConversationById(conversationId)
+            if (local != null) {
+                return Result.Success(local.toDomainModel())
+            }
             Result.Error(e)
         }
     }
@@ -325,10 +394,36 @@ class ConversationRepositoryImpl @Inject constructor(
         isMuted: Boolean?
     ): Result<Unit> {
         return try {
+            val currentUserId = auth.currentUser?.uid 
+                ?: return Result.Error(Exception("Not authenticated"))
+            
+            timber.log.Timber.d("PIN_DEBUG: updateConversation called - convId=$conversationId, isPinned=$isPinned, isMuted=$isMuted")
+            
+            // Build update map for participant document
+            val updates = mutableMapOf<String, Any>()
+            isPinned?.let { updates["isPinned"] = it }
+            isMuted?.let { updates["isMuted"] = it }
+            
+            if (updates.isNotEmpty()) {
+                // Update participant's settings in Firestore
+                firestore.collection(COLLECTION_CONVERSATIONS)
+                    .document(conversationId)
+                    .collection(COLLECTION_PARTICIPANTS)
+                    .document(currentUserId)
+                    .set(updates, com.google.firebase.firestore.SetOptions.merge())
+                    .await()
+                
+                timber.log.Timber.d("PIN_DEBUG: Updated Firestore participants/$currentUserId with $updates")
+            }
+            
+            // Also update local cache
             isPinned?.let { conversationDao.updatePinnedStatus(conversationId, it) }
             isMuted?.let { conversationDao.updateMutedStatus(conversationId, it) }
+            
+            timber.log.Timber.d("PIN_DEBUG: Updated local Room DB")
             Result.Success(Unit)
         } catch (e: Exception) {
+            timber.log.Timber.e(e, "PIN_DEBUG: updateConversation error")
             Result.Error(e)
         }
     }
@@ -386,6 +481,33 @@ class ConversationRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun hideConversationForUser(conversationId: String): Result<Unit> {
+        return try {
+            val currentUserId = auth.currentUser?.uid 
+                ?: return Result.Error(Exception("Not authenticated"))
+            
+            // Store deletedAt timestamp in participants subcollection
+            // Conversation will reappear if new messages arrive after this time
+            firestore.collection(COLLECTION_CONVERSATIONS)
+                .document(conversationId)
+                .collection(COLLECTION_PARTICIPANTS)
+                .document(currentUserId)
+                .set(mapOf(
+                    "deletedAt" to FieldValue.serverTimestamp()
+                ), com.google.firebase.firestore.SetOptions.merge())
+                .await()
+            
+            // Also delete from local cache
+            conversationDao.deleteConversationById(conversationId)
+            
+            timber.log.Timber.d("Soft deleted conversation $conversationId for user $currentUserId")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            timber.log.Timber.e(e, "Error hiding conversation")
+            Result.Error(e)
+        }
+    }
+
     override fun searchConversations(query: String): Flow<List<Conversation>> {
         return conversationDao.searchConversations(query).map { entities ->
             entities.map { it.toDomainModel() }
@@ -426,6 +548,10 @@ class ConversationRepositoryImpl @Inject constructor(
         
         timber.log.Timber.d("parseConversation: parsed lastMessage=$lastMessage")
 
+        // Parse pinned message IDs
+        val pinnedMessageIds = (data["pinnedMessageIds"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
+        timber.log.Timber.d("parseConversation: id=$id, pinnedMessageIds=$pinnedMessageIds")
+
         return Conversation(
             id = id,
             type = type,
@@ -433,6 +559,7 @@ class ConversationRepositoryImpl @Inject constructor(
             avatarUrl = data["avatarUrl"] as? String,
             participantIds = participantIds,
             lastMessage = lastMessage,
+            pinnedMessageIds = pinnedMessageIds,
             createdAt = data["createdAt"] as? Timestamp ?: Timestamp.now(),
             updatedAt = data["updatedAt"] as? Timestamp ?: Timestamp.now()
         )
