@@ -7,8 +7,10 @@ import com.example.minisocialnetworkapplication.core.util.Constants
 import com.example.minisocialnetworkapplication.core.util.Result
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -38,6 +40,13 @@ class CommentRepositoryImpl @Inject constructor(
                 if (snapshot != null) {
                     val comments = snapshot.documents.mapNotNull { doc ->
                         try {
+                            val rawReactions = doc.get("reactions") as? Map<String, Any> ?: emptyMap()
+                            val reactions = rawReactions.mapValues { entry ->
+                                (entry.value as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
+                            }.filterValues { it.isNotEmpty() }
+                            
+                            Timber.d("Parsed reactions for ${doc.id}: $reactions")
+                            
                             Comment(
                                 id = doc.id,
                                 postId = doc.getString(Constants.FIELD_POST_ID) ?: postId,
@@ -46,7 +55,10 @@ class CommentRepositoryImpl @Inject constructor(
                                 authorAvatarUrl = doc.getString("authorAvatarUrl"),
                                 text = doc.getString("text") ?: "",
                                 createdAt = doc.getTimestamp(Constants.FIELD_CREATED_AT)
-                                    ?: Timestamp.now()
+                                    ?: Timestamp.now(),
+                                reactions = reactions,
+                                replyToId = doc.getString("replyToId"),
+                                replyToAuthorName = doc.getString("replyToAuthorName")
                             )
                         } catch (e: Exception) {
                             Timber.e(e, "Error parsing comment: ${doc.id}")
@@ -243,5 +255,145 @@ class CommentRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun addReplyComment(
+        postId: String,
+        text: String,
+        replyToId: String,
+        replyToAuthorName: String
+    ): Result<Comment> {
+        return try {
+            val userId = auth.currentUser?.uid
+            if (userId == null) {
+                return Result.Error(Exception("User not authenticated"))
+            }
+
+            // Get user info
+            val userDoc = firestore.collection(Constants.COLLECTION_USERS)
+                .document(userId)
+                .get()
+                .await()
+
+            val userName = userDoc.getString("name") ?: "Unknown"
+            val userAvatarUrl = userDoc.getString("avatarUrl")
+
+            val commentData = hashMapOf(
+                Constants.FIELD_POST_ID to postId,
+                Constants.FIELD_AUTHOR_ID to userId,
+                "authorName" to userName,
+                "authorAvatarUrl" to userAvatarUrl,
+                "text" to text,
+                Constants.FIELD_CREATED_AT to Timestamp.now(),
+                "replyToId" to replyToId,
+                "replyToAuthorName" to replyToAuthorName
+            )
+
+            val docRef = firestore
+                .collection(Constants.COLLECTION_POSTS)
+                .document(postId)
+                .collection(Constants.COLLECTION_COMMENTS)
+                .add(commentData)
+                .await()
+
+            // Increment comment count
+            firestore
+                .collection(Constants.COLLECTION_POSTS)
+                .document(postId)
+                .update(Constants.FIELD_COMMENT_COUNT, FieldValue.increment(1))
+                .await()
+
+            val comment = Comment(
+                id = docRef.id,
+                postId = postId,
+                authorId = userId,
+                authorName = userName,
+                authorAvatarUrl = userAvatarUrl,
+                text = text,
+                createdAt = Timestamp.now(),
+                replyToId = replyToId,
+                replyToAuthorName = replyToAuthorName
+            )
+
+            Timber.d("Reply comment added successfully: ${docRef.id}")
+            Result.Success(comment)
+
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to add reply comment")
+            Result.Error(e)
+        }
+    }
+
+    override suspend fun addReaction(postId: String, commentId: String, emoji: String): Result<Unit> {
+        return try {
+            val userId = auth.currentUser?.uid
+                ?: return Result.Error(Exception("User not authenticated"))
+
+            firestore
+                .collection(Constants.COLLECTION_POSTS)
+                .document(postId)
+                .collection(Constants.COLLECTION_COMMENTS)
+                .document(commentId)
+                .set(
+                    mapOf("reactions" to mapOf(emoji to FieldValue.arrayUnion(userId))),
+                    SetOptions.merge()
+                )
+                .await()
+
+            Timber.d("Added reaction $emoji to comment $commentId")
+            Result.Success(Unit)
+
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to add reaction")
+            Result.Error(e)
+        }
+    }
+
+    override suspend fun removeReaction(postId: String, commentId: String, emoji: String): Result<Unit> {
+        return try {
+            val userId = auth.currentUser?.uid
+                ?: return Result.Error(Exception("User not authenticated"))
+
+            // Remove user from reaction array
+            firestore
+                .collection(Constants.COLLECTION_POSTS)
+                .document(postId)
+                .collection(Constants.COLLECTION_COMMENTS)
+                .document(commentId)
+                .set(
+                    mapOf("reactions" to mapOf(emoji to FieldValue.arrayRemove(userId))),
+                    SetOptions.merge()
+                )
+                .await()
+
+            // Check if array is empty and delete key
+            val commentDoc = firestore
+                .collection(Constants.COLLECTION_POSTS)
+                .document(postId)
+                .collection(Constants.COLLECTION_COMMENTS)
+                .document(commentId)
+                .get()
+                .await()
+
+            @Suppress("UNCHECKED_CAST")
+            val reactions = commentDoc.get("reactions") as? Map<String, List<*>>
+            val emojiList = reactions?.get(emoji) ?: emptyList<String>()
+            
+            if (emojiList.isEmpty()) {
+                firestore
+                    .collection(Constants.COLLECTION_POSTS)
+                    .document(postId)
+                    .collection(Constants.COLLECTION_COMMENTS)
+                    .document(commentId)
+                    .update("reactions.$emoji", FieldValue.delete())
+                    .await()
+            }
+
+            Timber.d("Removed reaction $emoji from comment $commentId")
+            Result.Success(Unit)
+
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to remove reaction")
+            Result.Error(e)
+        }
+    }
 }
 

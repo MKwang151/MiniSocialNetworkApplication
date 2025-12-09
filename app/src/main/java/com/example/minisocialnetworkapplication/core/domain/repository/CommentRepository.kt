@@ -17,6 +17,11 @@ interface CommentRepository {
     suspend fun addComment(postId: String, text: String): Result<Comment>
 
     /**
+     * Add a reply comment
+     */
+    suspend fun addReplyComment(postId: String, text: String, replyToId: String, replyToAuthorName: String): Result<Comment>
+
+    /**
      * Delete a comment
      */
     suspend fun deleteComment(postId: String, commentId: String): Result<Unit>
@@ -25,5 +30,15 @@ interface CommentRepository {
      * Update comment text
      */
     suspend fun updateComment(postId: String, commentId: String, newText: String): Result<Unit>
+
+    /**
+     * Add reaction to comment
+     */
+    suspend fun addReaction(postId: String, commentId: String, emoji: String): Result<Unit>
+
+    /**
+     * Remove reaction from comment
+     */
+    suspend fun removeReaction(postId: String, commentId: String, emoji: String): Result<Unit>
 }
 
