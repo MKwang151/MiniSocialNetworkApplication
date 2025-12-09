@@ -9,6 +9,11 @@ data class Comment(
     val authorName: String = "",
     val authorAvatarUrl: String? = null,
     val text: String = "",
-    val createdAt: Timestamp = Timestamp.now()
+    val createdAt: Timestamp = Timestamp.now(),
+    // Reactions: emoji -> list of userIds who reacted
+    val reactions: Map<String, List<String>> = emptyMap(),
+    // Reply fields
+    val replyToId: String? = null,
+    val replyToAuthorName: String? = null
 )
 
