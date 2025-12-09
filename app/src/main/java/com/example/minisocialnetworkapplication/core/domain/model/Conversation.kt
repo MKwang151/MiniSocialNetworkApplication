@@ -15,6 +15,7 @@ data class Conversation(
     val unreadCount: Int = 0,
     val isPinned: Boolean = false,
     val isMuted: Boolean = false,
+    val pinnedMessageIds: List<String> = emptyList(), // IDs of pinned messages
     val createdAt: Timestamp = Timestamp.now(),
     val updatedAt: Timestamp = Timestamp.now()
 )
