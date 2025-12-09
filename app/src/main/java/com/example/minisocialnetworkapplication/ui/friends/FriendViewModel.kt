@@ -125,6 +125,7 @@ class FriendViewModel @Inject constructor(
                                 )
                             } else state
                         }
+                        loadFriends() // Refresh friends list
                     }
                     is Result.Error -> {
                         _requestUiState.value = FriendRequestUiState.Error(

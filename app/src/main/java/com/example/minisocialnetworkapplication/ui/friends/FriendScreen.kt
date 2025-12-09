@@ -3,6 +3,7 @@ package com.example.minisocialnetworkapplication.ui.friends
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,11 +18,18 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Message
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -30,6 +38,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,6 +59,7 @@ import com.example.minisocialnetworkapplication.ui.profile.LoadingView
 fun FriendScreen(
     onNavigateToProfile: (String) -> Unit,
     onNavigateToSearch: () -> Unit,
+    onNavigateToChat: (String) -> Unit,
     bottomBar: @Composable () -> Unit,
     viewModel: FriendViewModel = hiltViewModel()
 ) {
@@ -120,6 +132,7 @@ fun FriendScreen(
                         friendList = state.friends,
                         onNavigateToProfile = onNavigateToProfile,
                         onNavigateToSearch = onNavigateToSearch,
+                        onNavigateToChat = onNavigateToChat,
                         onUnfriend = viewModel::onUnfriend
                     )
                 }
@@ -177,6 +190,7 @@ fun LazyListScope.friends(
     friendList: List<Friend>,
     onNavigateToProfile: (String) -> Unit,
     onNavigateToSearch: () -> Unit,
+    onNavigateToChat: (String) -> Unit,
     onUnfriend: (String) -> Unit
 ) {
     if (friendList.isEmpty()) {
@@ -210,6 +224,7 @@ fun LazyListScope.friends(
             FriendCard(
                 friend = friend,
                 onNavigateToProfile = onNavigateToProfile,
+                onNavigateToChat = onNavigateToChat,
                 onUnfriend = onUnfriend
             )
         }
@@ -220,8 +235,11 @@ fun LazyListScope.friends(
 fun FriendCard(
     friend: Friend,
     onNavigateToProfile: (String) -> Unit,
+    onNavigateToChat: (String) -> Unit,
     onUnfriend: (String) -> Unit
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -256,15 +274,41 @@ fun FriendCard(
                     fontWeight = FontWeight.SemiBold
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "${friend.mutualFriends} mutual friends",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
-                Button(
-                    onClick = { onUnfriend(friend.friendId) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .pointerInput(Unit) {}, // prevent card click)
+            // Chat Icon
+            IconButton(onClick = { onNavigateToChat(friend.friendId) }) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Message,
+                    contentDescription = "Chat",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            // Menu (More Vert)
+            Box {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "More"
+                    )
+                }
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false }
                 ) {
-                    Text("Unfriend")
+                    DropdownMenuItem(
+                        text = { Text("Unfriend", color = MaterialTheme.colorScheme.error) },
+                        onClick = {
+                            showMenu = false
+                            onUnfriend(friend.friendId)
+                        }
+                    )
                 }
             }
         }
@@ -312,6 +356,13 @@ fun FriendRequestCard(
                     text = friend.friendName,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
+                )
+                
+                // Mutual friends
+                 Text(
+                    text = "${friend.mutualFriends} mutual friends",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
