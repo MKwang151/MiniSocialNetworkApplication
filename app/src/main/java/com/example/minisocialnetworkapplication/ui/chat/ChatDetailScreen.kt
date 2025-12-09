@@ -15,7 +15,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,9 +51,11 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -60,7 +64,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.heightIn
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -94,6 +103,14 @@ fun ChatDetailScreen(
 
     var messageText by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
+    
+    // State for context menu bottom sheet
+    var selectedMessage by remember { mutableStateOf<Message?>(null) }
+    val sheetState = rememberModalBottomSheetState()
+    
+    // State for pinned message scroll and highlight
+    var highlightedMessageId by remember { mutableStateOf<String?>(null) }
+    val coroutineScope = rememberCoroutineScope()
 
     // Image picker launcher
     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -128,6 +145,107 @@ fun ChatDetailScreen(
     val avatarUrl = when {
         uiState.conversation?.type == ConversationType.GROUP -> uiState.conversation?.avatarUrl
         else -> uiState.otherUser?.avatarUrl
+    }
+
+    // Message context menu bottom sheet
+    if (selectedMessage != null) {
+        val message = selectedMessage!!
+        val isOutgoing = message.isOutgoing(currentUserId)
+        val isPinned = uiState.conversation?.pinnedMessageIds?.contains(message.id) == true
+        
+        ModalBottomSheet(
+            onDismissRequest = { selectedMessage = null },
+            sheetState = sheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp)
+            ) {
+                // Reaction bar at top
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    ReactionBar(
+                        onReactionSelected = { emoji ->
+                            viewModel.toggleReaction(message.id, emoji)
+                        },
+                        onDismiss = { selectedMessage = null }
+                    )
+                }
+                // Pin/Unpin option (available for all messages)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            if (isPinned) {
+                                viewModel.unpinMessage(message.id)
+                            } else {
+                                viewModel.pinMessage(message.id)
+                            }
+                            selectedMessage = null
+                        }
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(if (isPinned) "📌" else "📌", modifier = Modifier.padding(end = 12.dp))
+                    Text(
+                        if (isPinned) "Unpin" else "Pin", 
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+                
+                if (isOutgoing) {
+                    // Delete option for own messages
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                viewModel.revokeMessage(message.id)
+                                selectedMessage = null
+                            }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("🗑️", modifier = Modifier.padding(end = 12.dp))
+                        Text("Delete", style = MaterialTheme.typography.bodyLarge)
+                    }
+                } else {
+                    // Reply option for received messages
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                viewModel.setReplyToMessage(message)
+                                selectedMessage = null
+                            }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("↩️", modifier = Modifier.padding(end = 12.dp))
+                        Text("Reply", style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+                
+                // Forward (disabled for now)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("↗️", modifier = Modifier.padding(end = 12.dp))
+                    Text(
+                        "Forward (coming soon)", 
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    )
+                }
+            }
+        }
     }
 
     Scaffold(
@@ -216,6 +334,143 @@ fun ChatDetailScreen(
                 .padding(padding)
                 .imePadding()
         ) {
+            // Pinned Messages Bar
+            val pinnedMessageIds = uiState.conversation?.pinnedMessageIds ?: emptyList()
+            val pinnedMessages = uiState.messages.filter { it.id in pinnedMessageIds }
+            // State for pinned bar expansion
+            var isPinnedBarExpanded by remember { mutableStateOf(false) }
+            
+            AnimatedVisibility(
+                visible = pinnedMessages.isNotEmpty(),
+                enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+                exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                ) {
+                    // Header row - always visible
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                if (pinnedMessages.size > 1) {
+                                    isPinnedBarExpanded = !isPinnedBarExpanded
+                                } else {
+                                    // Single pin - scroll to message
+                                    val firstPinned = pinnedMessages.first()
+                                    val index = uiState.messages.indexOfFirst { it.id == firstPinned.id }
+                                    if (index >= 0) {
+                                        coroutineScope.launch {
+                                            listState.animateScrollToItem(index)
+                                            highlightedMessageId = firstPinned.id
+                                            delay(2000)
+                                            highlightedMessageId = null
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("📌", modifier = Modifier.padding(end = 8.dp))
+                        
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (pinnedMessages.size > 1) "${pinnedMessages.size} pinned messages" else "Pinned message",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            if (!isPinnedBarExpanded && pinnedMessages.isNotEmpty()) {
+                                Text(
+                                    text = pinnedMessages.first().getDisplayText(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        }
+                        
+                        // Expand/Collapse button (only if multiple pins)
+                        if (pinnedMessages.size > 1) {
+                            IconButton(
+                                onClick = { isPinnedBarExpanded = !isPinnedBarExpanded },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Text(
+                                    if (isPinnedBarExpanded) "▲" else "▼",
+                                    style = MaterialTheme.typography.labelMedium
+                                )
+                            }
+                        }
+                        
+                        // Quick unpin first pin
+                        if (!isPinnedBarExpanded && pinnedMessages.isNotEmpty()) {
+                            IconButton(
+                                onClick = { viewModel.unpinMessage(pinnedMessages.first().id) },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Unpin",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        }
+                    }
+                    
+                    // Expanded list of all pinned messages
+                    AnimatedVisibility(visible = isPinnedBarExpanded) {
+                        Column {
+                            pinnedMessages.forEach { pinnedMessage ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            val index = uiState.messages.indexOfFirst { it.id == pinnedMessage.id }
+                                            if (index >= 0) {
+                                                coroutineScope.launch {
+                                                    listState.animateScrollToItem(index)
+                                                    highlightedMessageId = pinnedMessage.id
+                                                    delay(2000)
+                                                    highlightedMessageId = null
+                                                    isPinnedBarExpanded = false
+                                                }
+                                            }
+                                        }
+                                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = pinnedMessage.getDisplayText(),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f),
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                    
+                                    IconButton(
+                                        onClick = { viewModel.unpinMessage(pinnedMessage.id) },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = "Unpin",
+                                            modifier = Modifier.size(12.dp),
+                                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
             // Messages List
             Box(
                 modifier = Modifier
@@ -251,15 +506,42 @@ fun ChatDetailScreen(
                                 items = uiState.messages,
                                 key = { it.localId }
                             ) { message ->
+                                val isPinned = uiState.conversation?.pinnedMessageIds?.contains(message.id) == true
+                                val isHighlighted = highlightedMessageId == message.id
                                 SwipeableMessageBubble(
                                     message = message,
                                     isOutgoing = message.isOutgoing(currentUserId),
+                                    isPinned = isPinned,
+                                    isHighlighted = isHighlighted,
                                     senderAvatarUrl = if (message.isOutgoing(currentUserId)) null else uiState.otherUser?.avatarUrl,
+                                    currentUserId = currentUserId,
                                     onReply = {
                                         viewModel.setReplyToMessage(message)
                                     },
                                     onDelete = {
                                         viewModel.revokeMessage(message.id)
+                                    },
+                                    onLongClick = {
+                                        selectedMessage = message
+                                    },
+                                    onReplyMessageClick = { replyToId ->
+                                        // Scroll to the original replied message
+                                        val index = uiState.messages.indexOfFirst { it.id == replyToId }
+                                        if (index >= 0) {
+                                            coroutineScope.launch {
+                                                listState.animateScrollToItem(index)
+                                                highlightedMessageId = replyToId
+                                                delay(2000)
+                                                highlightedMessageId = null
+                                            }
+                                        }
+                                    },
+                                    onDoubleTap = {
+                                        // Show reaction bar by setting selected message
+                                        selectedMessage = message
+                                    },
+                                    onReactionClick = { emoji ->
+                                        viewModel.toggleReaction(message.id, emoji)
                                     }
                                 )
                             }
@@ -322,12 +604,18 @@ fun ChatDetailScreen(
 private fun SwipeableMessageBubble(
     message: Message,
     isOutgoing: Boolean,
+    isPinned: Boolean = false,
+    isHighlighted: Boolean = false,
     senderAvatarUrl: String? = null,
+    currentUserId: String = "",
     onReply: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onLongClick: () -> Unit,
+    onReplyMessageClick: (String) -> Unit = {},
+    onDoubleTap: () -> Unit = {},
+    onReactionClick: (String) -> Unit = {}
 ) {
     var offsetX by remember { mutableStateOf(0f) }
-    var showContextMenu by remember { mutableStateOf(false) }
     val swipeThreshold = 80f
     val maxSwipe = 100f
     
@@ -405,73 +693,37 @@ private fun SwipeableMessageBubble(
                     )
                 }
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = if (isOutgoing) Arrangement.End else Arrangement.Start
-            ) {
-                Box {
-                    MessageBubble(
-                        message = message,
-                        isOutgoing = isOutgoing,
-                        senderAvatarUrl = senderAvatarUrl,
-                        onLongClick = { showContextMenu = true },
-                        onReplyClick = onReply
-                    )
-                    
-                    // Context menu dropdown - anchored to the message bubble
-                    DropdownMenu(
-                        expanded = showContextMenu,
-                        onDismissRequest = { showContextMenu = false }
-                    ) {
-                        if (isOutgoing) {
-                            // Options for own messages
-                            DropdownMenuItem(
-                                text = { Text("🗑️ Delete") },
-                                onClick = {
-                                    showContextMenu = false
-                                    onDelete()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("↗️ Forward") },
-                                onClick = {
-                                    showContextMenu = false
-                                    // TODO: Implement forward
-                                },
-                                enabled = false
-                            )
-                        } else {
-                            // Options for other user's messages
-                            DropdownMenuItem(
-                                text = { Text("↩️ Reply") },
-                                onClick = {
-                                    showContextMenu = false
-                                    onReply()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("↗️ Forward") },
-                                onClick = {
-                                    showContextMenu = false
-                                    // TODO: Implement forward
-                                },
-                                enabled = false
-                            )
-                        }
-                    }
-                }
-            }
+            MessageBubble(
+                message = message,
+                isOutgoing = isOutgoing,
+                isPinned = isPinned,
+                isHighlighted = isHighlighted,
+                senderAvatarUrl = senderAvatarUrl,
+                currentUserId = currentUserId,
+                onLongClick = onLongClick,
+                onReplyClick = onReply,
+                onReplyMessageClick = onReplyMessageClick,
+                onDoubleTap = onDoubleTap,
+                onReactionClick = onReactionClick
+            )
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MessageBubble(
     message: Message,
     isOutgoing: Boolean,
+    isPinned: Boolean = false,
+    isHighlighted: Boolean = false,
     senderAvatarUrl: String? = null,
+    currentUserId: String = "",
     onLongClick: () -> Unit,
-    onReplyClick: () -> Unit
+    onReplyClick: () -> Unit,
+    onReplyMessageClick: (String) -> Unit = {},
+    onDoubleTap: () -> Unit = {},
+    onReactionClick: (String) -> Unit = {}
 ) {
     val bubbleColor = if (isOutgoing) {
         MaterialTheme.colorScheme.primary
@@ -484,10 +736,18 @@ private fun MessageBubble(
     } else {
         MaterialTheme.colorScheme.onSurfaceVariant
     }
+    
+    // Highlight background for scroll-to-pinned
+    val highlightColor = if (isHighlighted) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+    } else {
+        Color.Transparent
+    }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .background(highlightColor)
             .padding(horizontal = 8.dp, vertical = 2.dp),
         horizontalArrangement = if (isOutgoing) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.Bottom
@@ -531,6 +791,7 @@ private fun MessageBubble(
                     .padding(bottom = 4.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .clickable { onReplyMessageClick(reply.id) }
                     .padding(8.dp)
             ) {
                 Column {
@@ -549,77 +810,156 @@ private fun MessageBubble(
             }
         }
 
-        // Message bubble
-        Box(
-            modifier = Modifier
-                .widthIn(max = 280.dp)
-                .clip(
-                    RoundedCornerShape(
-                        topStart = 16.dp,
-                        topEnd = 16.dp,
-                        bottomStart = if (isOutgoing) 16.dp else 4.dp,
-                        bottomEnd = if (isOutgoing) 4.dp else 16.dp
-                    )
-                )
-                .background(bubbleColor)
-                .clickable(onClick = onLongClick)
-                .padding(12.dp)
-        ) {
+        // Message bubble - different layout for images
+        if (message.type == MessageType.IMAGE && !message.isRevoked) {
+            // Image message - no bubble background, show all images
             Column {
-                when (message.type) {
-                    MessageType.TEXT -> {
-                        Text(
-                            text = if (message.isRevoked) message.content else message.content,
-                            color = textColor,
-                            fontStyle = if (message.isRevoked) FontStyle.Italic else FontStyle.Normal
-                        )
-                    }
-                    MessageType.IMAGE -> {
-                        // Show image(s)
-                        message.mediaUrls.firstOrNull()?.let { url ->
-                            AsyncImage(
-                                model = url,
-                                contentDescription = "Image",
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp)),
-                                contentScale = ContentScale.FillWidth
+                // Images grid/column
+                message.mediaUrls.forEachIndexed { index, url ->
+                    if (index > 0) Spacer(modifier = Modifier.height(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .widthIn(max = 280.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .combinedClickable(
+                                onClick = { },
+                                onLongClick = onLongClick
                             )
-                        }
-                        if (message.content.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(text = message.content, color = textColor)
-                        }
-                    }
-                    else -> {
-                        Text(
-                            text = message.getDisplayText(),
-                            color = textColor
+                    ) {
+                        AsyncImage(
+                            model = url,
+                            contentDescription = "Image ${index + 1}",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 100.dp, max = 300.dp),
+                            contentScale = ContentScale.Crop
                         )
+                        
+                        // Timestamp overlay on last image
+                        if (index == message.mediaUrls.lastIndex) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(6.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.Black.copy(alpha = 0.5f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (isPinned) {
+                                        Text(
+                                            text = "📌",
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
+                                        Spacer(modifier = Modifier.width(2.dp))
+                                    }
+                                    Text(
+                                        text = SimpleDateFormat("HH:mm", Locale.getDefault())
+                                            .format(message.timestamp.toDate()),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White
+                                    )
+                                    if (isOutgoing) {
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        MessageStatusIcon(status = message.status, color = Color.White)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Timestamp and status
-                Row(
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.align(Alignment.End)
-                ) {
+                
+                // Caption if any
+                if (message.content.isNotBlank() && message.content != "Message was unsent") {
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = SimpleDateFormat("HH:mm", Locale.getDefault())
-                            .format(message.timestamp.toDate()),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = textColor.copy(alpha = 0.7f)
+                        text = message.content,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
+                }
+            }
+        } else {
+            // Text and other message types - with bubble
+            Box(
+                modifier = Modifier
+                    .widthIn(max = 280.dp)
+                    .clip(
+                        RoundedCornerShape(
+                            topStart = 16.dp,
+                            topEnd = 16.dp,
+                            bottomStart = if (isOutgoing) 16.dp else 4.dp,
+                            bottomEnd = if (isOutgoing) 4.dp else 16.dp
+                        )
+                    )
+                    .background(bubbleColor)
+                    .combinedClickable(
+                        onClick = { },
+                        onLongClick = onLongClick
+                    )
+                    .padding(12.dp)
+            ) {
+                Column {
+                    when (message.type) {
+                        MessageType.TEXT -> {
+                            Text(
+                                text = if (message.isRevoked) message.content else message.content,
+                                color = textColor,
+                                fontStyle = if (message.isRevoked) FontStyle.Italic else FontStyle.Normal
+                            )
+                        }
+                        else -> {
+                            Text(
+                                text = message.getDisplayText(),
+                                color = textColor
+                            )
+                        }
+                    }
 
-                    if (isOutgoing) {
-                        Spacer(modifier = Modifier.width(4.dp))
-                        MessageStatusIcon(status = message.status, color = textColor)
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Timestamp and status
+                    Row(
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        // Pin indicator
+                        if (isPinned) {
+                            Text(
+                                text = "📌",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                        }
+                        
+                        Text(
+                            text = SimpleDateFormat("HH:mm", Locale.getDefault())
+                                .format(message.timestamp.toDate()),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = textColor.copy(alpha = 0.7f)
+                        )
+
+                        if (isOutgoing) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            MessageStatusIcon(status = message.status, color = textColor)
+                        }
                     }
                 }
             }
+        }
+        
+        // Reaction display below message
+        if (message.reactions.isNotEmpty()) {
+            ReactionDisplay(
+                reactions = message.reactions,
+                currentUserId = currentUserId,
+                onReactionClick = onReactionClick,
+                onViewAllClick = { /* TODO: Show reaction list bottom sheet */ },
+                modifier = Modifier.align(if (isOutgoing) Alignment.End else Alignment.Start)
+            )
         }
         }
     }
@@ -853,6 +1193,106 @@ private fun MessageInput(
                     else
                         MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Reaction bar popup with emoji selection
+ */
+@Composable
+private fun ReactionBar(
+    onReactionSelected: (String) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val emojis = listOf("❤️", "😂", "👍", "😮", "😢", "😡")
+    
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(24.dp))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
+            .padding(8.dp)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            emojis.forEach { emoji ->
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .clickable {
+                            onReactionSelected(emoji)
+                            onDismiss()
+                        }
+                        .padding(4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = emoji,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Display reactions below message bubble
+ */
+@Composable
+private fun ReactionDisplay(
+    reactions: Map<String, List<String>>,
+    currentUserId: String,
+    onReactionClick: (String) -> Unit,
+    onViewAllClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (reactions.isEmpty()) return
+    
+    Row(
+        modifier = modifier
+            .padding(top = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        reactions.forEach { (emoji, userIds) ->
+            val hasMyReaction = userIds.contains(currentUserId)
+            
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        if (hasMyReaction)
+                            MaterialTheme.colorScheme.primaryContainer
+                        else
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+                    )
+                    .clickable { onReactionClick(emoji) }
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = emoji,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    if (userIds.size > 1) {
+                        Text(
+                            text = "${userIds.size}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (hasMyReaction)
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         }
     }
