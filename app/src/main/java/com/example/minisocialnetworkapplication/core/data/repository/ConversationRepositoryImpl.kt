@@ -414,13 +414,16 @@ class ConversationRepositoryImpl @Inject constructor(
                     .await()
                 
                 timber.log.Timber.d("PIN_DEBUG: Updated Firestore participants/$currentUserId with $updates")
+                
+                // Update in-memory cache immediately
+                isPinned?.let { isPinnedCache[conversationId] = it }
             }
             
             // Also update local cache
             isPinned?.let { conversationDao.updatePinnedStatus(conversationId, it) }
             isMuted?.let { conversationDao.updateMutedStatus(conversationId, it) }
             
-            timber.log.Timber.d("PIN_DEBUG: Updated local Room DB")
+            timber.log.Timber.d("PIN_DEBUG: Updated local Room DB and isPinnedCache")
             Result.Success(Unit)
         } catch (e: Exception) {
             timber.log.Timber.e(e, "PIN_DEBUG: updateConversation error")

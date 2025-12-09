@@ -114,7 +114,10 @@ class ConversationListViewModel @Inject constructor(
 
     fun pinConversation(conversationId: String, isPinned: Boolean) {
         viewModelScope.launch {
+            timber.log.Timber.d("PIN_DEBUG: ViewModel pinConversation called - convId=$conversationId, isPinned=$isPinned")
             conversationRepository.updateConversation(conversationId, isPinned = isPinned)
+            // Refresh to re-sort conversations with new pin status
+            refresh()
         }
     }
 
