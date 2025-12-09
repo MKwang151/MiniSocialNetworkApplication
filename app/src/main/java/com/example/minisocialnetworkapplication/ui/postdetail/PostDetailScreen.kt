@@ -1,6 +1,10 @@
 package com.example.minisocialnetworkapplication.ui.postdetail
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,9 +18,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
@@ -30,12 +36,14 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -45,6 +53,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -65,6 +74,7 @@ fun PostDetailScreen(
     val commentText by viewModel.commentText.collectAsState()
     val isAddingComment by viewModel.isAddingComment.collectAsState()
     val deletionSuccess by viewModel.deletionSuccess.collectAsState()
+    val replyToComment by viewModel.replyToComment.collectAsState()
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showEditPostDialog by remember { mutableStateOf(false) }
@@ -102,6 +112,7 @@ fun PostDetailScreen(
                     comments = state.comments,
                     commentText = commentText,
                     isAddingComment = isAddingComment,
+                    replyToComment = replyToComment,
                     onCommentTextChange = viewModel::updateCommentText,
                     onSendComment = viewModel::addComment,
                     onLikeClicked = viewModel::toggleLike,
@@ -119,6 +130,11 @@ fun PostDetailScreen(
                     },
                     onEditComment = { comment, newText ->
                         viewModel.updateComment(comment.id, newText)
+                    },
+                    onReplyClick = viewModel::setReplyToComment,
+                    onClearReply = viewModel::clearReply,
+                    onReactionClick = { comment, emoji ->
+                        viewModel.toggleCommentReaction(comment.id, emoji)
                     },
                     modifier = Modifier.padding(paddingValues)
                 )
@@ -163,12 +179,14 @@ fun PostDetailScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PostDetailContent(
     post: Post,
     comments: List<Comment>,
     commentText: String,
     isAddingComment: Boolean,
+    replyToComment: Comment? = null,
     onCommentTextChange: (String) -> Unit,
     onSendComment: () -> Unit,
     onLikeClicked: () -> Unit,
@@ -178,12 +196,107 @@ fun PostDetailContent(
     onDeletePost: (Post) -> Unit = {},
     onDeleteComment: (Comment) -> Unit = {},
     onEditComment: (Comment, String) -> Unit = { _, _ -> },
+    onReplyClick: (Comment) -> Unit = {},
+    onClearReply: () -> Unit = {},
+    onReactionClick: (Comment, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var commentToDelete by remember { mutableStateOf<Comment?>(null) }
     var showEditCommentDialog by remember { mutableStateOf(false) }
     var commentToEdit by remember { mutableStateOf<Comment?>(null) }
+    
+    // State for long-press bottom sheet
+    var selectedComment by remember { mutableStateOf<Comment?>(null) }
+    val sheetState = rememberModalBottomSheetState()
+    
+    // Bottom Sheet for reactions
+    if (selectedComment != null) {
+        ModalBottomSheet(
+            onDismissRequest = { selectedComment = null },
+            sheetState = sheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Reaction Bar
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    val emojis = listOf("❤️", "😂", "👍", "😮", "😢", "😡")
+                    emojis.forEach { emoji ->
+                        Text(
+                            text = emoji,
+                            style = MaterialTheme.typography.headlineMedium,
+                            modifier = Modifier
+                                .clickable {
+                                    selectedComment?.let { comment ->
+                                        onReactionClick(comment, emoji)
+                                    }
+                                    selectedComment = null // Close sheet after reacting
+                                }
+                                .padding(8.dp)
+                        )
+                    }
+                }
+                
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                
+                // Reply option
+                DropdownMenuItem(
+                    text = { Text("Reply") },
+                    onClick = {
+                        selectedComment?.let { onReplyClick(it) }
+                        selectedComment = null
+                    },
+                    leadingIcon = {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
+                    }
+                )
+                
+                // Edit/Delete options if authorized
+                val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+                val isAuthor = selectedComment?.authorId == currentUserId
+                val isPostAuthor = post.authorId == currentUserId
+                
+                if (isAuthor) {
+                    DropdownMenuItem(
+                        text = { Text("Edit Comment") },
+                        onClick = {
+                            commentToEdit = selectedComment
+                            showEditCommentDialog = true
+                            selectedComment = null
+                        },
+                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                    )
+                }
+                
+                if (isAuthor || isPostAuthor) {
+                    DropdownMenuItem(
+                        text = { Text("Delete Comment", color = MaterialTheme.colorScheme.error) },
+                        onClick = {
+                            commentToDelete = selectedComment
+                            showDeleteDialog = true
+                            selectedComment = null
+                        },
+                        leadingIcon = { 
+                            Icon(
+                                Icons.Default.Delete, 
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error
+                            ) 
+                        }
+                    )
+                }
+            }
+        }
+    }
 
     Column(
         modifier = modifier.fillMaxSize()
@@ -254,6 +367,9 @@ fun PostDetailContent(
                             commentToEdit = comment
                             showEditCommentDialog = true
                         },
+                        onReplyClicked = onReplyClick,
+                        onReactionClicked = onReactionClick,
+                        onLongClick = { selectedComment = it },
                         postAuthorId = post.authorId
                     )
                 }
@@ -265,7 +381,12 @@ fun PostDetailContent(
             text = commentText,
             onTextChange = onCommentTextChange,
             onSendClick = onSendComment,
-            isLoading = isAddingComment
+            isLoading = isAddingComment,
+            replyToComment = replyToComment,
+            onClearReply = onClearReply,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp)
         )
     }
 
@@ -306,12 +427,16 @@ fun PostDetailContent(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CommentItem(
     comment: Comment,
     onAuthorClicked: (String) -> Unit,
     onDeleteClicked: (Comment) -> Unit = {},
     onEditClicked: (Comment) -> Unit = {},
+    onReplyClicked: (Comment) -> Unit, // New callback for reaction bar reply button
+    onReactionClicked: (Comment, String) -> Unit, // New callback for reaction bar emoji
+    onLongClick: (Comment) -> Unit, // New callback to open bottom sheet
     postAuthorId: String = "",
     modifier: Modifier = Modifier
 ) {
@@ -325,6 +450,10 @@ fun CommentItem(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .combinedClickable(
+                onClick = {}, // Handle regular click if needed, or leave empty
+                onLongClick = { onLongClick(comment) }
+            )
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
         // Avatar placeholder - clickable
@@ -348,12 +477,35 @@ fun CommentItem(
 
         Column(modifier = Modifier.weight(1f)) {
             // Author name - clickable
-            Text(
-                text = comment.authorName,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.clickable { onAuthorClicked(comment.authorId) }
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = comment.authorName,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable { onAuthorClicked(comment.authorId) }
+                )
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                // Timestamp
+                Text(
+                    text = com.example.minisocialnetworkapplication.core.util.DateTimeUtil.getRelativeTime(
+                        comment.createdAt
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            // Reply indicator
+            if (comment.replyToAuthorName != null) {
+                Text(
+                    text = "Replying to ${comment.replyToAuthorName}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 2.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(4.dp))
 
@@ -363,20 +515,20 @@ fun CommentItem(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface
             )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Timestamp
-            Text(
-                text = com.example.minisocialnetworkapplication.core.util.DateTimeUtil.getRelativeTime(
-                    comment.createdAt
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            
+            // Reactions display
+            if (comment.reactions.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                com.example.minisocialnetworkapplication.ui.common.ReactionDisplay(
+                    reactions = comment.reactions,
+                    currentUserId = currentUserId,
+                    onReactionClick = { emoji -> onReactionClicked(comment, emoji) }
+                )
+            }
         }
 
         // Menu button (only show if user can delete)
+        // Kept for backward compatibility, but actions also in bottom sheet
         if (canDelete) {
             Box {
                 IconButton(onClick = { showMenu = true }) {
@@ -440,49 +592,83 @@ fun CommentInputBar(
     onTextChange: (String) -> Unit,
     onSendClick: () -> Unit,
     isLoading: Boolean,
+    replyToComment: Comment? = null,
+    onClearReply: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
         tonalElevation = 3.dp
     ) {
-        Row(
-            modifier = Modifier
-                .padding(8.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedTextField(
-                value = text,
-                onValueChange = onTextChange,
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Write a comment...") },
-                enabled = !isLoading,
-                maxLines = 3,
-                shape = MaterialTheme.shapes.medium
-            )
+        Column {
+            // Reply indicator
+            if (replyToComment != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Replying to ${replyToComment.authorName}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    IconButton(
+                        onClick = onClearReply,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Cancel reply",
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
 
-            Spacer(modifier = Modifier.width(8.dp))
-
-            IconButton(
-                onClick = onSendClick,
-                enabled = text.isNotBlank() && !isLoading
+            Row(
+                modifier = Modifier
+                    .padding(8.dp)
+                    .fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Send",
-                        tint = if (text.isNotBlank()) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        }
-                    )
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = onTextChange,
+                    modifier = Modifier.weight(1f),
+                    placeholder = { 
+                        Text(if (replyToComment != null) "Write a reply..." else "Write a comment...") 
+                    },
+                    enabled = !isLoading,
+                    maxLines = 3,
+                    shape = MaterialTheme.shapes.medium
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                IconButton(
+                    onClick = onSendClick,
+                    enabled = text.isNotBlank() && !isLoading
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = "Send",
+                            tint = if (text.isNotBlank()) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                        )
+                    }
                 }
             }
         }

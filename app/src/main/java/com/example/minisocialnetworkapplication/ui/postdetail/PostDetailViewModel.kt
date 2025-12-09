@@ -51,6 +51,13 @@ class PostDetailViewModel @Inject constructor(
     private val _deletionSuccess = MutableStateFlow(false)
     val deletionSuccess: StateFlow<Boolean> = _deletionSuccess.asStateFlow()
 
+    // Reply mode state
+    private val _replyToComment = MutableStateFlow<Comment?>(null)
+    val replyToComment: StateFlow<Comment?> = _replyToComment.asStateFlow()
+
+    // Current user ID for reactions
+    val currentUserId: String? = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+
     private var currentPost: Post? = null
 
     init {
@@ -107,7 +114,15 @@ class PostDetailViewModel @Inject constructor(
             try {
                 _isAddingComment.value = true
 
-                when (val result = addCommentUseCase(postId, text)) {
+                // Check if replying to a comment
+                val replyTo = _replyToComment.value
+                val result = if (replyTo != null) {
+                    commentRepository.addReplyComment(postId, text, replyTo.id, replyTo.authorName)
+                } else {
+                    addCommentUseCase(postId, text)
+                }
+
+                when (result) {
                     is Result.Success -> {
                         _commentText.value = ""
                         Timber.d("Comment added successfully")
@@ -142,6 +157,43 @@ class PostDetailViewModel @Inject constructor(
                 Timber.e(e, "Error adding comment")
             } finally {
                 _isAddingComment.value = false
+                _replyToComment.value = null // Clear reply mode after sending
+            }
+        }
+    }
+
+    fun setReplyToComment(comment: Comment) {
+        _replyToComment.value = comment
+    }
+
+    fun clearReply() {
+        _replyToComment.value = null
+    }
+
+    fun toggleCommentReaction(commentId: String, emoji: String) {
+        val state = _uiState.value as? PostDetailUiState.Success ?: return
+        val comment = state.comments.find { it.id == commentId } ?: return
+        val userId = currentUserId ?: return
+
+        viewModelScope.launch {
+            // Check if user already reacted with this emoji
+            val hasReacted = comment.reactions[emoji]?.contains(userId) == true
+            
+            // Check if user has any other reaction
+            val existingReaction = comment.reactions.entries.find { (_, users) -> 
+                users.contains(userId) 
+            }?.key
+
+            if (hasReacted) {
+                // Remove existing reaction
+                commentRepository.removeReaction(postId, commentId, emoji)
+            } else {
+                // Remove old reaction if exists (one reaction per user)
+                if (existingReaction != null && existingReaction != emoji) {
+                    commentRepository.removeReaction(postId, commentId, existingReaction)
+                }
+                // Add new reaction
+                commentRepository.addReaction(postId, commentId, emoji)
             }
         }
     }
