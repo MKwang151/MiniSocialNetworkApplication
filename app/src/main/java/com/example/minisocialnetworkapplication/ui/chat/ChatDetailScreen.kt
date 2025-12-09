@@ -953,11 +953,10 @@ private fun MessageBubble(
         
         // Reaction display below message
         if (message.reactions.isNotEmpty()) {
-            ReactionDisplay(
+            com.example.minisocialnetworkapplication.ui.common.ReactionDisplay(
                 reactions = message.reactions,
                 currentUserId = currentUserId,
                 onReactionClick = onReactionClick,
-                onViewAllClick = { /* TODO: Show reaction list bottom sheet */ },
                 modifier = Modifier.align(if (isOutgoing) Alignment.End else Alignment.Start)
             )
         }
@@ -1241,59 +1240,4 @@ private fun ReactionBar(
     }
 }
 
-/**
- * Display reactions below message bubble
- */
-@Composable
-private fun ReactionDisplay(
-    reactions: Map<String, List<String>>,
-    currentUserId: String,
-    onReactionClick: (String) -> Unit,
-    onViewAllClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    if (reactions.isEmpty()) return
-    
-    Row(
-        modifier = modifier
-            .padding(top = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        reactions.forEach { (emoji, userIds) ->
-            val hasMyReaction = userIds.contains(currentUserId)
-            
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(
-                        if (hasMyReaction)
-                            MaterialTheme.colorScheme.primaryContainer
-                        else
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-                    )
-                    .clickable { onReactionClick(emoji) }
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = emoji,
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                    if (userIds.size > 1) {
-                        Text(
-                            text = "${userIds.size}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (hasMyReaction)
-                                MaterialTheme.colorScheme.onPrimaryContainer
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
+
