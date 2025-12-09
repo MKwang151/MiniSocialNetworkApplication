@@ -267,15 +267,144 @@ class ChatDetailViewModel @Inject constructor(
         }
     }
 
+    fun pinMessage(messageId: String) {
+        viewModelScope.launch {
+            timber.log.Timber.d("ViewModel: pinMessage called for $messageId in $conversationId")
+            when (val result = messageRepository.pinMessage(conversationId, messageId)) {
+                is Result.Error -> {
+                    timber.log.Timber.e("ViewModel: pinMessage failed - ${result.message}")
+                    _uiState.value = _uiState.value.copy(error = result.message)
+                }
+                is Result.Success -> {
+                    timber.log.Timber.d("ViewModel: pinMessage success, reloading conversation")
+                    // Refresh conversation to get updated pinnedMessageIds
+                    refreshConversation()
+                }
+                is Result.Loading -> { /* ignore */ }
+            }
+        }
+    }
+
+    fun unpinMessage(messageId: String) {
+        viewModelScope.launch {
+            timber.log.Timber.d("ViewModel: unpinMessage called for $messageId in $conversationId")
+            when (val result = messageRepository.unpinMessage(conversationId, messageId)) {
+                is Result.Error -> {
+                    timber.log.Timber.e("ViewModel: unpinMessage failed - ${result.message}")
+                    _uiState.value = _uiState.value.copy(error = result.message)
+                }
+                is Result.Success -> {
+                    timber.log.Timber.d("ViewModel: unpinMessage success, reloading conversation")
+                    // Refresh conversation to get updated pinnedMessageIds
+                    refreshConversation()
+                }
+                is Result.Loading -> { /* ignore */ }
+            }
+        }
+    }
+    
+    private suspend fun refreshConversation() {
+        when (val result = conversationRepository.getConversation(conversationId)) {
+            is Result.Success -> {
+                timber.log.Timber.d("refreshConversation: pinnedMessageIds = ${result.data.pinnedMessageIds}")
+                _uiState.value = _uiState.value.copy(conversation = result.data)
+            }
+            is Result.Error -> {
+                timber.log.Timber.e("refreshConversation failed: ${result.message}")
+            }
+            is Result.Loading -> { /* ignore */ }
+        }
+    }
+
+    // Reaction functions
     fun addReaction(messageId: String, emoji: String) {
         viewModelScope.launch {
-            messageRepository.addReaction(conversationId, messageId, emoji)
+            timber.log.Timber.d("Adding reaction $emoji to message $messageId")
+            when (val result = messageRepository.addReaction(conversationId, messageId, emoji)) {
+                is Result.Error -> {
+                    timber.log.Timber.e("addReaction failed: ${result.message}")
+                    _uiState.value = _uiState.value.copy(error = result.message)
+                }
+                is Result.Success -> {
+                    timber.log.Timber.d("Reaction $emoji added successfully")
+                }
+                is Result.Loading -> { /* ignore */ }
+            }
         }
     }
 
     fun removeReaction(messageId: String, emoji: String) {
         viewModelScope.launch {
-            messageRepository.removeReaction(conversationId, messageId, emoji)
+            timber.log.Timber.d("Removing reaction $emoji from message $messageId")
+            when (val result = messageRepository.removeReaction(conversationId, messageId, emoji)) {
+                is Result.Error -> {
+                    timber.log.Timber.e("removeReaction failed: ${result.message}")
+                    _uiState.value = _uiState.value.copy(error = result.message)
+                }
+                is Result.Success -> {
+                    timber.log.Timber.d("Reaction $emoji removed successfully")
+                }
+                is Result.Loading -> { /* ignore */ }
+            }
+        }
+    }
+
+    fun toggleReaction(messageId: String, emoji: String) {
+        viewModelScope.launch {
+            val currentUserId = auth.currentUser?.uid
+            timber.log.Timber.d("REACTION: ========================================")
+            timber.log.Timber.d("REACTION: toggleReaction called")
+            timber.log.Timber.d("REACTION: messageId=$messageId, emoji=$emoji")
+            timber.log.Timber.d("REACTION: currentUserId=$currentUserId")
+            
+            if (currentUserId == null) {
+                timber.log.Timber.e("REACTION: ERROR - No current user!")
+                return@launch
+            }
+            
+            // Find the message
+            val message = _uiState.value.messages.find { it.id == messageId }
+            if (message == null) {
+                timber.log.Timber.e("REACTION: ERROR - Message not found!")
+                return@launch
+            }
+            
+            // Log current reactions state
+            timber.log.Timber.d("REACTION: Current reactions on message: ${message.reactions}")
+            
+            val usersWithThisEmoji = message.reactions[emoji] ?: emptyList()
+            timber.log.Timber.d("REACTION: Users with $emoji: $usersWithThisEmoji")
+            timber.log.Timber.d("REACTION: Current user in list: ${usersWithThisEmoji.contains(currentUserId)}")
+            
+            if (usersWithThisEmoji.contains(currentUserId)) {
+                // User clicked same emoji - remove it (toggle off)
+                timber.log.Timber.d("REACTION: ACTION = REMOVE (same emoji clicked)")
+                val result = messageRepository.removeReaction(conversationId, messageId, emoji)
+                timber.log.Timber.d("REACTION: Remove result: $result")
+            } else {
+                // Find if user has any existing reaction on this message
+                var existingReactionEmoji: String? = null
+                message.reactions.forEach { (emojiKey, userIds) ->
+                    timber.log.Timber.d("REACTION: Checking $emojiKey -> $userIds")
+                    if (userIds.contains(currentUserId)) {
+                        timber.log.Timber.d("REACTION: Found existing reaction: $emojiKey")
+                        existingReactionEmoji = emojiKey
+                    }
+                }
+                
+                // If user already has a reaction, remove it first
+                if (existingReactionEmoji != null) {
+                    timber.log.Timber.d("REACTION: ACTION = REMOVE OLD ($existingReactionEmoji)")
+                    val removeResult = messageRepository.removeReaction(conversationId, messageId, existingReactionEmoji!!)
+                    timber.log.Timber.d("REACTION: Remove old result: $removeResult")
+                }
+                
+                // Then add new reaction
+                timber.log.Timber.d("REACTION: ACTION = ADD NEW ($emoji)")
+                val addResult = messageRepository.addReaction(conversationId, messageId, emoji)
+                timber.log.Timber.d("REACTION: Add result: $addResult")
+            }
+            timber.log.Timber.d("REACTION: ========================================")
         }
     }
 
