@@ -54,6 +54,12 @@ interface ConversationRepository {
     suspend fun markConversationAsRead(conversationId: String): Result<Unit>
 
     /**
+     * Hide conversation for current user only.
+     * Other participants will still see the conversation.
+     */
+    suspend fun hideConversationForUser(conversationId: String): Result<Unit>
+
+    /**
      * Search conversations by name or participant
      */
     fun searchConversations(query: String): Flow<List<Conversation>>
