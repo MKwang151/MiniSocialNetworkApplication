@@ -43,9 +43,28 @@ class MessageRepositoryImpl @Inject constructor(
         private const val COLLECTION_MESSAGES = "messages"
         private const val COLLECTION_USERS = "users"
         private const val COLLECTION_TYPING = "typing"
+        private const val COLLECTION_PARTICIPANTS = "participants"
     }
 
     override fun getMessages(conversationId: String): Flow<List<Message>> = callbackFlow {
+        val currentUserId = auth.currentUser?.uid
+        
+        // Get user's deletedAt timestamp for this conversation
+        var deletedAt: com.google.firebase.Timestamp? = null
+        if (currentUserId != null) {
+            try {
+                val participantDoc = firestore.collection(COLLECTION_CONVERSATIONS)
+                    .document(conversationId)
+                    .collection(COLLECTION_PARTICIPANTS)
+                    .document(currentUserId)
+                    .get()
+                    .await()
+                deletedAt = participantDoc.getTimestamp("deletedAt")
+            } catch (e: Exception) {
+                timber.log.Timber.e(e, "Error getting deletedAt for $conversationId")
+            }
+        }
+        
         val listener = firestore.collection(COLLECTION_CONVERSATIONS)
             .document(conversationId)
             .collection(COLLECTION_MESSAGES)
@@ -59,7 +78,14 @@ class MessageRepositoryImpl @Inject constructor(
 
                 val messages = snapshot?.documents?.mapNotNull { doc ->
                     try {
-                        parseMessage(doc.id, conversationId, doc.data ?: emptyMap())
+                        val message = parseMessage(doc.id, conversationId, doc.data ?: emptyMap())
+                        
+                        // Filter out messages before deletedAt
+                        if (deletedAt != null && message.timestamp.toDate().before(deletedAt.toDate())) {
+                            return@mapNotNull null
+                        }
+                        
+                        message
                     } catch (e: Exception) {
                         null
                     }
@@ -347,19 +373,41 @@ class MessageRepositoryImpl @Inject constructor(
                 return Result.Error(Exception("Can only unsend messages within 15 minutes"))
             }
 
+            // Delete media files from Firebase Storage if any
+            @Suppress("UNCHECKED_CAST")
+            val mediaUrls = messageDoc.get("mediaUrls") as? List<String> ?: emptyList()
+            if (mediaUrls.isNotEmpty()) {
+                timber.log.Timber.d("Revoking message with ${mediaUrls.size} media files")
+                mediaUrls.forEach { url ->
+                    try {
+                        // Get storage reference from URL and delete
+                        val storageRef = storage.getReferenceFromUrl(url)
+                        storageRef.delete().await()
+                        timber.log.Timber.d("Deleted media file: $url")
+                    } catch (e: Exception) {
+                        timber.log.Timber.e(e, "Failed to delete media file: $url")
+                        // Continue with other files even if one fails
+                    }
+                }
+            }
+
+            // Update message in Firestore - clear mediaUrls and mark as revoked
             firestore.collection(COLLECTION_CONVERSATIONS)
                 .document(conversationId)
                 .collection(COLLECTION_MESSAGES)
                 .document(messageId)
                 .update(
                     "isRevoked", true,
-                    "content", "Message was unsent"
+                    "content", "Message was unsent",
+                    "mediaUrls", emptyList<String>()
                 )
                 .await()
 
             messageDao.revokeMessage(messageId)
+            timber.log.Timber.d("Message $messageId revoked successfully")
             Result.Success(Unit)
         } catch (e: Exception) {
+            timber.log.Timber.e(e, "Failed to revoke message")
             Result.Error(e)
         }
     }
@@ -424,15 +472,30 @@ class MessageRepositoryImpl @Inject constructor(
             val currentUser = auth.currentUser 
                 ?: return Result.Error(Exception("Not authenticated"))
 
-            firestore.collection(COLLECTION_CONVERSATIONS)
+            val messageRef = firestore.collection(COLLECTION_CONVERSATIONS)
                 .document(conversationId)
                 .collection(COLLECTION_MESSAGES)
                 .document(messageId)
-                .update("reactions.$emoji", FieldValue.arrayRemove(currentUser.uid))
+            
+            // First remove user from the array
+            messageRef.update("reactions.$emoji", FieldValue.arrayRemove(currentUser.uid))
                 .await()
+            
+            // Then check if array is now empty and delete the key
+            val doc = messageRef.get().await()
+            @Suppress("UNCHECKED_CAST")
+            val reactions = doc.get("reactions") as? Map<String, List<String>> ?: emptyMap()
+            val emojiUsers = reactions[emoji] ?: emptyList()
+            
+            if (emojiUsers.isEmpty()) {
+                // Delete the empty key entirely
+                timber.log.Timber.d("REACTION: Deleting empty key $emoji from reactions")
+                messageRef.update("reactions.$emoji", FieldValue.delete()).await()
+            }
 
             Result.Success(Unit)
         } catch (e: Exception) {
+            timber.log.Timber.e(e, "REACTION: removeReaction error")
             Result.Error(e)
         }
     }
@@ -588,7 +651,9 @@ class MessageRepositoryImpl @Inject constructor(
         val seenBy = (data["seenBy"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
 
         @Suppress("UNCHECKED_CAST")
-        val reactions = (data["reactions"] as? Map<String, List<String>>) ?: emptyMap()
+        val rawReactions = (data["reactions"] as? Map<String, List<String>>) ?: emptyMap()
+        // Filter out empty arrays to clean up old data
+        val reactions = rawReactions.filterValues { it.isNotEmpty() }
 
         val replyToMessageId = data["replyToMessageId"] as? String
         val replyMessage = if (replyToMessageId != null) {
@@ -621,5 +686,52 @@ class MessageRepositoryImpl @Inject constructor(
             isRevoked = data["isRevoked"] as? Boolean ?: false,
             timestamp = data["timestamp"] as? Timestamp ?: Timestamp.now()
         )
+    }
+
+    override suspend fun pinMessage(conversationId: String, messageId: String): Result<Unit> {
+        return try {
+            timber.log.Timber.d("PIN: Attempting to pin message $messageId in conversation $conversationId")
+            
+            // Use set with merge to create the field if it doesn't exist
+            val docRef = firestore.collection(COLLECTION_CONVERSATIONS).document(conversationId)
+            
+            // First check if document exists
+            val doc = docRef.get().await()
+            timber.log.Timber.d("PIN: Document exists: ${doc.exists()}")
+            
+            if (doc.exists()) {
+                // Get current pinned messages
+                val currentPinned = doc.get("pinnedMessageIds") as? List<String> ?: emptyList()
+                val newPinned = currentPinned.toMutableList().apply {
+                    if (!contains(messageId)) add(messageId)
+                }
+                
+                docRef.update("pinnedMessageIds", newPinned).await()
+                timber.log.Timber.d("PIN: Message $messageId pinned successfully. Total pinned: ${newPinned.size}")
+            } else {
+                timber.log.Timber.e("PIN: Conversation document $conversationId does not exist!")
+            }
+            
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            timber.log.Timber.e(e, "PIN: Failed to pin message - ${e.message}")
+            Result.Error(e)
+        }
+    }
+
+    override suspend fun unpinMessage(conversationId: String, messageId: String): Result<Unit> {
+        return try {
+            timber.log.Timber.d("UNPIN: Attempting to unpin message $messageId in conversation $conversationId")
+            
+            firestore.collection(COLLECTION_CONVERSATIONS)
+                .document(conversationId)
+                .update("pinnedMessageIds", com.google.firebase.firestore.FieldValue.arrayRemove(messageId))
+                .await()
+            timber.log.Timber.d("UNPIN: Message $messageId unpinned successfully")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            timber.log.Timber.e(e, "UNPIN: Failed to unpin message - ${e.message}")
+            Result.Error(e)
+        }
     }
 }
