@@ -7,6 +7,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -79,7 +80,10 @@ fun NavGraph(
                 ?.savedStateHandle
                 ?.getStateFlow("profile_updated", false)
 
+            val currentUser by authViewModel.currentUser.collectAsStateWithLifecycle()
+
             FeedScreen(
+                currentUser = currentUser,
                 shouldRefresh = shouldRefresh,
                 postDeleted = postDeleted,
                 profileUpdated = profileUpdated,
@@ -91,6 +95,9 @@ fun NavGraph(
                 },
                 onNavigateToProfile = { userId ->
                     navController.navigate(Screen.Profile.createRoute(userId))
+                },
+                onNavigateToGroups = {
+                    navController.navigate(Screen.GroupList.route)
                 },
                 onNavigateToImageGallery = { postId, imageIndex ->
                     navController.navigate(Screen.ImageGallery.createRoute(postId, imageIndex))
@@ -110,6 +117,12 @@ fun NavGraph(
                     BottomNavBar(navController, authViewModel)
                 }
             )
+        }
+
+        composable(Screen.GroupList.route) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(text = "Groups coming soon!")
+            }
         }
 
         composable(Screen.ComposePost.route) {
