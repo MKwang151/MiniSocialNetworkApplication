@@ -10,4 +10,12 @@ interface GroupRepository {
     fun getGroupsForUser(userId: String): Flow<List<Group>>
     fun getAllGroups(): Flow<List<Group>>
     suspend fun getGroupDetails(groupId: String): Result<Group>
+    
+    // Membership
+    suspend fun joinGroup(groupId: String): Result<Unit>
+    suspend fun leaveGroup(groupId: String): Result<Unit>
+    suspend fun isMember(groupId: String, userId: String): Result<Boolean>
+    
+    // Feed
+    fun getGroupPosts(groupId: String): Flow<List<com.example.minisocialnetworkapplication.core.domain.model.Post>>
 }
