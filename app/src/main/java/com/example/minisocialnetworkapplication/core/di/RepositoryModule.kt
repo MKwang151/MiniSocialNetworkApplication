@@ -54,5 +54,11 @@ abstract class RepositoryModule {
     abstract fun bindGroupRepository(
         groupRepositoryImpl: com.example.minisocialnetworkapplication.core.data.repository.GroupRepositoryImpl
     ): com.example.minisocialnetworkapplication.core.domain.repository.GroupRepository
+    
+    @Binds
+    @Singleton
+    abstract fun bindNotificationRepository(
+        notificationRepositoryImpl: com.example.minisocialnetworkapplication.core.data.repository.NotificationRepositoryImpl
+    ): com.example.minisocialnetworkapplication.core.domain.repository.NotificationRepository
 }
 
