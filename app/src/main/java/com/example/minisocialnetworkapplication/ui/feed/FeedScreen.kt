@@ -14,7 +14,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -67,11 +70,13 @@ fun FeedScreen(
     onNavigateToGroups: () -> Unit,
     onNavigateToImageGallery: (String, Int) -> Unit,
     onNavigateToSettings: () -> Unit = {},
+    onNavigateToNotifications: () -> Unit = {},
     onLogout: () -> Unit,
     shouldRefresh: StateFlow<Boolean>? = null,
     postDeleted: StateFlow<Boolean>? = null,
     profileUpdated: StateFlow<Boolean>? = null,
     currentUser: User?,
+    unreadNotificationCount: Int = 0,
     bottomBar: @Composable () -> Unit,
     viewModel: FeedViewModel = hiltViewModel()
 ) {
@@ -170,7 +175,23 @@ fun FeedScreen(
                         }
                     },
                     actions = {
-                        // Actions moved to Drawer
+                        // Notification bell icon with badge
+                        IconButton(onClick = onNavigateToNotifications) {
+                            BadgedBox(
+                                badge = {
+                                    if (unreadNotificationCount > 0) {
+                                        Badge {
+                                            Text(text = if (unreadNotificationCount > 99) "99+" else unreadNotificationCount.toString())
+                                        }
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Notifications,
+                                    contentDescription = "Notifications"
+                                )
+                            }
+                        }
                     }
                 )
             },

@@ -81,6 +81,14 @@ fun NavGraph(
                 ?.getStateFlow("profile_updated", false)
 
             val currentUser by authViewModel.currentUser.collectAsStateWithLifecycle()
+            
+            // Get unread notification count for bell icon badge
+            val notificationsViewModel: com.example.minisocialnetworkapplication.ui.notifications.NotificationsViewModel = hiltViewModel()
+            val notificationsState by notificationsViewModel.uiState.collectAsStateWithLifecycle()
+            val unreadCount = when (val state = notificationsState) {
+                is com.example.minisocialnetworkapplication.ui.notifications.NotificationsUiState.Success -> state.unreadCount
+                else -> 0
+            }
 
             FeedScreen(
                 currentUser = currentUser,
@@ -105,6 +113,9 @@ fun NavGraph(
                 onNavigateToSettings = {
                     navController.navigate(Screen.Settings.route)
                 },
+                onNavigateToNotifications = {
+                    navController.navigate(Screen.Notifications.route)
+                },
                 onLogout = {
                     authViewModel.logout()
                     navController.navigate(Screen.Login.route) {
@@ -113,6 +124,7 @@ fun NavGraph(
                         }
                     }
                 },
+                unreadNotificationCount = unreadCount,
                 bottomBar = {
                     BottomNavBar(navController, authViewModel)
                 }
@@ -191,6 +203,14 @@ fun NavGraph(
                 },
                 bottomBar = {
                     BottomNavBar(navController, authViewModel)
+                }
+            )
+        }
+
+        composable(Screen.Notifications.route) {
+            com.example.minisocialnetworkapplication.ui.notifications.NotificationsScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }

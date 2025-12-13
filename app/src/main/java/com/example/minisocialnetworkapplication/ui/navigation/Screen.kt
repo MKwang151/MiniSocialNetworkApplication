@@ -8,6 +8,7 @@ sealed class Screen(val route: String) {
         fun createRoute(groupId: String? = null) = if (groupId != null) "compose_post?groupId=$groupId" else "compose_post"
     }
     data object Settings : Screen("settings")
+    data object Notifications : Screen("notifications")
     data object ConversationList : Screen("conversation_list")
     data object ChatDetail : Screen("chat_detail/{conversationId}") {
         fun createRoute(conversationId: String) = "chat_detail/$conversationId"
