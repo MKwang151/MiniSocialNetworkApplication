@@ -7,6 +7,8 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -25,9 +27,13 @@ import com.example.minisocialnetworkapplication.ui.navigation.Screen
 @Composable
 fun BottomNavBar(
     navController: NavHostController,
-    authViewModel: AuthViewModel
+    authViewModel: AuthViewModel,
+    bottomNavViewModel: BottomNavViewModel = androidx.hilt.navigation.compose.hiltViewModel()
 ) {
     val currentUser by authViewModel.currentUser.collectAsStateWithLifecycle()
+    val unreadMessageCount by bottomNavViewModel.unreadMessageCount.collectAsStateWithLifecycle()
+    val friendRequestCount by bottomNavViewModel.friendRequestCount.collectAsStateWithLifecycle()
+
     val items = listOf(
         BottomNavItem.Home,
         BottomNavItem.Search,
@@ -54,8 +60,43 @@ fun BottomNavBar(
                             else item.route
                         )
                     } },
-                icon = { Icon(item.icon, contentDescription = item.label) },
-//                label = { Text(item.label) }
+                icon = {
+                    when (item) {
+                        BottomNavItem.Chat -> {
+                            BadgedBox(
+                                badge = {
+                                    if (unreadMessageCount > 0) {
+                                        Badge {
+                                            androidx.compose.material3.Text(
+                                                text = if (unreadMessageCount > 99) "99+" else unreadMessageCount.toString()
+                                            )
+                                        }
+                                    }
+                                }
+                            ) {
+                                Icon(item.icon, contentDescription = item.label)
+                            }
+                        }
+                        BottomNavItem.Friends -> {
+                            BadgedBox(
+                                badge = {
+                                    if (friendRequestCount > 0) {
+                                        Badge {
+                                            androidx.compose.material3.Text(
+                                                text = if (friendRequestCount > 99) "99+" else friendRequestCount.toString()
+                                            )
+                                        }
+                                    }
+                                }
+                            ) {
+                                Icon(item.icon, contentDescription = item.label)
+                            }
+                        }
+                        else -> {
+                            Icon(item.icon, contentDescription = item.label)
+                        }
+                    }
+                }
             )
         }
     }
