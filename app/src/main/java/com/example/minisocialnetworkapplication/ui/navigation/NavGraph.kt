@@ -122,12 +122,25 @@ fun NavGraph(
         composable(Screen.GroupList.route) {
              com.example.minisocialnetworkapplication.ui.socialgroup.SocialGroupScreen(
                  onNavigateToCreateGroup = {
-                     // TODO: Navigate to Create Social Group Screen
+                     navController.navigate(Screen.CreateSocialGroup.route)
                  },
                  onNavigateToGroupDetail = { groupId ->
                      // TODO: Navigate to Group Detail
                  }
              )
+        }
+
+        composable(Screen.CreateSocialGroup.route) {
+            com.example.minisocialnetworkapplication.ui.socialgroup.CreateSocialGroupScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onGroupCreated = { groupId ->
+                    // For now, back to group list
+                    // TODO: Navigate to Group Detail
+                    navController.popBackStack()
+                }
+            )
         }
 
         composable(Screen.ComposePost.route) {
