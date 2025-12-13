@@ -18,7 +18,14 @@ data class PostEntity(
     val commentCount: Int,
     val likedByMe: Boolean,
     val createdAt: Long,
-    val isSyncPending: Boolean = false
+    val isSyncPending: Boolean = false,
+    // Group Features
+    val groupId: String? = null,
+    val groupName: String? = null,
+    val groupAvatarUrl: String? = null,
+    val approvalStatus: String = "APPROVED",
+    val isPinned: Boolean = false,
+    val rejectionReason: String? = null
 ) {
     fun toPost(): Post {
         return Post(
@@ -32,7 +39,17 @@ data class PostEntity(
             commentCount = commentCount,
             likedByMe = likedByMe,
             createdAt = Timestamp(createdAt / 1000, ((createdAt % 1000) * 1000000).toInt()),
-            isSyncPending = isSyncPending
+            isSyncPending = isSyncPending,
+            groupId = groupId,
+            groupName = groupName,
+            groupAvatarUrl = groupAvatarUrl,
+            approvalStatus = try {
+                com.example.minisocialnetworkapplication.core.domain.model.PostApprovalStatus.valueOf(approvalStatus)
+            } catch (e: Exception) {
+                com.example.minisocialnetworkapplication.core.domain.model.PostApprovalStatus.APPROVED
+            },
+            isPinned = isPinned,
+            rejectionReason = rejectionReason
         )
     }
 
@@ -49,7 +66,13 @@ data class PostEntity(
                 commentCount = post.commentCount,
                 likedByMe = likedByMe,
                 createdAt = post.createdAt.toDate().time,
-                isSyncPending = post.isSyncPending
+                isSyncPending = post.isSyncPending,
+                groupId = post.groupId,
+                groupName = post.groupName,
+                groupAvatarUrl = post.groupAvatarUrl,
+                approvalStatus = post.approvalStatus.name,
+                isPinned = post.isPinned,
+                rejectionReason = post.rejectionReason
             )
         }
     }
