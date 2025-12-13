@@ -211,4 +211,111 @@ class GroupRepositoryImpl @Inject constructor(
             }
         awaitClose { listener.remove() }
     }
+    
+    override suspend fun sendInvitations(groupId: String, userIds: List<String>): Result<Unit> {
+        val currentUser = auth.currentUser ?: return Result.Error(Exception("User not logged in"))
+        return try {
+            // Get group details for invitation
+            val groupDoc = firestore.collection("groups").document(groupId).get().await()
+            val group = groupDoc.toObject(Group::class.java) 
+                ?: return Result.Error(Exception("Group not found"))
+            
+            // Get current user details
+            val userDoc = firestore.collection("users").document(currentUser.uid).get().await()
+            val userName = userDoc.getString("name") ?: "Someone"
+            
+            // Create invitations for each user
+            val batch = firestore.batch()
+            userIds.forEach { userId ->
+                val invitationRef = firestore.collection("group_invitations").document()
+                val invitation = com.example.minisocialnetworkapplication.core.domain.model.GroupInvitation(
+                    id = invitationRef.id,
+                    groupId = groupId,
+                    groupName = group.name,
+                    groupAvatarUrl = group.avatarUrl,
+                    inviterId = currentUser.uid,
+                    inviterName = userName,
+                    inviteeId = userId,
+                    status = com.example.minisocialnetworkapplication.core.domain.model.InvitationStatus.PENDING
+                )
+                batch.set(invitationRef, invitation)
+                
+                // Also create a notification
+                val notificationRef = firestore.collection("notifications").document()
+                val notification = com.example.minisocialnetworkapplication.core.domain.model.Notification(
+                    id = notificationRef.id,
+                    userId = userId,
+                    type = com.example.minisocialnetworkapplication.core.domain.model.NotificationType.GROUP_INVITATION,
+                    title = "Group Invitation",
+                    message = "$userName invited you to join ${group.name}",
+                    data = mapOf("groupId" to groupId, "invitationId" to invitationRef.id)
+                )
+                batch.set(notificationRef, notification)
+            }
+            batch.commit().await()
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Error sending invitations")
+            Result.Error(e)
+        }
+    }
+    
+    override suspend fun respondToInvitation(invitationId: String, accept: Boolean): Result<Unit> {
+        val currentUser = auth.currentUser ?: return Result.Error(Exception("User not logged in"))
+        return try {
+            val invitationDoc = firestore.collection("group_invitations").document(invitationId).get().await()
+            val invitation = invitationDoc.toObject(com.example.minisocialnetworkapplication.core.domain.model.GroupInvitation::class.java)
+                ?: return Result.Error(Exception("Invitation not found"))
+            
+            if (invitation.inviteeId != currentUser.uid) {
+                return Result.Error(Exception("Not authorized"))
+            }
+            
+            // Update invitation status
+            firestore.collection("group_invitations").document(invitationId)
+                .update("status", if (accept) com.example.minisocialnetworkapplication.core.domain.model.InvitationStatus.ACCEPTED 
+                                   else com.example.minisocialnetworkapplication.core.domain.model.InvitationStatus.DECLINED)
+                .await()
+            
+            // If accepted, add user to group
+            if (accept) {
+                val member = com.example.minisocialnetworkapplication.core.domain.model.GroupMember(
+                    userId = currentUser.uid,
+                    groupId = invitation.groupId,
+                    role = com.example.minisocialnetworkapplication.core.domain.model.GroupRole.MEMBER
+                )
+                firestore.collection("groups").document(invitation.groupId)
+                    .collection("members").document(currentUser.uid)
+                    .set(member)
+                    .await()
+                
+                // Increment member count
+                firestore.collection("groups").document(invitation.groupId)
+                    .update("memberCount", com.google.firebase.firestore.FieldValue.increment(1))
+                    .await()
+            }
+            
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Error responding to invitation")
+            Result.Error(e)
+        }
+    }
+    
+    override fun getInvitationsForUser(userId: String): Flow<List<com.example.minisocialnetworkapplication.core.domain.model.GroupInvitation>> = callbackFlow {
+        val listener = firestore.collection("group_invitations")
+            .whereEqualTo("inviteeId", userId)
+            .whereEqualTo("status", com.example.minisocialnetworkapplication.core.domain.model.InvitationStatus.PENDING.name)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Timber.e(error, "Error listening to invitations")
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                
+                val invitations = snapshot?.toObjects(com.example.minisocialnetworkapplication.core.domain.model.GroupInvitation::class.java) ?: emptyList()
+                trySend(invitations)
+            }
+        awaitClose { listener.remove() }
+    }
 }

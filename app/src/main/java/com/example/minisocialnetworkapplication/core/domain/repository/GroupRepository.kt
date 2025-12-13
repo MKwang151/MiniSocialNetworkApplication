@@ -18,4 +18,9 @@ interface GroupRepository {
     
     // Feed
     fun getGroupPosts(groupId: String): Flow<List<com.example.minisocialnetworkapplication.core.domain.model.Post>>
+    
+    // Invitations
+    suspend fun sendInvitations(groupId: String, userIds: List<String>): Result<Unit>
+    suspend fun respondToInvitation(invitationId: String, accept: Boolean): Result<Unit>
+    fun getInvitationsForUser(userId: String): Flow<List<com.example.minisocialnetworkapplication.core.domain.model.GroupInvitation>>
 }
