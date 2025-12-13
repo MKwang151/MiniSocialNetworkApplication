@@ -60,8 +60,26 @@ class CreateSocialGroupViewModel @Inject constructor(
 
     private fun loadFriends() {
         viewModelScope.launch {
-            friendRepository.getFriends().collect { friendsList ->
-                _friends.value = friendsList
+            // Get current user's ID first
+            val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: return@launch
+            
+            when (val result = friendRepository.getUserFriends(currentUserId)) {
+                is Result.Success -> {
+                    // Convert Friend to User - we need the actual User objects
+                    _friends.value = result.data.map { friend ->
+                        com.example.minisocialnetworkapplication.core.domain.model.User(
+                            uid = friend.friendId,
+                            name = friend.friendName,
+                            email = "", // Not available from Friend
+                            avatarUrl = friend.friendAvatarUrl
+                        )
+                    }
+                }
+                is Result.Error -> {
+                    timber.log.Timber.e("Error loading friends: ${result.message}")
+                    _friends.value = emptyList()
+                }
+                else -> {}
             }
         }
     }
