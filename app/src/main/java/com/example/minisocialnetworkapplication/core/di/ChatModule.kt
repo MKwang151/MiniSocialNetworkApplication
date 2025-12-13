@@ -28,13 +28,15 @@ object ChatModule {
         firestore: FirebaseFirestore,
         auth: FirebaseAuth,
         conversationDao: ConversationDao,
-        participantDao: ParticipantDao
+        participantDao: ParticipantDao,
+        storage: FirebaseStorage
     ): ConversationRepository {
         return ConversationRepositoryImpl(
             firestore = firestore,
             auth = auth,
             conversationDao = conversationDao,
-            participantDao = participantDao
+            participantDao = participantDao,
+            storage = storage
         )
     }
 

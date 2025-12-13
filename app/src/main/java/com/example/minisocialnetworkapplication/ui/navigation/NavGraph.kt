@@ -263,7 +263,7 @@ fun NavGraph(
                     navController.navigate(Screen.ChatDetail.createRoute(conversationId))
                 },
                 onNavigateToNewChat = {
-                    navController.navigate(Screen.SearchUser.route)
+                    navController.navigate(Screen.SelectParticipants.route)
                 },
                 bottomBar = {
                     BottomNavBar(navController, authViewModel)
@@ -356,6 +356,15 @@ fun NavGraph(
                 onNavigateToMedia = { 
                     navController.navigate(Screen.ChatMedia.createRoute(conversationId))
                 },
+                onNavigateToMembers = {
+                    navController.navigate(Screen.ChatMembers.createRoute(conversationId))
+                },
+                onNavigateToAddMember = {
+                    navController.navigate(Screen.AddMember.createRoute(conversationId))
+                },
+                onNavigateToJoinRequests = {
+                    navController.navigate(Screen.JoinRequests.createRoute(conversationId))
+                },
                 onChatDeleted = {
                     // Navigate back to conversation list, popping everything up to it
                     navController.navigate(Screen.ConversationList.route) {
@@ -407,6 +416,66 @@ fun NavGraph(
                         navController.popBackStack() 
                     }
                 }
+            )
+        }
+
+        composable(Screen.SelectParticipants.route) {
+            com.example.minisocialnetworkapplication.ui.group.SelectParticipantsScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateNext = { participantIds ->
+                    navController.navigate(Screen.CreateGroup.createRoute(participantIds))
+                }
+            )
+        }
+
+        composable(Screen.CreateGroup.route) { backStackEntry ->
+            // participantIds argument is handled by ViewModel's SavedStateHandle
+            
+            com.example.minisocialnetworkapplication.ui.group.CreateGroupScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToChat = { conversationId ->
+                    // Navigate to ChatDetail, popping the creation flow from backstack so user can't go back to creation
+                    navController.navigate(Screen.ChatDetail.createRoute(conversationId)) {
+                        popUpTo(Screen.ConversationList.route) { inclusive = false }
+                    }
+                }
+            )
+        }
+        
+        composable(
+            route = Screen.ChatMembers.route,
+            arguments = listOf(androidx.navigation.navArgument("conversationId") { type = androidx.navigation.NavType.StringType })
+        ) { backStackEntry ->
+            val conversationId = backStackEntry.arguments?.getString("conversationId") ?: return@composable
+            com.example.minisocialnetworkapplication.ui.group.ChatMembersScreen(
+                navController = navController,
+                conversationId = conversationId
+            )
+        }
+
+        composable(
+            route = Screen.AddMember.route,
+            arguments = listOf(androidx.navigation.navArgument("conversationId") { type = androidx.navigation.NavType.StringType })
+        ) { backStackEntry ->
+            val conversationId = backStackEntry.arguments?.getString("conversationId") ?: return@composable
+            com.example.minisocialnetworkapplication.ui.group.AddMemberScreen(
+                navController = navController,
+                conversationId = conversationId
+            )
+        }
+
+        composable(
+            route = Screen.JoinRequests.route,
+            arguments = listOf(androidx.navigation.navArgument("conversationId") { type = androidx.navigation.NavType.StringType })
+        ) { backStackEntry ->
+            val conversationId = backStackEntry.arguments?.getString("conversationId") ?: return@composable
+            com.example.minisocialnetworkapplication.ui.group.JoinRequestsScreen(
+                navController = navController,
+                conversationId = conversationId
             )
         }
     }

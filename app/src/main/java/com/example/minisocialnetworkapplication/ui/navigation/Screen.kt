@@ -36,4 +36,18 @@ sealed class Screen(val route: String) {
     data object MessageSearch : Screen("message_search/{conversationId}") {
         fun createRoute(conversationId: String) = "message_search/$conversationId"
     }
+    data object SelectParticipants : Screen("select_participants")
+    data object CreateGroup : Screen("create_group/{participantIds}") {
+        fun createRoute(participantIds: String) = "create_group/$participantIds"
+    }
+
+    data object ChatMembers : Screen("chat_members/{conversationId}") {
+        fun createRoute(conversationId: String) = "chat_members/$conversationId"
+    }
+    data object AddMember : Screen("add_member/{conversationId}") {
+        fun createRoute(conversationId: String) = "add_member/$conversationId"
+    }
+    data object JoinRequests : Screen("join_requests/{conversationId}") {
+        fun createRoute(conversationId: String) = "join_requests/$conversationId"
+    }
 }
