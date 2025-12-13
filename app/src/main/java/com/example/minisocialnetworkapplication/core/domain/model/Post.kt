@@ -13,7 +13,14 @@ data class Post(
     val commentCount: Int = 0,
     val likedByMe: Boolean = false,
     val createdAt: Timestamp = Timestamp.now(),
-    val isSyncPending: Boolean = false
+    val isSyncPending: Boolean = false,
+    // Group Features
+    val groupId: String? = null,
+    val groupName: String? = null,
+    val groupAvatarUrl: String? = null,
+    val approvalStatus: PostApprovalStatus = PostApprovalStatus.APPROVED,
+    val isPinned: Boolean = false,
+    val rejectionReason: String? = null
 ) {
     fun toggleLike(): Post {
         return copy(
@@ -21,5 +28,9 @@ data class Post(
             likeCount = if (likedByMe) likeCount - 1 else likeCount + 1
         )
     }
+}
+
+enum class PostApprovalStatus {
+    APPROVED, PENDING, REJECTED
 }
 
