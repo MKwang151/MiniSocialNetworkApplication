@@ -63,7 +63,54 @@ class GroupRepositoryImpl @Inject constructor(
         }
     }
     
-    // ... (rest of class)
+
+
+    override fun getGroupsForUser(userId: String): Flow<List<Group>> = callbackFlow {
+        val listener = firestore.collectionGroup("members")
+            .whereEqualTo("userId", userId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+
+                if (snapshot != null) {
+                    val groupIds = snapshot.documents.map { it.reference.parent.parent?.id }.filterNotNull()
+                    if (groupIds.isEmpty()) {
+                        trySend(emptyList())
+                    } else {
+                        // Fetch actual groups
+                         firestore.collection("groups")
+                            .whereIn("id", groupIds.take(10)) 
+                            .get()
+                            .addOnSuccessListener { groupSnapshot ->
+                                val groups = groupSnapshot.toObjects(Group::class.java)
+                                trySend(groups)
+                            }
+                            .addOnFailureListener { e ->
+                                Timber.e(e, "Error fetching groups details")
+                            }
+                    }
+                }
+            }
+        
+        awaitClose { listener.remove() }
+    }
+
+    override fun getAllGroups(): Flow<List<Group>> = callbackFlow {
+        val listener = firestore.collection("groups")
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                
+                val groups = snapshot?.toObjects(Group::class.java) ?: emptyList()
+                trySend(groups)
+            }
+        awaitClose { listener.remove() }
+    }
 
     override suspend fun getGroupDetails(groupId: String): Result<Group> {
         return try {
