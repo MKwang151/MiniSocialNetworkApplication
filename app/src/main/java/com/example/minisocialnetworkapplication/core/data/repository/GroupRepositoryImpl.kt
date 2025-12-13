@@ -9,9 +9,12 @@ import com.example.minisocialnetworkapplication.core.util.Result
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
@@ -256,6 +259,90 @@ class GroupRepositoryImpl @Inject constructor(
                 trySend(posts)
             }
         awaitClose { listener.remove() }
+    }
+    
+    override fun getGroupsWhereUserIsAdmin(userId: String): Flow<List<Group>> = callbackFlow {
+        try {
+            // First get all groups where user is ADMIN
+            val memberListener = firestore.collectionGroup("members")
+                .whereEqualTo("userId", userId)
+                .whereEqualTo("role", "ADMIN")
+                .addSnapshotListener { memberSnapshot, error ->
+                    if (error != null) {
+                        Timber.e(error, "Error listening to user admin groups")
+                        trySend(emptyList())
+                        return@addSnapshotListener
+                    }
+                    
+                    val groupIds = memberSnapshot?.documents?.mapNotNull { it.getString("groupId") } ?: emptyList()
+                    
+                    if (groupIds.isEmpty()) {
+                        trySend(emptyList())
+                        return@addSnapshotListener
+                    }
+                    
+                    // Fetch group details for each groupId
+                    // Note: Firestore 'in' query limits to 10 items
+                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                        val groups = mutableListOf<Group>()
+                        groupIds.chunked(10).forEach { chunk ->
+                            val groupsSnapshot = firestore.collection("groups")
+                                .whereIn(com.google.firebase.firestore.FieldPath.documentId(), chunk)
+                               .get().await()
+                            groups.addAll(groupsSnapshot.toObjects(Group::class.java))
+                        }
+                        trySend(groups)
+                    }
+                }
+            awaitClose { memberListener.remove() }
+        } catch (e: Exception) {
+            Timber.e(e, "Error in getGroupsWhereUserIsAdmin")
+            trySend(emptyList())
+            close(e)
+        }
+    }
+    
+    override fun getAllPostsFromUserGroups(userId: String): Flow<List<com.example.minisocialnetworkapplication.core.domain.model.Post>> = callbackFlow {
+        try {
+            // First get all groups user is member of
+            val memberListener = firestore.collectionGroup("members")
+                .whereEqualTo("userId", userId)
+                .addSnapshotListener { memberSnapshot, error ->
+                    if (error != null) {
+                        Timber.e(error, "Error listening to user groups for posts")
+                        trySend(emptyList())
+                        return@addSnapshotListener
+                    }
+                    
+                    val groupIds = memberSnapshot?.documents?.mapNotNull { it.getString("groupId") } ?: emptyList()
+                    
+                    if (groupIds.isEmpty()) {
+                        trySend(emptyList())
+                        return@addSnapshotListener
+                    }
+                    
+                    // Fetch posts from all user's groups
+                    // Note: Firestore 'in' query limits to 10 items
+                    kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                        val posts = mutableListOf<com.example.minisocialnetworkapplication.core.domain.model.Post>()
+                        groupIds.chunked(10).forEach { chunk ->
+                            val postsSnapshot = firestore.collection("posts")
+                                .whereIn("groupId", chunk)
+                                .whereEqualTo("approvalStatus", "APPROVED")
+                                .orderBy("createdAt", Query.Direction.DESCENDING)
+                                .get().await()
+                            posts.addAll(postsSnapshot.toObjects(com.example.minisocialnetworkapplication.core.domain.model.Post::class.java))
+                        }
+                        // Sort all posts by createdAt after combining
+                        trySend(posts.sortedByDescending { it.createdAt })
+                    }
+                }
+            awaitClose { memberListener.remove() }
+        } catch (e: Exception) {
+            Timber.e(e, "Error in getAllPostsFromUserGroups")
+            trySend(emptyList())
+            close(e)
+        }
     }
     
     override suspend fun sendInvitations(groupId: String, userIds: List<String>): Result<Unit> {
