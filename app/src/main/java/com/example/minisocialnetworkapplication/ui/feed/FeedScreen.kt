@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -28,6 +29,8 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -35,6 +38,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,9 +51,11 @@ import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.example.minisocialnetworkapplication.R
 import com.example.minisocialnetworkapplication.core.domain.model.Post
+import com.example.minisocialnetworkapplication.core.domain.model.User
 import com.example.minisocialnetworkapplication.ui.components.PostCard
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,12 +64,14 @@ fun FeedScreen(
     onNavigateToComposePost: () -> Unit,
     onNavigateToPostDetail: (String) -> Unit,
     onNavigateToProfile: (String) -> Unit,
+    onNavigateToGroups: () -> Unit,
     onNavigateToImageGallery: (String, Int) -> Unit,
     onNavigateToSettings: () -> Unit = {},
     onLogout: () -> Unit,
     shouldRefresh: StateFlow<Boolean>? = null,
     postDeleted: StateFlow<Boolean>? = null,
     profileUpdated: StateFlow<Boolean>? = null,
+    currentUser: User?,
     bottomBar: @Composable () -> Unit,
     viewModel: FeedViewModel = hiltViewModel()
 ) {
@@ -126,53 +134,73 @@ fun FeedScreen(
         }
     }
 
-    Scaffold(
-        modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.feed)) },
-                actions = {
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings"
-                        )
-                    }
-                    IconButton(onClick = onLogout) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                            contentDescription = "Logout"
-                        )
-                    }
+    val drawerState = androidx.compose.material3.rememberDrawerState(initialValue = androidx.compose.material3.DrawerValue.Closed)
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+    androidx.compose.material3.ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            com.example.minisocialnetworkapplication.ui.components.DrawerContent(
+                user = currentUser,
+                onNavigateToProfile = { 
+                    currentUser?.let { onNavigateToProfile(it.id) }
+                },
+                onNavigateToGroups = onNavigateToGroups,
+                onNavigateToSettings = onNavigateToSettings,
+                onLogout = onLogout,
+                onCloseDrawer = { 
+                    scope.launch { drawerState.close() } 
                 }
             )
-        },
-        bottomBar = bottomBar,
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onNavigateToComposePost,
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Create post"
+        }
+    ) {
+        Scaffold(
+            modifier = modifier,
+            topBar = {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.feed)) },
+                    navigationIcon = {
+                        IconButton(onClick = { 
+                            scope.launch { drawerState.open() }
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.Menu,
+                                contentDescription = "Menu"
+                            )
+                        }
+                    },
+                    actions = {
+                        // Actions moved to Drawer
+                    }
                 )
-            }
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { paddingValues ->
-        FeedContent(
-            lazyPagingItems = lazyPagingItems,
-            viewModel = viewModel,
-            onNavigateToPostDetail = onNavigateToPostDetail,
-            onNavigateToProfile = onNavigateToProfile,
-            onNavigateToImageGallery = onNavigateToImageGallery,
-            shouldScrollToTop = shouldScrollToTop,
-            onScrolledToTop = { shouldScrollToTop = false },
-            onDeletePost = { postToDelete = it; showDeleteDialog = true },
-            onEditPost = { postToEdit = it; showEditDialog = true },
-            modifier = Modifier.padding(paddingValues)
-        )
+            },
+            bottomBar = bottomBar,
+            floatingActionButton = {
+                FloatingActionButton(
+                    onClick = onNavigateToComposePost,
+                    containerColor = MaterialTheme.colorScheme.primary
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Create post"
+                    )
+                }
+            },
+            snackbarHost = { SnackbarHost(snackbarHostState) }
+        ) { paddingValues ->
+            FeedContent(
+                lazyPagingItems = lazyPagingItems,
+                viewModel = viewModel,
+                onNavigateToPostDetail = onNavigateToPostDetail,
+                onNavigateToProfile = onNavigateToProfile,
+                onNavigateToImageGallery = onNavigateToImageGallery,
+                shouldScrollToTop = shouldScrollToTop,
+                onScrolledToTop = { shouldScrollToTop = false },
+                onDeletePost = { postToDelete = it; showDeleteDialog = true },
+                onEditPost = { postToEdit = it; showEditDialog = true },
+                modifier = Modifier.padding(paddingValues)
+            )
+        }
     }
 
     // Delete confirmation dialog
