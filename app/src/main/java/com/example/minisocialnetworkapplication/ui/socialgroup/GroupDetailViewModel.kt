@@ -20,6 +20,7 @@ sealed interface GroupDetailUiState {
     data class Success(
         val group: Group,
         val isMember: Boolean = false,
+        val userRole: com.example.minisocialnetworkapplication.core.domain.model.GroupRole? = null,
         val posts: List<com.example.minisocialnetworkapplication.core.domain.model.Post> = emptyList()
     ) : GroupDetailUiState
     data class Error(val message: String) : GroupDetailUiState
@@ -59,15 +60,29 @@ class GroupDetailViewModel @Inject constructor(
             val currentUser = getCurrentUserUseCase().firstOrNull()
             
             var isMember = false
+            var userRole: com.example.minisocialnetworkapplication.core.domain.model.GroupRole? = null
+            
             if (currentUser != null) {
                 val memberResult = groupRepository.isMember(groupId, currentUser.id)
                 if (memberResult is Result.Success) {
                     isMember = memberResult.data
                 }
+                
+                // If member, fetch role
+                if (isMember) {
+                    val roleResult = groupRepository.getMemberRole(groupId, currentUser.id)
+                    if (roleResult is Result.Success) {
+                        userRole = roleResult.data
+                    }
+                }
             }
 
-            // Initially set success with group and membership
-            _uiState.value = GroupDetailUiState.Success(group = group, isMember = isMember)
+            // Initially set success with group, membership and role
+            _uiState.value = GroupDetailUiState.Success(
+                group = group,
+                isMember = isMember,
+                userRole = userRole
+            )
 
             // Now load posts if public or member
             if (group.privacy == com.example.minisocialnetworkapplication.core.domain.model.GroupPrivacy.PUBLIC || isMember) {

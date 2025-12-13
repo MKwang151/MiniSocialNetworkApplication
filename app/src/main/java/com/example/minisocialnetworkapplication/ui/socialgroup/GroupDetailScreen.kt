@@ -55,7 +55,7 @@ fun GroupDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Group Detail") }, // Can eventually show group name
+                title = { }, // Remove "Group Detail" text
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -103,8 +103,11 @@ fun GroupDetailScreen(
                         GroupHeader(
                             group = state.group,
                             isMember = state.isMember,
+                            userRole = state.userRole,
                             onJoinClick = viewModel::joinGroup,
-                            onLeaveClick = viewModel::leaveGroup
+                            onLeaveClick = viewModel::leaveGroup,
+                            onManageClick = { /* TODO: Navigate to manage screen */ },
+                            onInviteClick = { /* TODO: Navigate to invite screen */ }
                         )
                     }
 
@@ -152,8 +155,11 @@ fun GroupDetailScreen(
 fun GroupHeader(
     group: com.example.minisocialnetworkapplication.core.domain.model.Group,
     isMember: Boolean,
+    userRole: com.example.minisocialnetworkapplication.core.domain.model.GroupRole?,
     onJoinClick: () -> Unit,
-    onLeaveClick: () -> Unit
+    onLeaveClick: () -> Unit,
+    onManageClick: () -> Unit,
+    onInviteClick: () -> Unit
 ) {
     Column {
         Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
@@ -176,9 +182,41 @@ fun GroupHeader(
             Spacer(modifier = Modifier.height(16.dp))
             
             if (isMember) {
-                 OutlinedButton(onClick = onLeaveClick, modifier = Modifier.fillMaxWidth()) {
-                     Text("Joined")
-                 }
+                // Show buttons based on role
+                androidx.compose.foundation.layout.Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+                ) {
+                    if (userRole == com.example.minisocialnetworkapplication.core.domain.model.GroupRole.ADMIN) {
+                        // Admin: Manage button (left) + Invite button (right)
+                        OutlinedButton(
+                            onClick = onManageClick,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Manage")
+                        }
+                        Button(
+                            onClick = onInviteClick,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Invite")
+                        }
+                    } else {
+                        // Member: Joined button (left) + Invite button (right)
+                        OutlinedButton(
+                            onClick = onLeaveClick,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Joined")
+                        }
+                        Button(
+                            onClick = onInviteClick,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Invite")
+                        }
+                    }
+                }
             } else {
                 Button(onClick = onJoinClick, modifier = Modifier.fillMaxWidth()) {
                     Text("Join Group")
