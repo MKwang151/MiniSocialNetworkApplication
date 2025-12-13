@@ -52,4 +52,5 @@ sealed class Screen(val route: String) {
     }
 
     data object GroupList : Screen("group_list")
+    data object CreateSocialGroup : Screen("create_social_group")
 }
