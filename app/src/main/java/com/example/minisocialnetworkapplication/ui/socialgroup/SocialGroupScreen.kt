@@ -38,10 +38,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavHostController
 import com.example.minisocialnetworkapplication.core.domain.model.Group
+import com.example.minisocialnetworkapplication.ui.auth.AuthViewModel
+import com.example.minisocialnetworkapplication.ui.components.BottomNavBar
 
 @Composable
 fun SocialGroupScreen(
+    navController: NavHostController,
+    authViewModel: AuthViewModel,
     onNavigateToCreateGroup: () -> Unit,
     onNavigateToGroupDetail: (String) -> Unit,
     viewModel: SocialGroupViewModel = hiltViewModel()
@@ -51,6 +56,12 @@ fun SocialGroupScreen(
     val filters = listOf("Your Groups", "Posts", "Discover", "Manage")
 
     Scaffold(
+        bottomBar = {
+            BottomNavBar(
+                navController = navController,
+                authViewModel = authViewModel
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onNavigateToCreateGroup,

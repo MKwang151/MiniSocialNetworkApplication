@@ -121,6 +121,8 @@ fun NavGraph(
 
         composable(Screen.GroupList.route) {
              com.example.minisocialnetworkapplication.ui.socialgroup.SocialGroupScreen(
+                 navController = navController,
+                 authViewModel = authViewModel,
                  onNavigateToCreateGroup = {
                      navController.navigate(Screen.CreateSocialGroup.route)
                  },
