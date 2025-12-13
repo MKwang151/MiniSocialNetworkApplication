@@ -70,7 +70,14 @@ class GroupRepositoryImpl @Inject constructor(
             .whereEqualTo("userId", userId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    Timber.e(error, "Error listening to user groups - Check Firestore rules are deployed!")
+                    // Send empty list instead of closing the flow for permission errors
+                    if (error.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                        Timber.w("PERMISSION_DENIED: Firestore rules may not be deployed. Returning empty list.")
+                        trySend(emptyList())
+                    } else {
+                        close(error)
+                    }
                     return@addSnapshotListener
                 }
 
@@ -89,6 +96,7 @@ class GroupRepositoryImpl @Inject constructor(
                             }
                             .addOnFailureListener { e ->
                                 Timber.e(e, "Error fetching groups details")
+                                trySend(emptyList())
                             }
                     }
                 }
@@ -102,7 +110,14 @@ class GroupRepositoryImpl @Inject constructor(
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    Timber.e(error, "Error listening to all groups - Check Firestore rules are deployed!")
+                    // Send empty list instead of closing for permission errors
+                    if (error.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                        Timber.w("PERMISSION_DENIED: Firestore rules may not be deployed. Returning empty list.")
+                        trySend(emptyList())
+                    } else {
+                        close(error)
+                    }
                     return@addSnapshotListener
                 }
                 
