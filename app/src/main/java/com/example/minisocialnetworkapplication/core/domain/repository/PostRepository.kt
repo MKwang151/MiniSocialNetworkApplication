@@ -21,7 +21,12 @@ interface PostRepository {
     /**
      * Create a new post (enqueues WorkManager task)
      */
-    suspend fun createPost(text: String, imageUris: List<Uri>): Result<Unit>
+    suspend fun createPost(
+        text: String, 
+        imageUris: List<Uri>, 
+        groupId: String? = null, 
+        approvalStatus: com.example.minisocialnetworkapplication.core.domain.model.PostApprovalStatus = com.example.minisocialnetworkapplication.core.domain.model.PostApprovalStatus.APPROVED
+    ): Result<Unit>
 
     /**
      * Toggle like on a post (optimistic update)
