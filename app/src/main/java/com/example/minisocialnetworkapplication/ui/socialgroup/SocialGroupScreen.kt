@@ -25,8 +25,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.minisocialnetworkapplication.core.domain.model.Group
 
@@ -112,14 +112,14 @@ fun GroupList(
                         androidx.compose.material3.Surface(
                             shape = androidx.compose.foundation.shape.CircleShape,
                             color = MaterialTheme.colorScheme.secondaryContainer,
-                            modifier = Modifier.androidx.compose.foundation.layout.size(40.dp)
+                            modifier = Modifier.size(40.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Text(group.name.take(1).uppercase())
                             }
                         }
                     },
-                    modifier = Modifier.androidx.compose.foundation.clickable { onGroupClick(group.id) }
+                    modifier = Modifier.clickable { onGroupClick(group.id) }
                 )
                 androidx.compose.material3.HorizontalDivider()
             }
