@@ -4,7 +4,9 @@ sealed class Screen(val route: String) {
     data object Login : Screen("login")
     data object Register : Screen("register")
     data object Feed : Screen("feed")
-    data object ComposePost : Screen("compose_post")
+    data object ComposePost : Screen("compose_post?groupId={groupId}") {
+        fun createRoute(groupId: String? = null) = if (groupId != null) "compose_post?groupId=$groupId" else "compose_post"
+    }
     data object Settings : Screen("settings")
     data object ConversationList : Screen("conversation_list")
     data object ChatDetail : Screen("chat_detail/{conversationId}") {
@@ -53,4 +55,7 @@ sealed class Screen(val route: String) {
 
     data object GroupList : Screen("group_list")
     data object CreateSocialGroup : Screen("create_social_group")
+    data object GroupDetail : Screen("group_detail/{groupId}") {
+        fun createRoute(groupId: String) = "group_detail/$groupId"
+    }
 }
