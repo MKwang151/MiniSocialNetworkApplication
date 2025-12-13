@@ -125,7 +125,7 @@ fun NavGraph(
                      navController.navigate(Screen.CreateSocialGroup.route)
                  },
                  onNavigateToGroupDetail = { groupId ->
-                     // TODO: Navigate to Group Detail
+                     navController.navigate(Screen.GroupDetail.createRoute(groupId))
                  }
              )
         }
@@ -136,14 +136,41 @@ fun NavGraph(
                     navController.popBackStack()
                 },
                 onGroupCreated = { groupId ->
-                    // For now, back to group list
-                    // TODO: Navigate to Group Detail
-                    navController.popBackStack()
+                    // Navigate to Group Detail and pop creation
+                     navController.navigate(Screen.GroupDetail.createRoute(groupId)) {
+                         popUpTo(Screen.GroupList.route) { inclusive = false }
+                     }
                 }
             )
         }
+        
+        composable(
+            route = Screen.GroupDetail.route,
+            arguments = listOf(androidx.navigation.navArgument("groupId") { type = androidx.navigation.NavType.StringType })
+        ) {
+             com.example.minisocialnetworkapplication.ui.socialgroup.GroupDetailScreen(
+                 onNavigateBack = {
+                     navController.popBackStack()
+                 },
+                 onNavigateToComposePost = { groupId ->
+                     navController.navigate(Screen.ComposePost.createRoute(groupId)) 
+                 },
+                 onNavigateToPostDetail = { postId ->
+                     navController.navigate(Screen.PostDetail.createRoute(postId))
+                 }
+             )
+        }
 
-        composable(Screen.ComposePost.route) {
+        composable(
+            route = Screen.ComposePost.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("groupId") { 
+                    type = androidx.navigation.NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) {
             ComposePostScreen(
                 onNavigateBack = { postCreated ->
                     // Set result for Feed to know if post was created
