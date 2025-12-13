@@ -50,4 +50,6 @@ sealed class Screen(val route: String) {
     data object JoinRequests : Screen("join_requests/{conversationId}") {
         fun createRoute(conversationId: String) = "join_requests/$conversationId"
     }
+
+    data object GroupList : Screen("group_list")
 }
