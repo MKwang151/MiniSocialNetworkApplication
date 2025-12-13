@@ -138,7 +138,12 @@ class PostRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun createPost(text: String, imageUris: List<Uri>): Result<Unit> {
+    override suspend fun createPost(
+        text: String, 
+        imageUris: List<Uri>, 
+        groupId: String?, 
+        approvalStatus: com.example.minisocialnetworkapplication.core.domain.model.PostApprovalStatus
+    ): Result<Unit> {
         return try {
             val userId = auth.currentUser?.uid
             if (userId == null) {
@@ -167,7 +172,9 @@ class PostRepositoryImpl @Inject constructor(
                 "mediaUrls" to emptyList<String>(),  // Empty first!
                 Constants.FIELD_LIKE_COUNT to 0,
                 Constants.FIELD_COMMENT_COUNT to 0,
-                Constants.FIELD_CREATED_AT to com.google.firebase.Timestamp.now()
+                Constants.FIELD_CREATED_AT to com.google.firebase.Timestamp.now(),
+                "groupId" to groupId,
+                "approvalStatus" to approvalStatus.name
             )
 
             firestore.collection(Constants.COLLECTION_POSTS)
