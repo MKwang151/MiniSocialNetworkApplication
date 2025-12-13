@@ -72,7 +72,12 @@ class MessageRepositoryImpl @Inject constructor(
             .limit(100)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    if (error.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                        timber.log.Timber.w("getMessages: Permission denied (User likely left group). Closing flow.")
+                        close()
+                    } else {
+                        close(error)
+                    }
                     return@addSnapshotListener
                 }
 
@@ -542,8 +547,13 @@ class MessageRepositoryImpl @Inject constructor(
             .collection(COLLECTION_TYPING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    timber.log.Timber.e(error, "observeTypingStatus: ERROR")
-                    close(error)
+                    if (error.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                        timber.log.Timber.w("observeTypingStatus: Permission denied (User likely left group). Closing flow.")
+                        close()
+                    } else {
+                        timber.log.Timber.e(error, "observeTypingStatus: ERROR")
+                        close(error)
+                    }
                     return@addSnapshotListener
                 }
 
