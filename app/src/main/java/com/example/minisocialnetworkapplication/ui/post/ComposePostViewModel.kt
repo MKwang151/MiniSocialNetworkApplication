@@ -23,8 +23,12 @@ sealed interface ComposePostUiState {
 
 @HiltViewModel
 class ComposePostViewModel @Inject constructor(
-    private val createPostUseCase: CreatePostUseCase
+    private val createPostUseCase: CreatePostUseCase,
+    savedStateHandle: androidx.lifecycle.SavedStateHandle
 ) : ViewModel() {
+
+    private val groupId: String? = savedStateHandle["groupId"]
+
 
     private val _uiState = MutableStateFlow<ComposePostUiState>(ComposePostUiState.Idle)
     val uiState: StateFlow<ComposePostUiState> = _uiState.asStateFlow()
@@ -103,7 +107,7 @@ class ComposePostViewModel @Inject constructor(
 
                 // Use IO dispatcher for potentially heavy I/O operations (copying images)
                 val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    createPostUseCase(text, images)
+                    createPostUseCase(text, images, groupId)
                 }
 
                 when (result) {
