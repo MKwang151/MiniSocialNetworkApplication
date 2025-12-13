@@ -120,9 +120,14 @@ fun NavGraph(
         }
 
         composable(Screen.GroupList.route) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(text = "Groups coming soon!")
-            }
+             com.example.minisocialnetworkapplication.ui.socialgroup.SocialGroupScreen(
+                 onNavigateToCreateGroup = {
+                     // TODO: Navigate to Create Social Group Screen
+                 },
+                 onNavigateToGroupDetail = { groupId ->
+                     // TODO: Navigate to Group Detail
+                 }
+             )
         }
 
         composable(Screen.ComposePost.route) {
