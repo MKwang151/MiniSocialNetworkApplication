@@ -1,6 +1,7 @@
 package com.example.minisocialnetworkapplication.core.domain.repository
 
 import com.example.minisocialnetworkapplication.core.domain.model.Conversation
+import com.example.minisocialnetworkapplication.core.domain.model.User
 import com.example.minisocialnetworkapplication.core.util.Result
 import kotlinx.coroutines.flow.Flow
 
@@ -33,6 +34,11 @@ interface ConversationRepository {
         participantIds: List<String>,
         avatarUrl: String? = null
     ): Result<Conversation>
+
+    /**
+     * Upload group avatar image
+     */
+    suspend fun uploadGroupAvatar(uri: android.net.Uri): Result<String>
 
     /**
      * Update conversation (pin, mute, etc.)
@@ -68,4 +74,30 @@ interface ConversationRepository {
      * Get conversation with specific user (for checking if exists)
      */
     suspend fun findDirectConversation(otherUserId: String): Conversation?
+    /**
+     * Add admin to conversation
+     */
+    suspend fun addAdmin(conversationId: String, userId: String): Result<Unit>
+
+    /**
+     * Remove admin from conversation
+     */
+    suspend fun removeAdmin(conversationId: String, userId: String): Result<Unit>
+
+    /**
+     * Remove participant from conversation (Kick)
+     */
+    suspend fun removeParticipant(conversationId: String, userId: String): Result<Unit>
+
+    suspend fun addMembers(conversationId: String, memberIds: List<String>): Result<Unit>
+
+    suspend fun createJoinRequests(conversationId: String, memberIds: List<String>): Result<Unit>
+
+    fun getJoinRequests(conversationId: String): kotlinx.coroutines.flow.Flow<List<User>>
+
+    suspend fun acceptJoinRequest(conversationId: String, userId: String): Result<Unit>
+
+    suspend fun declineJoinRequest(conversationId: String, userId: String): Result<Unit>
+    suspend fun leaveConversation(conversationId: String): Result<Unit>
+    suspend fun deleteConversationPermanent(conversationId: String): Result<Unit>
 }

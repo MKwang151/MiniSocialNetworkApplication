@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
@@ -315,8 +316,9 @@ private fun ConversationItem(
                         contentScale = ContentScale.Crop
                     )
                 } else {
+                    val icon = if (conversation.type == ConversationType.GROUP) Icons.Default.Group else Icons.Default.Person
                     Icon(
-                        imageVector = Icons.Default.Person,
+                        imageVector = icon,
                         contentDescription = null,
                         modifier = Modifier.size(28.dp),
                         tint = MaterialTheme.colorScheme.onPrimaryContainer

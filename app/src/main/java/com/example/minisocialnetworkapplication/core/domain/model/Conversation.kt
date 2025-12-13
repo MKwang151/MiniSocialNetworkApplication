@@ -11,11 +11,13 @@ data class Conversation(
     val name: String? = null, // null for direct, group name for group
     val avatarUrl: String? = null, // null for direct (use other user's avatar), custom for group
     val participantIds: List<String> = emptyList(),
+    val adminIds: List<String> = emptyList(),
     val lastMessage: LastMessage? = null,
     val unreadCount: Int = 0,
     val isPinned: Boolean = false,
     val isMuted: Boolean = false,
     val pinnedMessageIds: List<String> = emptyList(), // IDs of pinned messages
+    val creatorId: String? = null,
     val createdAt: Timestamp = Timestamp.now(),
     val updatedAt: Timestamp = Timestamp.now()
 )

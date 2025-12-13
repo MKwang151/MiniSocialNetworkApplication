@@ -21,19 +21,24 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import com.google.firebase.firestore.FieldPath
 
 @Singleton
 class ConversationRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val auth: FirebaseAuth,
     private val conversationDao: ConversationDao,
-    private val participantDao: ParticipantDao
+    private val participantDao: ParticipantDao,
+    private val storage: com.google.firebase.storage.FirebaseStorage
 ) : ConversationRepository {
 
     companion object {
         private const val COLLECTION_CONVERSATIONS = "conversations"
         private const val COLLECTION_MESSAGES = "messages"
         private const val COLLECTION_PARTICIPANTS = "participants"
+        private const val COLLECTION_JOIN_REQUESTS = "join_requests"
     }
     
     /**
@@ -362,6 +367,7 @@ class ConversationRepositoryImpl @Inject constructor(
                 "avatarUrl" to avatarUrl,
                 "participantIds" to allParticipants,
                 "adminIds" to listOf(currentUserId),
+                "creatorId" to currentUserId,
                 "createdAt" to FieldValue.serverTimestamp(),
                 "updatedAt" to FieldValue.serverTimestamp()
             )
@@ -377,6 +383,7 @@ class ConversationRepositoryImpl @Inject constructor(
                 name = name,
                 avatarUrl = avatarUrl,
                 participantIds = allParticipants,
+                creatorId = currentUserId,
                 createdAt = Timestamp.now(),
                 updatedAt = Timestamp.now()
             )
@@ -384,6 +391,19 @@ class ConversationRepositoryImpl @Inject constructor(
             conversationDao.insertConversation(ConversationEntity.fromDomainModel(conversation))
             Result.Success(conversation)
         } catch (e: Exception) {
+            Result.Error(e)
+        }
+    }
+
+    override suspend fun uploadGroupAvatar(uri: android.net.Uri): Result<String> {
+        return try {
+            val filename = "group_avatars/${java.util.UUID.randomUUID()}"
+            val ref = storage.reference.child(filename)
+            ref.putFile(uri).await()
+            val downloadUrl = ref.downloadUrl.await().toString()
+            Result.Success(downloadUrl)
+        } catch (e: Exception) {
+            timber.log.Timber.e(e, "Failed to upload group avatar")
             Result.Error(e)
         }
     }
@@ -553,7 +573,8 @@ class ConversationRepositoryImpl @Inject constructor(
 
         // Parse pinned message IDs
         val pinnedMessageIds = (data["pinnedMessageIds"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
-        timber.log.Timber.d("parseConversation: id=$id, pinnedMessageIds=$pinnedMessageIds")
+        val adminIds = (data["adminIds"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
+        timber.log.Timber.d("parseConversation: id=$id, pinnedMessageIds=$pinnedMessageIds, adminIds=$adminIds")
 
         return Conversation(
             id = id,
@@ -561,10 +582,199 @@ class ConversationRepositoryImpl @Inject constructor(
             name = data["name"] as? String,
             avatarUrl = data["avatarUrl"] as? String,
             participantIds = participantIds,
+            adminIds = adminIds,
             lastMessage = lastMessage,
             pinnedMessageIds = pinnedMessageIds,
+            creatorId = data["creatorId"] as? String,
             createdAt = data["createdAt"] as? Timestamp ?: Timestamp.now(),
             updatedAt = data["updatedAt"] as? Timestamp ?: Timestamp.now()
         )
+    }
+    override suspend fun addAdmin(conversationId: String, userId: String): Result<Unit> {
+    // ... rest of implementation stays same
+        return try {
+            firestore.collection(COLLECTION_CONVERSATIONS)
+                .document(conversationId)
+                .update("adminIds", FieldValue.arrayUnion(userId))
+                .await()
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Result.Error(e)
+        }
+    }
+
+    override suspend fun removeAdmin(conversationId: String, userId: String): Result<Unit> {
+        return try {
+            firestore.collection(COLLECTION_CONVERSATIONS)
+                .document(conversationId)
+                .update("adminIds", FieldValue.arrayRemove(userId))
+                .await()
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Result.Error(e)
+        }
+    }
+
+    override suspend fun removeParticipant(conversationId: String, userId: String): Result<Unit> {
+        return try {
+            // Remove from both participantIds and adminIds (if present)
+            val updates = mapOf(
+                "participantIds" to FieldValue.arrayRemove(userId),
+                "adminIds" to FieldValue.arrayRemove(userId)
+            )
+            
+            firestore.collection(COLLECTION_CONVERSATIONS)
+                .document(conversationId)
+                .update(updates)
+                .await()
+                
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Result.Error(e)
+        }
+    }
+
+    override suspend fun addMembers(conversationId: String, memberIds: List<String>): Result<Unit> {
+        return try {
+            firestore.collection(COLLECTION_CONVERSATIONS)
+                .document(conversationId)
+                .update("participantIds", FieldValue.arrayUnion(*memberIds.toTypedArray()))
+                .await()
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Result.Error(e)
+        }
+    }
+
+    override suspend fun createJoinRequests(conversationId: String, memberIds: List<String>): Result<Unit> {
+        return try {
+            val currentUserId = auth.currentUser?.uid 
+                ?: return Result.Error(Exception("Not authenticated"))
+                
+            val batch = firestore.batch()
+            val collectionRef = firestore.collection(COLLECTION_CONVERSATIONS)
+                .document(conversationId)
+                .collection(COLLECTION_JOIN_REQUESTS)
+
+            memberIds.forEach { userId ->
+                val docRef = collectionRef.document(userId)
+                val data = mapOf(
+                    "requestedBy" to currentUserId,
+                    "timestamp" to FieldValue.serverTimestamp()
+                )
+                batch.set(docRef, data)
+            }
+            
+            batch.commit().await()
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Result.Error(e)
+        }
+    }
+
+    override fun getJoinRequests(conversationId: String): Flow<List<com.example.minisocialnetworkapplication.core.domain.model.User>> = callbackFlow {
+        val listener = firestore.collection(COLLECTION_CONVERSATIONS)
+            .document(conversationId)
+            .collection(COLLECTION_JOIN_REQUESTS)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    timber.log.Timber.e(error, "Error listening for join requests")
+                    return@addSnapshotListener
+                }
+                
+                val userIds = snapshot?.documents?.map { it.id } ?: emptyList()
+                if (userIds.isEmpty()) {
+                    trySend(emptyList())
+                } else {
+                    // Fetch users
+                    // Note: Ideally we should use a cached repository or user flow, but for now simple fetch
+                    launch(kotlinx.coroutines.Dispatchers.IO) {
+                         try {
+                             val chunks = userIds.chunked(10)
+                             val users = mutableListOf<com.example.minisocialnetworkapplication.core.domain.model.User>()
+                             
+                             for (chunk in chunks) {
+                                 val userSnapshots = firestore.collection("users")
+                                     .whereIn(FieldPath.documentId(), chunk)
+                                     .get()
+                                     .await()
+                                 users.addAll(userSnapshots.toObjects(com.example.minisocialnetworkapplication.core.domain.model.User::class.java))
+                             }
+                             trySend(users)
+                         } catch (e: Exception) {
+                             timber.log.Timber.e(e, "Error fetching join request users")
+                         }
+                    }
+                }
+            }
+            
+        awaitClose { listener.remove() }
+    }
+
+    override suspend fun acceptJoinRequest(conversationId: String, userId: String): Result<Unit> {
+        return try {
+            val batch = firestore.batch()
+            val convRef = firestore.collection(COLLECTION_CONVERSATIONS).document(conversationId)
+            val requestRef = convRef.collection(COLLECTION_JOIN_REQUESTS).document(userId)
+            
+            batch.update(convRef, "participantIds", FieldValue.arrayUnion(userId))
+            batch.delete(requestRef)
+            
+            batch.commit().await()
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Result.Error(e)
+        }
+    }
+
+    override suspend fun declineJoinRequest(conversationId: String, userId: String): Result<Unit> {
+        return try {
+            firestore.collection(COLLECTION_CONVERSATIONS)
+                .document(conversationId)
+                .collection(COLLECTION_JOIN_REQUESTS)
+                .document(userId)
+                .delete()
+                .await()
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Result.Error(e)
+        }
+    }
+    override suspend fun leaveConversation(conversationId: String): Result<Unit> {
+        return try {
+            val currentUserId = auth.currentUser?.uid 
+                ?: return Result.Error(Exception("Not authenticated"))
+                
+            val updates = mapOf(
+                "participantIds" to FieldValue.arrayRemove(currentUserId),
+                "adminIds" to FieldValue.arrayRemove(currentUserId)
+            )
+            
+            firestore.collection(COLLECTION_CONVERSATIONS)
+                .document(conversationId)
+                .update(updates)
+                .await()
+                
+            conversationDao.deleteConversationById(conversationId)
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Result.Error(e)
+        }
+    }
+
+    override suspend fun deleteConversationPermanent(conversationId: String): Result<Unit> {
+        return try {
+            // Note: This only deletes the main document. Subcollections remain but are inaccessible via normal queries.
+            // Ideally use a Cloud Function for recursive delete or recursive delete from client.
+            firestore.collection(COLLECTION_CONVERSATIONS)
+                .document(conversationId)
+                .delete()
+                .await()
+                
+            conversationDao.deleteConversationById(conversationId)
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Result.Error(e)
+        }
     }
 }
