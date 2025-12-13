@@ -19,8 +19,9 @@ sealed interface SocialGroupUiState {
     data object Loading : SocialGroupUiState
     data class Success(
         val myGroups: List<Group> = emptyList(),
+        val allPosts: List<com.example.minisocialnetworkapplication.core.domain.model.Post> = emptyList(),
         val discoverGroups: List<Group> = emptyList(),
-        val managedGroups: List<Group> = emptyList() // TODO: Filter admin roles
+        val managedGroups: List<Group> = emptyList()
     ) : SocialGroupUiState
     data class Error(val message: String) : SocialGroupUiState
 }
@@ -47,21 +48,43 @@ class SocialGroupViewModel @Inject constructor(
                     return@collect
                 }
                 
-                // Once we have user, load groups
-                 // 1. My Groups
+                // Once we have user, load data for all tabs
+                
+                // 1. Your Groups - Groups user has joined
                 launch {
                     groupRepository.getGroupsForUser(user.id).collect { groups ->
                         updateState { currentState ->
-                            currentState.copy(myGroups = groups, managedGroups = groups.filter { it.ownerId == user.id })
+                            currentState.copy(myGroups = groups)
+                        }
+                    }
+                }
+                
+                // 2. Posts - All posts from groups user joined
+                launch {
+                    groupRepository.getAllPostsFromUserGroups(user.id).collect { posts ->
+                        updateState { currentState ->
+                            currentState.copy(allPosts = posts)
                         }
                     }
                 }
 
-                // 2. Discover (All groups for now)
+                // 3. Discover - All groups (will be filtered in UI to exclude joined ones)
                 launch {
                     groupRepository.getAllGroups().collect { groups ->
                         updateState { currentState ->
-                            currentState.copy(discoverGroups = groups)
+                            // Filter out groups user already joined
+                            val myGroupIds = currentState.myGroups.map { it.id }.toSet()
+                            val notJoinedGroups = groups.filter { it.id !in myGroupIds }
+                            currentState.copy(discoverGroups = notJoinedGroups)
+                        }
+                    }
+                }
+                
+                // 4. Manage - Groups where user is ADMIN
+                launch {
+                    groupRepository.getGroupsWhereUserIsAdmin(user.id).collect { adminGroups ->
+                        updateState { currentState ->
+                            currentState.copy(managedGroups = adminGroups)
                         }
                     }
                 }

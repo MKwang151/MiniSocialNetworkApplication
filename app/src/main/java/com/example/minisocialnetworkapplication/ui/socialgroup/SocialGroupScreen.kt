@@ -116,9 +116,79 @@ fun SocialGroupScreen(
                 is SocialGroupUiState.Success -> {
                     when (selectedFilter) {
                         0 -> GroupList(groups = state.myGroups, onGroupClick = onNavigateToGroupDetail)
-                        1 -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Group Posts coming soon") }
+                        1 -> PostsList(posts = state.allPosts, onGroupClick = onNavigateToGroupDetail)
                         2 -> GroupList(groups = state.discoverGroups, onGroupClick = onNavigateToGroupDetail)
                         3 -> GroupList(groups = state.managedGroups, onGroupClick = onNavigateToGroupDetail)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PostsList(
+    posts: List<com.example.minisocialnetworkapplication.core.domain.model.Post>,
+    onGroupClick: (String) -> Unit
+) {
+    if (posts.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(text = "No posts found")
+        }
+    } else {
+        LazyColumn(
+            contentPadding = PaddingValues(16.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(posts) { post ->
+                androidx.compose.material3.Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                        .clickable { post.groupId?.let { onGroupClick(it) } }
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        // Group name (if available)
+                        post.groupId?.let {
+                            Text(
+                                text = "Group Post", // TODO: Add group name
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                        }
+                        
+                        // Author
+                        Text(
+                            text = post.authorName,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        // Content
+                        Text(
+                            text = post.text,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        // Stats
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Text(
+                                text = "${post.likeCount} likes",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.Gray
+                            )
+                            Text(
+                                text = "${post.commentCount} comments",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.Gray
+                            )
+                        }
                     }
                 }
             }
