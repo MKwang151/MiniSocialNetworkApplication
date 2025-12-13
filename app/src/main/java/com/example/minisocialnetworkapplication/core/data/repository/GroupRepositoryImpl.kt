@@ -79,9 +79,9 @@ class GroupRepositoryImpl @Inject constructor(
                     if (groupIds.isEmpty()) {
                         trySend(emptyList())
                     } else {
-                        // Fetch actual groups
+                        // Fetch actual groups by document ID
                          firestore.collection("groups")
-                            .whereIn("id", groupIds.take(10)) 
+                            .whereIn(com.google.firebase.firestore.FieldPath.documentId(), groupIds.take(10)) 
                             .get()
                             .addOnSuccessListener { groupSnapshot ->
                                 val groups = groupSnapshot.toObjects(Group::class.java)
