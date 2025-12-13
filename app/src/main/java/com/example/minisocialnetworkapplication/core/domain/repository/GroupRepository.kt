@@ -15,6 +15,11 @@ interface GroupRepository {
     suspend fun joinGroup(groupId: String): Result<Unit>
     suspend fun leaveGroup(groupId: String): Result<Unit>
     suspend fun isMember(groupId: String, userId: String): Result<Boolean>
+    suspend fun getMemberRole(groupId: String, userId: String): Result<com.example.minisocialnetworkapplication.core.domain.model.GroupRole?>
+    
+    // Tab-specific queries
+    fun getGroupsWhereUserIsAdmin(userId: String): Flow<List<Group>>
+    fun getAllPostsFromUserGroups(userId: String): Flow<List<com.example.minisocialnetworkapplication.core.domain.model.Post>>
     
     // Feed
     fun getGroupPosts(groupId: String): Flow<List<com.example.minisocialnetworkapplication.core.domain.model.Post>>

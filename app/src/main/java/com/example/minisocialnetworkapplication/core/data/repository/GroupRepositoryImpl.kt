@@ -49,11 +49,32 @@ class GroupRepositoryImpl @Inject constructor(
             // Batch write: Create group doc and add creator as member
             firestore.runBatch { batch ->
                 val groupRef = firestore.collection("groups").document(groupId)
-                batch.set(groupRef, group)
+                // Convert to map to ensure proper serialization
+                val groupData = hashMapOf(
+                    "id" to group.id,
+                    "name" to group.name,
+                    "description" to group.description,
+                    "avatarUrl" to group.avatarUrl,
+                    "coverUrl" to group.coverUrl,
+                    "ownerId" to group.ownerId,
+                    "privacy" to group.privacy.name,
+                    "postingPermission" to group.postingPermission.name,
+                    "requirePostApproval" to group.requirePostApproval,
+                    "memberCount" to group.memberCount,
+                    "createdAt" to group.createdAt
+                )
+                batch.set(groupRef, groupData)
 
                 val memberRef = firestore.collection("groups").document(groupId)
                     .collection("members").document(currentUser.uid)
-                batch.set(memberRef, member)
+                // Convert member to map too
+                val memberData = hashMapOf(
+                    "userId" to member.userId,
+                    "groupId" to member.groupId,
+                    "role" to member.role.name,
+                    "joinedAt" to member.joinedAt
+                )
+                batch.set(memberRef, memberData)
             }.await()
 
             Result.Success(groupId)
@@ -190,6 +211,31 @@ class GroupRepositoryImpl @Inject constructor(
                 .collection("members").document(userId)
                 .get().await()
             Result.Success(doc.exists())
+        } catch (e: Exception) {
+            Result.Error(e)
+        }
+    }
+    
+    override suspend fun getMemberRole(groupId: String, userId: String): Result<com.example.minisocialnetworkapplication.core.domain.model.GroupRole?> {
+        return try {
+            val doc = firestore.collection("groups").document(groupId)
+                .collection("members").document(userId)
+                .get().await()
+            
+            if (!doc.exists()) {
+                return Result.Success(null)
+            }
+            
+            val roleString = doc.getString("role")
+            val role = roleString?.let {
+                try {
+                    com.example.minisocialnetworkapplication.core.domain.model.GroupRole.valueOf(it)
+                } catch (e: IllegalArgumentException) {
+                    null
+                }
+            }
+            
+            Result.Success(role)
         } catch (e: Exception) {
             Result.Error(e)
         }
