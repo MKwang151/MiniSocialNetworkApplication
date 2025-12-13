@@ -13,12 +13,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Person
@@ -64,12 +68,17 @@ fun ChatSettingsScreen(
     onNavigateToProfile: (String) -> Unit,
     onNavigateToSearch: () -> Unit,
     onNavigateToMedia: () -> Unit,
+    onNavigateToMembers: () -> Unit,
+    onNavigateToAddMember: () -> Unit,
+    onNavigateToJoinRequests: () -> Unit,
     onChatDeleted: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isDeleting by viewModel.isDeleting.collectAsStateWithLifecycle()
     
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var showLeaveConfirmDialog by remember { mutableStateOf(false) }
+    var showPermanentDeleteConfirmDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(conversationId) {
         viewModel.loadConversation(conversationId)
@@ -94,6 +103,56 @@ fun ChatSettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+    
+    if (showLeaveConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showLeaveConfirmDialog = false },
+            title = { Text(text = "Leave Group?") },
+            text = { Text("You will no longer receive messages from this group.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLeaveConfirmDialog = false
+                        viewModel.leaveGroup(conversationId) {
+                            onChatDeleted()
+                        }
+                    }
+                ) {
+                    Text("Leave", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLeaveConfirmDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showPermanentDeleteConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showPermanentDeleteConfirmDialog = false },
+            title = { Text(text = "Delete Group Permanently?") },
+            text = { Text("This will DELETE the conversation for ALL participants. This action cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showPermanentDeleteConfirmDialog = false
+                        viewModel.deleteGroupPermanent(conversationId) {
+                            onChatDeleted()
+                        }
+                    }
+                ) {
+                    Text("DELETE", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPermanentDeleteConfirmDialog = false }) {
                     Text("Cancel")
                 }
             }
@@ -129,7 +188,9 @@ fun ChatSettingsScreen(
                 }
                 is ChatSettingsUiState.Success -> {
                     Column(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         // Header
@@ -194,11 +255,11 @@ fun ChatSettingsScreen(
                                     onClick = { onNavigateToProfile(state.otherUser.uid) }
                                 )
                             } else {
-                                // Add member placeholder for group
+                                // Add member icon
                                 ActionButton(
-                                    icon = Icons.Default.Person, // Should include + but using Person for now
-                                    text = "Add Member",
-                                    onClick = { /* TODO */ }
+                                    icon = Icons.Default.PersonAdd,
+                                    text = "Add",
+                                    onClick = onNavigateToAddMember
                                 )
                             }
                             
@@ -209,14 +270,28 @@ fun ChatSettingsScreen(
                                 text = if (state.conversation.isMuted) "Unmute" else "Mute",
                                 onClick = { viewModel.toggleMute(conversationId, state.conversation.isMuted) }
                             )
-                            
-
                         }
                         
                         HorizontalDivider()
                         
                         // Menu Items
                         Column(modifier = Modifier.fillMaxWidth()) {
+                            if (state.conversation.type == ConversationType.GROUP) {
+                                MenuItem(
+                                    icon = Icons.Default.Group,
+                                    text = "See chat members",
+                                    onClick = onNavigateToMembers
+                                )
+                                // Add members list item REMOVED as requested
+                                
+                                if (state.isAdmin) {
+                                    MenuItem(
+                                        icon = Icons.Default.Notifications, 
+                                        text = "Join Requests",
+                                        onClick = onNavigateToJoinRequests
+                                    )
+                                }
+                            }
                             MenuItem(
                                 icon = Icons.Default.Search,
                                 text = "Search in Conversation",
@@ -228,16 +303,33 @@ fun ChatSettingsScreen(
                                 onClick = onNavigateToMedia
                             )
                             
-                            val deleteText = if (state.conversation.type == ConversationType.DIRECT) 
-                                "Delete chat" else "Leave chat"
+                            // Delete/Leave Actions
+                            if (state.conversation.type == ConversationType.DIRECT) {
+                                MenuItem(
+                                    icon = Icons.Default.Delete,
+                                    text = "Delete chat",
+                                    textColor = MaterialTheme.colorScheme.error,
+                                    onClick = { showDeleteConfirmDialog = true }
+                                )
+                            } else {
+                                // Group Chat Actions
+                                MenuItem(
+                                    icon = Icons.Default.Block, // Or Leave icon if available
+                                    text = "Leave chat",
+                                    textColor = MaterialTheme.colorScheme.error,
+                                    onClick = { showLeaveConfirmDialog = true }
+                                )
                                 
-                            MenuItem(
-                                icon = if (state.conversation.type == ConversationType.DIRECT) 
-                                    Icons.Default.Delete else Icons.Default.Block,
-                                text = deleteText,
-                                textColor = MaterialTheme.colorScheme.error,
-                                onClick = { showDeleteConfirmDialog = true }
-                            )
+                                // Permanent Delete for Creator
+                                if (state.isCreator) {
+                                    MenuItem(
+                                        icon = Icons.Default.Delete,
+                                        text = "Delete Group (Permanent)",
+                                        textColor = MaterialTheme.colorScheme.error,
+                                        onClick = { showPermanentDeleteConfirmDialog = true }
+                                    )
+                                }
+                            }
                         }
                     }
                 }

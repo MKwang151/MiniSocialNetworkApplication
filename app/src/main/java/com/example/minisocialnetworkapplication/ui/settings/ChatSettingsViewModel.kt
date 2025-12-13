@@ -21,7 +21,9 @@ sealed interface ChatSettingsUiState {
     data object Loading : ChatSettingsUiState
     data class Success(
         val conversation: Conversation,
-        val otherUser: User? = null
+        val otherUser: User? = null,
+        val isAdmin: Boolean = false,
+        val isCreator: Boolean = false
     ) : ChatSettingsUiState
     data class Error(val message: String) : ChatSettingsUiState
 }
@@ -66,7 +68,9 @@ class ChatSettingsViewModel @Inject constructor(
                         
                         _uiState.value = ChatSettingsUiState.Success(
                             conversation = conversation,
-                            otherUser = otherUser
+                            otherUser = otherUser,
+                            isAdmin = conversation.adminIds.contains(currentUserId),
+                            isCreator = conversation.creatorId == currentUserId
                         )
                     }
                     is Result.Error -> {
@@ -84,19 +88,9 @@ class ChatSettingsViewModel @Inject constructor(
     fun toggleMute(conversationId: String, currentMuteState: Boolean) {
         viewModelScope.launch {
             try {
-                // Optimistic update could be done here, but repo returns Unit.
-                // UI should react to flow update from repo (if observed). 
-                // However, loadConversation is one-shot? 
-                // Ah, loadConversation fetches ONCE. usage of Flows in Repo suggests real-time updates?
-                // Repo.getConversations()... but here getConversation returns Result<Conversation>.
-                // If I edit it, I should probably reload or update local state.
-                
-                // Let's call updateConversation in repo
                 val newState = !currentMuteState
                 when (conversationRepository.updateConversation(conversationId, isMuted = newState)) {
                     is Result.Success -> {
-                        // Update local state manually since we are not observing a flow for single conversation details
-                        // (unless we switch to observing flow, but for now simple update)
                         val currentState = _uiState.value
                         if (currentState is ChatSettingsUiState.Success) {
                             _uiState.value = currentState.copy(
@@ -123,12 +117,49 @@ class ChatSettingsViewModel @Inject constructor(
                    is Result.Success -> onSuccess()
                    is Result.Error -> {
                        Timber.e(result.exception, "Error deleting conversation")
-                       // Optionally show error in UI
                    }
                    else -> {}
                }
             } catch (e: Exception) {
                 Timber.e(e, "Error deleting conversation")
+            } finally {
+                _isDeleting.value = false
+            }
+        }
+    }
+    
+    fun leaveGroup(conversationId: String, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _isDeleting.value = true
+            try {
+                when(val result = conversationRepository.leaveConversation(conversationId)) {
+                    is Result.Success -> onSuccess()
+                    is Result.Error -> {
+                        Timber.e(result.exception, "Error leaving group")
+                    }
+                    else -> {}
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error leaving group")
+            } finally {
+                _isDeleting.value = false
+            }
+        }
+    }
+    
+    fun deleteGroupPermanent(conversationId: String, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            _isDeleting.value = true
+            try {
+                when(val result = conversationRepository.deleteConversationPermanent(conversationId)) {
+                    is Result.Success -> onSuccess()
+                    is Result.Error -> {
+                        Timber.e(result.exception, "Error deleting group permanently")
+                    }
+                    else -> {}
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error deleting group permanently")
             } finally {
                 _isDeleting.value = false
             }

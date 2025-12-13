@@ -82,6 +82,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
@@ -554,7 +555,10 @@ fun ChatDetailScreen(
                                     isOutgoing = message.isOutgoing(currentUserId),
                                     isPinned = isPinned,
                                     isHighlighted = isHighlighted,
-                                    senderAvatarUrl = if (message.isOutgoing(currentUserId)) null else uiState.otherUser?.avatarUrl,
+                                    senderAvatarUrl = if (message.isOutgoing(currentUserId)) null 
+                                        else if (uiState.conversation?.type == ConversationType.GROUP) message.senderAvatarUrl 
+                                        else uiState.otherUser?.avatarUrl,
+                                    senderName = if (!message.isOutgoing(currentUserId) && uiState.conversation?.type == ConversationType.GROUP) message.senderName else null,
                                     currentUserId = currentUserId,
                                     onReply = {
                                         viewModel.setReplyToMessage(message)
@@ -648,6 +652,7 @@ private fun SwipeableMessageBubble(
     isPinned: Boolean = false,
     isHighlighted: Boolean = false,
     senderAvatarUrl: String? = null,
+    senderName: String? = null, // Added senderName
     currentUserId: String = "",
     onReply: () -> Unit,
     onDelete: () -> Unit,
@@ -740,6 +745,7 @@ private fun SwipeableMessageBubble(
                 isPinned = isPinned,
                 isHighlighted = isHighlighted,
                 senderAvatarUrl = senderAvatarUrl,
+                senderName = senderName, // Pass to Bubble
                 currentUserId = currentUserId,
                 onLongClick = onLongClick,
                 onReplyClick = onReply,
@@ -759,6 +765,7 @@ private fun MessageBubble(
     isPinned: Boolean = false,
     isHighlighted: Boolean = false,
     senderAvatarUrl: String? = null,
+    senderName: String? = null, // Added parameter
     currentUserId: String = "",
     onLongClick: () -> Unit,
     onReplyClick: () -> Unit,
@@ -793,29 +800,42 @@ private fun MessageBubble(
         horizontalArrangement = if (isOutgoing) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.Bottom
     ) {
-        // Avatar for incoming messages
+        // Avatar for incoming messages and Name
         if (!isOutgoing) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                if (senderAvatarUrl != null) {
-                    AsyncImage(
-                        model = senderAvatarUrl,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                if (senderName != null) {
+                    Text(
+                        text = senderName,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 2.dp),
+                        maxLines = 1,
+                        fontSize = 10.sp
                     )
-                } else {
-                    Icon(
-                        Icons.Default.Person,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (senderAvatarUrl != null) {
+                        AsyncImage(
+                            model = senderAvatarUrl,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.Person,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.width(8.dp))
@@ -824,40 +844,41 @@ private fun MessageBubble(
         Column(
             horizontalAlignment = if (isOutgoing) Alignment.End else Alignment.Start
         ) {
-        // Reply preview if this message is a reply
-        message.replyToMessage?.let { reply ->
-            Box(
-                modifier = Modifier
-                    .widthIn(max = 280.dp)
-                    .padding(bottom = 4.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                    .clickable { onReplyMessageClick(reply.id) }
-                    .padding(8.dp)
-            ) {
-                Column {
-                    Text(
-                        text = reply.senderName,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = reply.content,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+            // Reply preview if this message is a reply
+            message.replyToMessage?.let { reply ->
+                // Spacer for visual separation if needed
+                Box(
+                    modifier = Modifier
+                        .widthIn(max = 280.dp)
+                        .padding(bottom = 4.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .clickable { onReplyMessageClick(reply.id) }
+                        .padding(8.dp)
+                ) {
+                   Column {
+                        Text(
+                            text = reply.senderName,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = reply.content,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
-        }
 
-        // Message bubble - different layout for images
-        if (message.type == MessageType.IMAGE && !message.isRevoked) {
-            // Image message - no bubble background, show all images
-            Column {
-                // Images grid/column
-                message.mediaUrls.forEachIndexed { index, url ->
-                    if (index > 0) Spacer(modifier = Modifier.height(4.dp))
+            // Message bubble - different layout for images
+            if (message.type == MessageType.IMAGE && !message.isRevoked) {
+                // Image message - no bubble background, show all images
+                Column {
+                    // Images grid/column
+                    message.mediaUrls.forEachIndexed { index, url ->
+                        if (index > 0) Spacer(modifier = Modifier.height(4.dp))
                     Box(
                         modifier = Modifier
                             .widthIn(max = 280.dp)
