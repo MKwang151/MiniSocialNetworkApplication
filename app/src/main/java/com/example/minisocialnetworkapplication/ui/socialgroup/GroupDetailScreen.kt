@@ -39,7 +39,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.minisocialnetworkapplication.core.domain.model.Post
-import com.example.minisocialnetworkapplication.ui.components.PostItem
+import com.example.minisocialnetworkapplication.ui.components.PostCard
 import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -129,14 +129,16 @@ fun GroupDetailScreen(
                         items(state.posts) { post ->
                             // Assuming PostItem handles generic post display
                             // Pass generic callbacks or stubs
-                             PostItem(
+                             PostCard(
                                 post = post,
-                                onPostClick = { onNavigateToPostDetail(post.id) },
-                                onLikeClick = { /* TODO */ },
-                                onCommentClick = { onNavigateToPostDetail(post.id) },
-                                onShareClick = { /* TODO */ },
-                                onProfileClick = { /* TODO */ },
-                                onImageClick = { _, _ -> /* TODO */ }
+                                onPostClicked = { onNavigateToPostDetail(post.id) },
+                                onLikeClicked = { /* TODO: Implement like in GroupDetailViewModel */ },
+                                onCommentClicked = { onNavigateToPostDetail(post.id) },
+                                onAuthorClicked = { /* TODO: Navigate to profile */ },
+                                onImageClicked = { index -> /* TODO: Navigate to gallery */ },
+                                onDeleteClicked = { /* TODO: Check permissions */ },
+                                onEditClicked = { /* TODO: Check permissions */ },
+                                isOptimisticallyLiked = post.likedByMe
                             )
                         }
                     }

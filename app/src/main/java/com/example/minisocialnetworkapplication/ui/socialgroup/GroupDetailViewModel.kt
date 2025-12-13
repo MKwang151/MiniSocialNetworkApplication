@@ -6,11 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.example.minisocialnetworkapplication.core.domain.model.Group
 import com.example.minisocialnetworkapplication.core.domain.repository.GroupRepository
 import com.example.minisocialnetworkapplication.core.util.Result
-import com.example.minisocialnetworkapplication.ui.auth.AuthViewModel
+
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -27,7 +28,7 @@ sealed interface GroupDetailUiState {
 @HiltViewModel
 class GroupDetailViewModel @Inject constructor(
     private val groupRepository: GroupRepository,
-    private val authViewModel: AuthViewModel,
+    private val getCurrentUserUseCase: com.example.minisocialnetworkapplication.core.domain.usecase.auth.GetCurrentUserUseCase,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -52,7 +53,10 @@ class GroupDetailViewModel @Inject constructor(
             }
             
             val group = (groupResult as Result.Success).data
-            val currentUser = authViewModel.currentUser.value
+            
+            // Get current user (suspend call or flow collection handled here for simplicity)
+            // Ideally we observe flow, but for single check:
+            val currentUser = getCurrentUserUseCase().firstOrNull()
             
             var isMember = false
             if (currentUser != null) {
