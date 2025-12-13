@@ -29,7 +29,10 @@ class NotificationRepositoryImpl @Inject constructor(
                     return@addSnapshotListener
                 }
                 
-                val notifications = snapshot?.toObjects(Notification::class.java) ?: emptyList()
+                val notifications = snapshot?.documents?.mapNotNull { doc ->
+                    doc.toObject(Notification::class.java)?.copy(id = doc.id)
+                } ?: emptyList()
+                Timber.d("Loaded ${notifications.size} notifications for user $userId")
                 trySend(notifications)
             }
         awaitClose { listener.remove() }
@@ -38,7 +41,7 @@ class NotificationRepositoryImpl @Inject constructor(
     override suspend fun markAsRead(notificationId: String): Result<Unit> {
         return try {
             firestore.collection("notifications").document(notificationId)
-                .update("isRead", true)
+                .update("read", true)  // Firebase uses "read" field, not "isRead"
                 .await()
             Result.Success(Unit)
         } catch (e: Exception) {
@@ -62,7 +65,7 @@ class NotificationRepositoryImpl @Inject constructor(
     override fun getUnreadCount(userId: String): Flow<Int> = callbackFlow {
         val listener = firestore.collection("notifications")
             .whereEqualTo("userId", userId)
-            .whereEqualTo("isRead", false)
+            .whereEqualTo("read", false)  // Firebase uses "read" field, not "isRead"
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     Timber.e(error, "Error listening to unread count")

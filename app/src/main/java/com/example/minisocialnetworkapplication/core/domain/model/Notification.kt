@@ -1,5 +1,7 @@
 package com.example.minisocialnetworkapplication.core.domain.model
 
+import com.google.firebase.firestore.PropertyName
+
 data class Notification(
     val id: String = "",
     val userId: String = "",
@@ -7,10 +9,12 @@ data class Notification(
     val title: String = "",
     val message: String = "",
     val data: Map<String, String> = emptyMap(),
-    val isRead: Boolean = false,
+    @get:PropertyName("read") @set:PropertyName("read")
+    var isRead: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()
 )
 
 enum class NotificationType {
     GROUP_INVITATION, FRIEND_REQUEST, POST_LIKE, COMMENT, MENTION
 }
+

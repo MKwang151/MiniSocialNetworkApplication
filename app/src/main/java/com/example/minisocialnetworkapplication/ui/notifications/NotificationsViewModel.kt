@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.minisocialnetworkapplication.core.domain.model.Notification
 import com.example.minisocialnetworkapplication.core.domain.repository.GroupRepository
 import com.example.minisocialnetworkapplication.core.domain.repository.NotificationRepository
-import com.example.minisocialnetworkapplication.core.domain.usecase.GetCurrentUserUseCase
+import com.example.minisocialnetworkapplication.core.domain.usecase.auth.GetCurrentUserUseCase
 import com.example.minisocialnetworkapplication.core.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -85,6 +85,7 @@ class NotificationsViewModel @Inject constructor(
                         result.exception.message ?: "Failed to accept invitation"
                     )
                 }
+                is Result.Loading -> { /* Ignore loading state */ }
             }
         }
     }
@@ -101,6 +102,7 @@ class NotificationsViewModel @Inject constructor(
                         result.exception.message ?: "Failed to decline invitation"
                     )
                 }
+                is Result.Loading -> { /* Ignore loading state */ }
             }
         }
     }
