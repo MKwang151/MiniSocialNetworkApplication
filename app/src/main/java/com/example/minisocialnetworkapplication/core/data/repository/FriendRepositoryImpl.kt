@@ -11,6 +11,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.tasks.asDeferred
 import kotlinx.coroutines.tasks.await
@@ -65,6 +66,25 @@ class FriendRepositoryImpl @Inject constructor(
             Timber.e(e, "Failed to get user's friend requests")
             Result.Error(e)
         }
+    }
+
+    override fun getFriendRequestsCount(): kotlinx.coroutines.flow.Flow<Int> = kotlinx.coroutines.flow.callbackFlow {
+        val userId = auth.currentUser?.uid
+        if (userId == null) {
+            trySend(0)
+            close()
+            return@callbackFlow
+        }
+
+        val listener = firestore.receivedRequests(userId).addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                Timber.e(error, "Error listening for friend requests count")
+                return@addSnapshotListener
+            }
+            trySend(snapshot?.size() ?: 0)
+        }
+
+        awaitClose { listener.remove() }
     }
 
     override suspend fun sendFriendRequest(friendId: String): Result<Unit> {

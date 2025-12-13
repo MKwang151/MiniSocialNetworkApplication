@@ -17,6 +17,11 @@ interface FriendRepository {
     suspend fun getFriendRequests(): Result<List<Friend>>
 
     /**
+     * Get current user's friend requests count (real-time)
+     */
+    fun getFriendRequestsCount(): kotlinx.coroutines.flow.Flow<Int>
+
+    /**
      * Send friend request to uid=friendId
      */
     suspend fun sendFriendRequest(friendId: String): Result<Unit>
