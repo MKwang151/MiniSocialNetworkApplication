@@ -10,7 +10,12 @@ import javax.inject.Inject
 class CreatePostUseCase @Inject constructor(
     private val postRepository: PostRepository
 ) {
-    suspend operator fun invoke(text: String, imageUris: List<Uri>): Result<Unit> {
+    suspend operator fun invoke(
+        text: String, 
+        imageUris: List<Uri>, 
+        groupId: String? = null,
+        approvalStatus: com.example.minisocialnetworkapplication.core.domain.model.PostApprovalStatus = com.example.minisocialnetworkapplication.core.domain.model.PostApprovalStatus.APPROVED
+    ): Result<Unit> {
         // Validate inputs
         if (!Validator.isValidPostText(text)) {
             return Result.Error(Exception("Post text is invalid or exceeds ${Constants.MAX_POST_TEXT_LENGTH} characters"))
@@ -20,7 +25,7 @@ class CreatePostUseCase @Inject constructor(
             return Result.Error(Exception("Maximum ${Constants.MAX_IMAGE_COUNT} images allowed"))
         }
 
-        return postRepository.createPost(text, imageUris)
+        return postRepository.createPost(text, imageUris, groupId, approvalStatus)
     }
 }
 
