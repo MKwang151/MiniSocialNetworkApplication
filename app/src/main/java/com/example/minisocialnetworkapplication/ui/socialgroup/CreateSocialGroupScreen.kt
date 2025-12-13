@@ -50,7 +50,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.example.minisocialnetworkapplication.core.domain.model.GroupPrivacy
 
-@OptIn(Experimental Material3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateSocialGroupScreen(
     onNavigateBack: () -> Unit,
