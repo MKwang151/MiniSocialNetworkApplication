@@ -69,7 +69,11 @@ class CreateSocialGroupViewModel @Inject constructor(
                     _uiState.value = CreateGroupUiState.Success(result.data)
                 }
                 is Result.Error -> {
-                    _uiState.value = CreateGroupUiState.Error(result.message)
+                    _uiState.value = CreateGroupUiState.Error(result.message ?: "Unknown error")
+                }
+                is Result.Loading -> {
+                     // Should not happen for suspend function result usually, but Result is sealed
+                    _uiState.value = CreateGroupUiState.Loading
                 }
             }
         }
