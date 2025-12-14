@@ -171,8 +171,28 @@ fun NavGraph(
                  },
                  onNavigateToPostDetail = { postId ->
                      navController.navigate(Screen.PostDetail.createRoute(postId))
+                 },
+                 onNavigateToInvite = { groupId ->
+                     navController.navigate(Screen.GroupInvite.createRoute(groupId))
+                 },
+                 onNavigateToProfile = { userId ->
+                     navController.navigate(Screen.Profile.createRoute(userId))
+                 },
+                 onNavigateToImageGallery = { postId, index ->
+                     navController.navigate(Screen.ImageGallery.createRoute(postId, index))
                  }
              )
+        }
+
+        composable(
+            route = Screen.GroupInvite.route,
+            arguments = listOf(androidx.navigation.navArgument("groupId") { type = androidx.navigation.NavType.StringType })
+        ) {
+            com.example.minisocialnetworkapplication.ui.socialgroup.GroupInviteScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
         }
 
         composable(
