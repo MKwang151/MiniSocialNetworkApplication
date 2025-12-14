@@ -251,7 +251,12 @@ class GroupRepositoryImpl @Inject constructor(
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                  if (error != null) {
-                    close(error)
+                    Timber.e(error, "Error listening to group posts")
+                    // Don't crash on PERMISSION_DENIED (happens during logout)
+                    if (error.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                        Timber.w("PERMISSION_DENIED while listening to group posts - user likely logged out")
+                    }
+                    trySend(emptyList())
                     return@addSnapshotListener
                 }
                 

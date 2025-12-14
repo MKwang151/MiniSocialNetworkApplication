@@ -128,15 +128,29 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override fun getCurrentUser(): Flow<User?> = callbackFlow {
+        // Track Firestore listener so we can clean it up when auth state changes
+        var userDocListener: com.google.firebase.firestore.ListenerRegistration? = null
+        
         val listener = FirebaseAuth.AuthStateListener { auth ->
             val firebaseUser = auth.currentUser
+            
+            // Clean up previous Firestore listener when auth state changes
+            userDocListener?.remove()
+            userDocListener = null
+            
             if (firebaseUser != null) {
-                firestore.collection(Constants.COLLECTION_USERS)
+                userDocListener = firestore.collection(Constants.COLLECTION_USERS)
                     .document(firebaseUser.uid)
                     .addSnapshotListener { snapshot, error ->
                         if (error != null) {
-                            Timber.e(error, "Error fetching user")
-                            trySend(null)
+                            // Don't crash on PERMISSION_DENIED (happens during logout)
+                            if (error.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                                Timber.w("PERMISSION_DENIED while fetching user - user likely logged out")
+                                trySend(null)
+                            } else {
+                                Timber.e(error, "Error fetching user")
+                                trySend(null)
+                            }
                             return@addSnapshotListener
                         }
                         val user = snapshot?.toObject(User::class.java)
@@ -148,7 +162,11 @@ class AuthRepositoryImpl @Inject constructor(
         }
 
         auth.addAuthStateListener(listener)
-        awaitClose { auth.removeAuthStateListener(listener) }
+        awaitClose { 
+            // Clean up both listeners
+            userDocListener?.remove()
+            auth.removeAuthStateListener(listener) 
+        }
     }
 
     override fun getCurrentUserId(): String? {

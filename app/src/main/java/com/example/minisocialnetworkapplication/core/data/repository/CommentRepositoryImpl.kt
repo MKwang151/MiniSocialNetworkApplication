@@ -33,7 +33,13 @@ class CommentRepositoryImpl @Inject constructor(
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     Timber.e(error, "Error listening to comments")
-                    close(error)
+                    // Don't crash on PERMISSION_DENIED (happens during logout)
+                    if (error.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                        Timber.w("PERMISSION_DENIED while listening to comments - user likely logged out")
+                        trySend(emptyList())
+                    } else {
+                        trySend(emptyList())
+                    }
                     return@addSnapshotListener
                 }
 
