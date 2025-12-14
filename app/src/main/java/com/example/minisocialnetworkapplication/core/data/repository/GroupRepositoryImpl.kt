@@ -244,6 +244,37 @@ class GroupRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getGroupMembers(groupId: String): Result<List<com.example.minisocialnetworkapplication.core.domain.model.GroupMember>> {
+        return try {
+            val snapshot = firestore.collection("groups").document(groupId)
+                .collection("members")
+                .get().await()
+            
+            val members = snapshot.documents.mapNotNull { doc ->
+                try {
+                    com.example.minisocialnetworkapplication.core.domain.model.GroupMember(
+                        userId = doc.id,
+                        groupId = groupId,
+                        role = try {
+                            com.example.minisocialnetworkapplication.core.domain.model.GroupRole.valueOf(
+                                doc.getString("role") ?: "MEMBER"
+                            )
+                        } catch (e: Exception) {
+                            com.example.minisocialnetworkapplication.core.domain.model.GroupRole.MEMBER
+                        },
+                        joinedAt = doc.getLong("joinedAt") ?: 0L
+                    )
+                } catch (e: Exception) {
+                    null
+                }
+            }
+            Result.Success(members)
+        } catch (e: Exception) {
+            Timber.e(e, "Error fetching group members")
+            Result.Error(e)
+        }
+    }
+
     override fun getGroupPosts(groupId: String): Flow<List<com.example.minisocialnetworkapplication.core.domain.model.Post>> = callbackFlow {
         val listener = firestore.collection("posts")
             .whereEqualTo("groupId", groupId)
