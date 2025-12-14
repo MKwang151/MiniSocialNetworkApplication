@@ -1,6 +1,5 @@
 package com.example.minisocialnetworkapplication.ui.socialgroup
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -9,10 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -25,37 +22,59 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.minisocialnetworkapplication.core.domain.model.Post
 import com.example.minisocialnetworkapplication.ui.components.PostCard
 import coil.compose.AsyncImage
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupDetailScreen(
     onNavigateBack: () -> Unit,
-    onNavigateToComposePost: (String) -> Unit, // groupId
+    onNavigateToComposePost: (String) -> Unit,
     onNavigateToPostDetail: (String) -> Unit,
+    onNavigateToInvite: (String) -> Unit,
+    onNavigateToProfile: (String) -> Unit,
+    onNavigateToImageGallery: (String, Int) -> Unit,
     viewModel: GroupDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
+    
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    // Show error messages
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            scope.launch {
+                snackbarHostState.showSnackbar(it)
+                viewModel.clearError()
+            }
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { }, // Remove "Group Detail" text
+                title = { },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -96,9 +115,8 @@ fun GroupDetailScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues),
-                    contentPadding = PaddingValues(bottom = 80.dp) // Space for FAB
+                    contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
-                    // Header Item
                     item {
                         GroupHeader(
                             group = state.group,
@@ -107,11 +125,10 @@ fun GroupDetailScreen(
                             onJoinClick = viewModel::joinGroup,
                             onLeaveClick = viewModel::leaveGroup,
                             onManageClick = { /* TODO: Navigate to manage screen */ },
-                            onInviteClick = { /* TODO: Navigate to invite screen */ }
+                            onInviteClick = { onNavigateToInvite(state.group.id) }
                         )
                     }
 
-                    // Separation
                     item {
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
@@ -124,23 +141,33 @@ fun GroupDetailScreen(
 
                     if (state.posts.isEmpty()) {
                         item {
-                            Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(32.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
                                 Text("No posts yet.")
                             }
                         }
                     } else {
                         items(state.posts) { post ->
-                            // Assuming PostItem handles generic post display
-                            // Pass generic callbacks or stubs
-                             PostCard(
+                            val isOwner = state.currentUserId == post.authorId
+                            val isAdmin = state.userRole == com.example.minisocialnetworkapplication.core.domain.model.GroupRole.ADMIN
+                            
+                            PostCard(
                                 post = post,
                                 onPostClicked = { onNavigateToPostDetail(post.id) },
-                                onLikeClicked = { /* TODO: Implement like in GroupDetailViewModel */ },
+                                onLikeClicked = { viewModel.toggleLike(post) },
                                 onCommentClicked = { onNavigateToPostDetail(post.id) },
-                                onAuthorClicked = { /* TODO: Navigate to profile */ },
-                                onImageClicked = { index -> /* TODO: Navigate to gallery */ },
-                                onDeleteClicked = { /* TODO: Check permissions */ },
-                                onEditClicked = { /* TODO: Check permissions */ },
+                                onAuthorClicked = { onNavigateToProfile(post.authorId) },
+                                onImageClicked = { index -> onNavigateToImageGallery(post.id, index) },
+                                onDeleteClicked = if (isOwner || isAdmin) { 
+                                    { viewModel.deletePost(post.id) } 
+                                } else null,
+                                onEditClicked = if (isOwner) { 
+                                    { /* Will be handled by EditPostDialog */ } 
+                                } else null,
                                 isOptimisticallyLiked = post.likedByMe
                             )
                         }
@@ -163,32 +190,32 @@ fun GroupHeader(
 ) {
     Column {
         Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
-            // Cover Image
             AsyncImage(
-                model = group.coverUrl ?: "https://via.placeholder.com/800x400", // Placeholder
+                model = group.coverUrl ?: "https://via.placeholder.com/800x400",
                 contentDescription = "Cover Image",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-            // Overlay gradient could be nice here
         }
         
         Column(modifier = Modifier.padding(16.dp)) {
             Text(text = group.name, style = MaterialTheme.typography.headlineMedium)
-            Text(text = "${group.memberCount} members · ${group.privacy}", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+            Text(
+                text = "${group.memberCount} members · ${group.privacy}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.Gray
+            )
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = group.description, style = MaterialTheme.typography.bodyLarge)
             
             Spacer(modifier = Modifier.height(16.dp))
             
             if (isMember) {
-                // Show buttons based on role
                 androidx.compose.foundation.layout.Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
                 ) {
                     if (userRole == com.example.minisocialnetworkapplication.core.domain.model.GroupRole.ADMIN) {
-                        // Admin: Manage button (left) + Invite button (right)
                         OutlinedButton(
                             onClick = onManageClick,
                             modifier = Modifier.weight(1f)
@@ -202,7 +229,6 @@ fun GroupHeader(
                             Text("Invite")
                         }
                     } else {
-                        // Member: Joined button (left) + Invite button (right)
                         OutlinedButton(
                             onClick = onLeaveClick,
                             modifier = Modifier.weight(1f)
