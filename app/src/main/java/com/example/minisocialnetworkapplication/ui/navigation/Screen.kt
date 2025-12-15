@@ -62,4 +62,14 @@ sealed class Screen(val route: String) {
     data object GroupInvite : Screen("group_invite/{groupId}") {
         fun createRoute(groupId: String) = "group_invite/$groupId"
     }
+    
+    data object ReportPost : Screen("report_post/{postId}/{authorId}?groupId={groupId}") {
+        fun createRoute(postId: String, authorId: String, groupId: String? = null): String {
+            return if (groupId != null) {
+                "report_post/$postId/$authorId?groupId=$groupId"
+            } else {
+                "report_post/$postId/$authorId"
+            }
+        }
+    }
 }
