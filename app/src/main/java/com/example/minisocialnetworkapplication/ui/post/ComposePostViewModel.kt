@@ -27,8 +27,8 @@ class ComposePostViewModel @Inject constructor(
     savedStateHandle: androidx.lifecycle.SavedStateHandle
 ) : ViewModel() {
 
-    private val groupId: String? = savedStateHandle["groupId"]
-
+    // Treat empty string as null for personal posts
+    private val groupId: String? = savedStateHandle.get<String>("groupId")?.takeIf { it.isNotBlank() }
 
     private val _uiState = MutableStateFlow<ComposePostUiState>(ComposePostUiState.Idle)
     val uiState: StateFlow<ComposePostUiState> = _uiState.asStateFlow()

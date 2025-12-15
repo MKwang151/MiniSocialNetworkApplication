@@ -80,36 +80,105 @@ fun PostCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Avatar
-                AsyncImage(
-                    model = post.authorAvatarUrl ?: "https://ui-avatars.com/api/?name=${post.authorName}",
-                    contentDescription = "Author avatar",
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .clickable { onAuthorClicked(post.authorId) }
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentScale = ContentScale.Crop
-                )
+                // Avatar section - different layout for group posts
+                val isGroupPost = post.groupId != null
+                
+                if (isGroupPost) {
+                    // Group post: Group avatar large with user avatar small overlay
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clickable { onAuthorClicked(post.authorId) }
+                    ) {
+                        // Group avatar (main, large)
+                        AsyncImage(
+                            model = post.groupAvatarUrl ?: "https://ui-avatars.com/api/?name=${post.groupName ?: "Group"}&background=6366f1&color=fff",
+                            contentDescription = "Group avatar",
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentScale = ContentScale.Crop
+                        )
+                        // User avatar (small, bottom-right corner)
+                        AsyncImage(
+                            model = post.authorAvatarUrl ?: "https://ui-avatars.com/api/?name=${post.authorName}",
+                            contentDescription = "Author avatar",
+                            modifier = Modifier
+                                .size(24.dp)
+                                .align(Alignment.BottomEnd)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surface)
+                                .padding(1.dp)
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                } else {
+                    // Regular post: User avatar only
+                    AsyncImage(
+                        model = post.authorAvatarUrl ?: "https://ui-avatars.com/api/?name=${post.authorName}",
+                        contentDescription = "Author avatar",
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .clickable { onAuthorClicked(post.authorId) }
+                            .background(MaterialTheme.colorScheme.primaryContainer),
+                        contentScale = ContentScale.Crop
+                    )
+                }
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // Name and Time
+                // Name and Time section
                 Column(
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(
-                        text = post.authorName,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = DateTimeUtil.formatRelativeTime(post.createdAt),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    if (isGroupPost) {
+                        // Group post: Group name bold + User name muted
+                        Text(
+                            text = post.groupName ?: "Group",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = post.authorName,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = " · ",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = DateTimeUtil.formatRelativeTime(post.createdAt),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    } else {
+                        // Regular post: User name bold + time below
+                        Text(
+                            text = post.authorName,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = DateTimeUtil.formatRelativeTime(post.createdAt),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
                 // Menu button (only show if showMenuButton is true)
