@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -58,6 +59,8 @@ fun GroupDetailScreen(
     onNavigateToInvite: (String) -> Unit,
     onNavigateToProfile: (String) -> Unit,
     onNavigateToImageGallery: (String, Int) -> Unit,
+    onNavigateToJoinRequests: (String) -> Unit = {},
+    onNavigateToManage: (groupId: String, groupName: String) -> Unit = { _, _ -> },
     viewModel: GroupDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -130,8 +133,9 @@ fun GroupDetailScreen(
                             userRole = state.userRole,
                             onJoinClick = viewModel::joinGroup,
                             onLeaveClick = viewModel::leaveGroup,
-                            onManageClick = { /* TODO: Navigate to manage screen */ },
-                            onInviteClick = { onNavigateToInvite(state.group.id) }
+                            onManageClick = { onNavigateToManage(state.group.id, state.group.name) },
+                            onInviteClick = { onNavigateToInvite(state.group.id) },
+                            onJoinRequestsClick = { onNavigateToJoinRequests(state.group.id) }
                         )
                     }
 
@@ -166,7 +170,7 @@ fun GroupDetailScreen(
                                     )
                                     Spacer(modifier = Modifier.height(16.dp))
                                     Text(
-                                        text = "Bạn cần tham gia nhóm để xem bài viết",
+                                        text = "You need to join the group to see posts",
                                         style = MaterialTheme.typography.bodyLarge,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -220,7 +224,8 @@ fun GroupHeader(
     onJoinClick: () -> Unit,
     onLeaveClick: () -> Unit,
     onManageClick: () -> Unit,
-    onInviteClick: () -> Unit
+    onInviteClick: () -> Unit,
+    onJoinRequestsClick: () -> Unit = {}
 ) {
     Column {
         // Cover Image = Group Avatar (200dp)
