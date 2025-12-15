@@ -110,6 +110,9 @@ fun NavGraph(
                 onNavigateToImageGallery = { postId, imageIndex ->
                     navController.navigate(Screen.ImageGallery.createRoute(postId, imageIndex))
                 },
+                onNavigateToReportPost = { postId, authorId, groupId ->
+                    navController.navigate(Screen.ReportPost.createRoute(postId, authorId, groupId))
+                },
                 onNavigateToSettings = {
                     navController.navigate(Screen.Settings.route)
                 },
@@ -585,6 +588,24 @@ fun NavGraph(
             com.example.minisocialnetworkapplication.ui.group.JoinRequestsScreen(
                 navController = navController,
                 conversationId = conversationId
+            )
+        }
+
+        // Report Post Screen
+        composable(
+            route = Screen.ReportPost.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("postId") { type = androidx.navigation.NavType.StringType },
+                androidx.navigation.navArgument("authorId") { type = androidx.navigation.NavType.StringType },
+                androidx.navigation.navArgument("groupId") { 
+                    type = androidx.navigation.NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) {
+            com.example.minisocialnetworkapplication.ui.report.ReportScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }
