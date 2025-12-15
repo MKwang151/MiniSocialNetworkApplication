@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -56,6 +57,7 @@ fun PostCard(
     onImageClicked: (Int) -> Unit = {},
     onDeleteClicked: (Post) -> Unit = {},
     onEditClicked: (Post) -> Unit = {},
+    onReportClicked: (Post) -> Unit = {},
     modifier: Modifier = Modifier,
     isOptimisticallyLiked: Boolean = post.likedByMe,
     showMenuButton: Boolean = true
@@ -226,6 +228,27 @@ fun PostCard(
                                         Icon(
                                             imageVector = Icons.Default.Delete,
                                             contentDescription = "Delete",
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                )
+                            } else {
+                                // Report option for posts NOT owned by current user
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = "Report Post",
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        onReportClicked(post)
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Warning,
+                                            contentDescription = "Report",
                                             tint = MaterialTheme.colorScheme.error
                                         )
                                     }
