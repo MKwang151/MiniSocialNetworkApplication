@@ -41,4 +41,10 @@ interface GroupRepository {
     suspend fun makeAdmin(groupId: String, userId: String): Result<Unit>
     suspend fun dismissAdmin(groupId: String, userId: String): Result<Unit>
     suspend fun removeMember(groupId: String, userId: String): Result<Unit>
+    
+    // Post Approval
+    suspend fun togglePostApproval(groupId: String, enabled: Boolean): Result<Unit>
+    fun getPendingPosts(groupId: String): Flow<List<com.example.minisocialnetworkapplication.core.domain.model.Post>>
+    suspend fun approvePost(postId: String): Result<Unit>
+    suspend fun rejectPost(postId: String, reason: String? = null): Result<Unit>
 }

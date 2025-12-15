@@ -102,9 +102,22 @@ class GroupRepositoryImpl @Inject constructor(
     }
 
     override fun getGroupsForUser(userId: String): Flow<List<Group>> = callbackFlow {
+        // Early return if user is not signed in (prevents PERMISSION_DENIED during logout)
+        if (auth.currentUser == null) {
+            trySend(emptyList())
+            close()
+            return@callbackFlow
+        }
+        
         val listener = firestore.collectionGroup("members")
             .whereEqualTo("userId", userId)
             .addSnapshotListener { snapshot, error ->
+                // Check if still signed in
+                if (auth.currentUser == null) {
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                
                 if (error != null) {
                     Timber.e(error, "Error listening to user groups")
                     if (error.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
@@ -310,11 +323,23 @@ class GroupRepositoryImpl @Inject constructor(
     }
     
     override fun getGroupsWhereUserIsAdmin(userId: String): Flow<List<Group>> = callbackFlow {
+        // Early return if user is not signed in
+        if (auth.currentUser == null) {
+            trySend(emptyList())
+            close()
+            return@callbackFlow
+        }
+        
         try {
+            // Query for both ADMIN and CREATOR roles
             val memberListener = firestore.collectionGroup("members")
                 .whereEqualTo("userId", userId)
-                .whereEqualTo("role", "ADMIN")
+                .whereIn("role", listOf("ADMIN", "CREATOR"))
                 .addSnapshotListener { memberSnapshot, error ->
+                    if (auth.currentUser == null) {
+                        trySend(emptyList())
+                        return@addSnapshotListener
+                    }
                     if (error != null) {
                         Timber.e(error, "Error listening to user admin groups")
                         trySend(emptyList())
@@ -348,10 +373,21 @@ class GroupRepositoryImpl @Inject constructor(
     }
     
     override fun getAllPostsFromUserGroups(userId: String): Flow<List<com.example.minisocialnetworkapplication.core.domain.model.Post>> = callbackFlow {
+        // Early return if user is not signed in
+        if (auth.currentUser == null) {
+            trySend(emptyList())
+            close()
+            return@callbackFlow
+        }
+        
         try {
             val memberListener = firestore.collectionGroup("members")
                 .whereEqualTo("userId", userId)
                 .addSnapshotListener { memberSnapshot, error ->
+                    if (auth.currentUser == null) {
+                        trySend(emptyList())
+                        return@addSnapshotListener
+                    }
                     if (error != null) {
                         Timber.e(error, "Error listening to user groups for posts")
                         trySend(emptyList())
@@ -462,7 +498,7 @@ class GroupRepositoryImpl @Inject constructor(
                 val privacy = groupDoc.getString("privacy") ?: "PUBLIC"
                 
                 val isPrivateGroup = privacy == "PRIVATE"
-                val isAdminInvite = invitation.inviterRole == GroupRole.ADMIN
+                val isAdminInvite = invitation.inviterRole == GroupRole.ADMIN || invitation.inviterRole == GroupRole.CREATOR
                 
                 if (isPrivateGroup && !isAdminInvite) {
                     createJoinRequest(
@@ -679,6 +715,79 @@ class GroupRepositoryImpl @Inject constructor(
             Result.Success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "Error dismissing admin")
+            Result.Error(e)
+        }
+    }
+    
+    // ================================
+    // Post Approval Functions
+    // ================================
+    
+    override suspend fun togglePostApproval(groupId: String, enabled: Boolean): Result<Unit> {
+        return try {
+            firestore.collection("groups").document(groupId)
+                .update("requirePostApproval", enabled)
+                .await()
+            
+            Timber.d("Set post approval for group $groupId to $enabled")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Error toggling post approval")
+            Result.Error(e)
+        }
+    }
+    
+    override fun getPendingPosts(groupId: String): Flow<List<com.example.minisocialnetworkapplication.core.domain.model.Post>> = callbackFlow {
+        val listener = firestore.collection("posts")
+            .whereEqualTo("groupId", groupId)
+            .whereEqualTo("approvalStatus", "PENDING")
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Timber.e(error, "Error listening to pending posts")
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                
+                val posts = snapshot?.documents?.mapNotNull { doc ->
+                    doc.toObject(com.example.minisocialnetworkapplication.core.domain.model.Post::class.java)?.copy(id = doc.id)
+                } ?: emptyList()
+                trySend(posts)
+            }
+        awaitClose { listener.remove() }
+    }
+    
+    override suspend fun approvePost(postId: String): Result<Unit> {
+        return try {
+            firestore.collection("posts").document(postId)
+                .update("approvalStatus", "APPROVED")
+                .await()
+            
+            Timber.d("Approved post $postId")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Error approving post")
+            Result.Error(e)
+        }
+    }
+    
+    override suspend fun rejectPost(postId: String, reason: String?): Result<Unit> {
+        return try {
+            val updates = mutableMapOf<String, Any?>(
+                "approvalStatus" to "REJECTED"
+            )
+            if (reason != null) {
+                updates["rejectionReason"] = reason
+            }
+            
+            firestore.collection("posts").document(postId)
+                .update(updates as Map<String, Any>)
+                .await()
+            
+            Timber.d("Rejected post $postId")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Error rejecting post")
             Result.Error(e)
         }
     }
