@@ -8,5 +8,5 @@ data class GroupMember(
 )
 
 enum class GroupRole {
-    ADMIN, MODERATOR, MEMBER
+    CREATOR, ADMIN, MODERATOR, MEMBER
 }
