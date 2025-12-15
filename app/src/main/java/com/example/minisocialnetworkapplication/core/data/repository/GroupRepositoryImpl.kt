@@ -791,4 +791,55 @@ class GroupRepositoryImpl @Inject constructor(
             Result.Error(e)
         }
     }
+    
+    // Report Moderation
+    override suspend fun getHiddenPostsForGroup(groupId: String): Result<List<com.example.minisocialnetworkapplication.core.domain.model.Post>> {
+        return try {
+            val snapshot = firestore.collection("posts")
+                .whereEqualTo("groupId", groupId)
+                .whereEqualTo("approvalStatus", "REJECTED")
+                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .get()
+                .await()
+            
+            val posts = snapshot.documents.mapNotNull { doc ->
+                doc.toObject(com.example.minisocialnetworkapplication.core.domain.model.Post::class.java)?.copy(id = doc.id)
+            }
+            
+            Timber.d("Fetched ${posts.size} hidden posts for group $groupId")
+            Result.Success(posts)
+        } catch (e: Exception) {
+            Timber.e(e, "Error getting hidden posts")
+            Result.Error(e)
+        }
+    }
+    
+    override suspend fun updatePostApprovalStatus(postId: String, status: String): Result<Unit> {
+        return try {
+            firestore.collection("posts").document(postId)
+                .update("approvalStatus", status)
+                .await()
+            
+            Timber.d("Updated post $postId approval status to $status")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Error updating post approval status")
+            Result.Error(e)
+        }
+    }
+    
+    override suspend fun deletePost(postId: String): Result<Unit> {
+        return try {
+            // Delete the post document
+            firestore.collection("posts").document(postId)
+                .delete()
+                .await()
+            
+            Timber.d("Deleted post $postId")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Error deleting post")
+            Result.Error(e)
+        }
+    }
 }

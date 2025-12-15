@@ -47,4 +47,9 @@ interface GroupRepository {
     fun getPendingPosts(groupId: String): Flow<List<com.example.minisocialnetworkapplication.core.domain.model.Post>>
     suspend fun approvePost(postId: String): Result<Unit>
     suspend fun rejectPost(postId: String, reason: String? = null): Result<Unit>
+    
+    // Report Moderation
+    suspend fun getHiddenPostsForGroup(groupId: String): Result<List<com.example.minisocialnetworkapplication.core.domain.model.Post>>
+    suspend fun updatePostApprovalStatus(postId: String, status: String): Result<Unit>
+    suspend fun deletePost(postId: String): Result<Unit>
 }

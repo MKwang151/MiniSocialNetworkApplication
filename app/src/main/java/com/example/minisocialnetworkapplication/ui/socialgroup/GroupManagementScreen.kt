@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PostAdd
+import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -56,6 +57,7 @@ fun GroupManagementScreen(
     onNavigateToEditGroup: () -> Unit = {},
     onNavigateToMembers: () -> Unit = {},
     onNavigateToPendingPosts: () -> Unit = {},
+    onNavigateToReports: () -> Unit = {},
     onTogglePostApproval: (Boolean) -> Unit = {},
     onDeleteGroup: () -> Unit = {}
 ) {
@@ -144,6 +146,16 @@ fun GroupManagementScreen(
                     title = "Pending Posts",
                     subtitle = "Review posts awaiting approval",
                     onClick = onNavigateToPendingPosts
+                )
+            }
+            
+            item {
+                ManagementMenuItem(
+                    icon = Icons.Default.Report,
+                    title = "Reported Content",
+                    subtitle = "Review reported posts in this group",
+                    iconTint = MaterialTheme.colorScheme.error,
+                    onClick = onNavigateToReports
                 )
             }
 
