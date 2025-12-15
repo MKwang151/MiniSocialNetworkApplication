@@ -192,7 +192,8 @@ fun GroupDetailScreen(
                     } else {
                         items(state.posts) { post ->
                             val isOwner = state.currentUserId == post.authorId
-                            val isAdmin = state.userRole == com.example.minisocialnetworkapplication.core.domain.model.GroupRole.ADMIN
+                            val isAdmin = state.userRole == com.example.minisocialnetworkapplication.core.domain.model.GroupRole.ADMIN ||
+                                          state.userRole == com.example.minisocialnetworkapplication.core.domain.model.GroupRole.CREATOR
                             
                             PostCard(
                                 post = post,
@@ -272,7 +273,10 @@ fun GroupHeader(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
                 ) {
-                    if (userRole == com.example.minisocialnetworkapplication.core.domain.model.GroupRole.ADMIN) {
+                    val isAdminOrCreator = userRole == com.example.minisocialnetworkapplication.core.domain.model.GroupRole.ADMIN ||
+                                           userRole == com.example.minisocialnetworkapplication.core.domain.model.GroupRole.CREATOR
+                    
+                    if (isAdminOrCreator) {
                         OutlinedButton(
                             onClick = onManageClick,
                             modifier = Modifier.weight(1f)

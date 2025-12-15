@@ -241,4 +241,15 @@ class GroupDetailViewModel @Inject constructor(
             }
         }
     }
+    
+    fun togglePostApproval(enabled: Boolean) {
+        viewModelScope.launch {
+            val result = groupRepository.togglePostApproval(groupId, enabled)
+            if (result is Result.Success) {
+                loadGroupDetails() // Reload to reflect change
+            } else if (result is Result.Error) {
+                _errorMessage.value = result.message ?: "Failed to toggle post approval"
+            }
+        }
+    }
 }
