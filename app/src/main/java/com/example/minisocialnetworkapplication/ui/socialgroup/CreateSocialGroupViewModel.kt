@@ -120,6 +120,7 @@ class CreateSocialGroupViewModel @Inject constructor(
         val nameVal = _name.value
         val descVal = _description.value
         val privacyVal = _privacy.value
+        val avatarUriVal = _avatarUri.value
         val selectedFriends = _selectedFriendIds.value.toList()
 
         if (nameVal.isBlank()) {
@@ -130,8 +131,8 @@ class CreateSocialGroupViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = CreateGroupUiState.Loading
             
-            // Create the group
-            val result = groupRepository.createGroup(nameVal, descVal, privacyVal)
+            // Create the group with avatar
+            val result = groupRepository.createGroup(nameVal, descVal, privacyVal, avatarUriVal)
             when (result) {
                 is Result.Success -> {
                     val groupId = result.data

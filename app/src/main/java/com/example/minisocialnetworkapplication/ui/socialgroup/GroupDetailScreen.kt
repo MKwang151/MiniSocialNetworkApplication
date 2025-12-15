@@ -223,68 +223,43 @@ fun GroupHeader(
     onInviteClick: () -> Unit
 ) {
     Column {
-        // Cover image with avatar overlay
+        // Cover Image = Group Avatar (200dp)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(200.dp)
         ) {
             AsyncImage(
-                model = group.coverUrl ?: "https://via.placeholder.com/800x400",
-                contentDescription = "Cover Image",
+                model = group.avatarUrl ?: "https://ui-avatars.com/api/?name=${java.net.URLEncoder.encode(group.name, "UTF-8")}&background=6366f1&color=fff&size=400",
+                contentDescription = "Group Avatar",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
         }
         
-        // Avatar and Group Info Row
-        androidx.compose.foundation.layout.Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.Bottom
-        ) {
-            // Group Avatar - overlapping cover image
-            Box(
-                modifier = Modifier
-                    .offset(y = (-40).dp)
-                    .size(80.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.surface,
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-                    )
-                    .padding(3.dp)
-            ) {
-                AsyncImage(
-                    model = group.avatarUrl ?: "https://ui-avatars.com/api/?name=${group.name}&background=6366f1&color=fff&size=200",
-                    contentDescription = "Group Avatar",
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp)),
-                    contentScale = ContentScale.Crop
-                )
-            }
+        // Group Info
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Group Name
+            Text(
+                text = group.name, 
+                style = MaterialTheme.typography.headlineMedium
+            )
             
-            Spacer(modifier = Modifier.width(12.dp))
+            // Members · Privacy
+            Text(
+                text = "${group.memberCount} members · ${group.privacy}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.Gray
+            )
             
-            // Group Name and Info
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(top = 8.dp)
-            ) {
-                Text(text = group.name, style = MaterialTheme.typography.headlineSmall)
-                Text(
-                    text = "${group.memberCount} members · ${group.privacy}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Gray
-                )
-            }
-        }
-        
-        // Description
-        Column(modifier = Modifier.padding(horizontal = 16.dp).offset(y = (-24).dp)) {
-            Text(text = group.description, style = MaterialTheme.typography.bodyLarge)            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Description
+            Text(
+                text = group.description, 
+                style = MaterialTheme.typography.bodyLarge
+            )
+            
             Spacer(modifier = Modifier.height(16.dp))
             
             if (isMember) {
