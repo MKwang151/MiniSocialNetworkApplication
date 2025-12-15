@@ -96,7 +96,7 @@ fun NavGraph(
                 postDeleted = postDeleted,
                 profileUpdated = profileUpdated,
                 onNavigateToComposePost = {
-                    navController.navigate(Screen.ComposePost.route)
+                    navController.navigate(Screen.ComposePost.createRoute()) // Use createRoute() for personal posts
                 },
                 onNavigateToPostDetail = { postId ->
                     navController.navigate(Screen.PostDetail.createRoute(postId))

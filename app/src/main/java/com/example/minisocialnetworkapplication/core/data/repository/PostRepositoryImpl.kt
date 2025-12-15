@@ -199,6 +199,9 @@ class PostRepositoryImpl @Inject constructor(
                 postData["groupName"] = groupName
                 postData["groupAvatarUrl"] = groupAvatarUrl
             }
+            
+            // Debug: log what we're sending
+            Timber.d("PostData being sent - groupId param: '$groupId', fields: ${postData.keys}")
 
             firestore.collection(Constants.COLLECTION_POSTS)
                 .document(postId)
