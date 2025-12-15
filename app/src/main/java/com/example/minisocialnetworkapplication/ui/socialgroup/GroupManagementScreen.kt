@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PostAdd
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -27,27 +28,39 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.minisocialnetworkapplication.core.domain.model.Group
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupManagementScreen(
     groupId: String,
     groupName: String,
+    group: Group? = null,
     onNavigateBack: () -> Unit,
     onNavigateToJoinRequests: () -> Unit,
     onNavigateToEditGroup: () -> Unit = {},
     onNavigateToMembers: () -> Unit = {},
+    onNavigateToPendingPosts: () -> Unit = {},
+    onTogglePostApproval: (Boolean) -> Unit = {},
     onDeleteGroup: () -> Unit = {}
 ) {
+    var requirePostApproval by remember(group) { mutableStateOf(group?.requirePostApproval ?: false) }
+    
     Scaffold(
         topBar = {
             TopAppBar(
@@ -104,6 +117,36 @@ fun GroupManagementScreen(
                 )
             }
 
+            // Post Moderation Section
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Post Moderation",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            
+            item {
+                PostApprovalToggle(
+                    enabled = requirePostApproval,
+                    onToggle = { enabled ->
+                        requirePostApproval = enabled
+                        onTogglePostApproval(enabled)
+                    }
+                )
+            }
+            
+            item {
+                ManagementMenuItem(
+                    icon = Icons.Default.PostAdd,
+                    title = "Pending Posts",
+                    subtitle = "Review posts awaiting approval",
+                    onClick = onNavigateToPendingPosts
+                )
+            }
+
             // Settings Section
             item {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -121,15 +164,6 @@ fun GroupManagementScreen(
                     title = "Edit Group",
                     subtitle = "Change name, description, privacy",
                     onClick = onNavigateToEditGroup
-                )
-            }
-
-            item {
-                ManagementMenuItem(
-                    icon = Icons.Default.Settings,
-                    title = "Group Settings",
-                    subtitle = "Post approval, member permissions",
-                    onClick = { /* TODO */ }
                 )
             }
 
@@ -154,6 +188,52 @@ fun GroupManagementScreen(
                     onClick = onDeleteGroup
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun PostApprovalToggle(
+    enabled: Boolean,
+    onToggle: (Boolean) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Settings,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(28.dp)
+            )
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Post Approval",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = if (enabled) "Members' posts require approval" else "Posts are published immediately",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            Switch(
+                checked = enabled,
+                onCheckedChange = onToggle
+            )
         }
     }
 }

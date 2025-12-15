@@ -328,7 +328,7 @@ private fun MemberActionsSheet(
             )
         }
         
-        // Admin can remove regular members (not creator or other admins)
+        // Admin (not Creator) can remove regular members only
         if (currentUserRole == GroupRole.ADMIN && targetRole == GroupRole.MEMBER) {
             ListItem(
                 headlineContent = { Text("Remove from Group") },
