@@ -30,4 +30,15 @@ interface GroupRepository {
     suspend fun sendInvitations(groupId: String, userIds: List<String>): Result<Unit>
     suspend fun respondToInvitation(invitationId: String, accept: Boolean): Result<Unit>
     fun getInvitationsForUser(userId: String): Flow<List<com.example.minisocialnetworkapplication.core.domain.model.GroupInvitation>>
+    
+    // Join Requests (for private groups)
+    suspend fun createJoinRequest(groupId: String, inviterId: String? = null, inviterName: String? = null, inviterRole: com.example.minisocialnetworkapplication.core.domain.model.GroupRole? = null): Result<String>
+    fun getJoinRequestsForGroup(groupId: String): Flow<List<com.example.minisocialnetworkapplication.core.domain.model.JoinRequest>>
+    suspend fun approveJoinRequest(requestId: String): Result<Unit>
+    suspend fun rejectJoinRequest(requestId: String): Result<Unit>
+    
+    // Member Management (Creator-only actions)
+    suspend fun makeAdmin(groupId: String, userId: String): Result<Unit>
+    suspend fun dismissAdmin(groupId: String, userId: String): Result<Unit>
+    suspend fun removeMember(groupId: String, userId: String): Result<Unit>
 }
