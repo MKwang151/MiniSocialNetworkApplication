@@ -117,7 +117,11 @@ fun SocialGroupScreen(
                     when (selectedFilter) {
                         0 -> GroupList(groups = state.myGroups, onGroupClick = onNavigateToGroupDetail)
                         1 -> PostsList(posts = state.allPosts, onGroupClick = onNavigateToGroupDetail)
-                        2 -> GroupList(groups = state.discoverGroups, onGroupClick = onNavigateToGroupDetail)
+                        2 -> DiscoverGroupList(
+                            groups = state.discoverGroups, 
+                            onGroupClick = onNavigateToGroupDetail,
+                            onJoinClick = { groupId -> viewModel.joinGroup(groupId) }
+                        )
                         3 -> GroupList(groups = state.managedGroups, onGroupClick = onNavigateToGroupDetail)
                     }
                 }
@@ -224,6 +228,52 @@ fun GroupList(
                             Box(contentAlignment = Alignment.Center) {
                                 Text(group.name.take(1).uppercase())
                             }
+                        }
+                    },
+                    modifier = Modifier.clickable { onGroupClick(group.id) }
+                )
+                androidx.compose.material3.HorizontalDivider()
+            }
+        }
+    }
+}
+
+@Composable
+fun DiscoverGroupList(
+    groups: List<Group>,
+    onGroupClick: (String) -> Unit,
+    onJoinClick: (String) -> Unit
+) {
+    if (groups.isEmpty()) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(text = "No new groups to discover")
+        }
+    } else {
+        LazyColumn(
+            contentPadding = PaddingValues(16.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            items(groups) { group ->
+                androidx.compose.material3.ListItem(
+                    headlineContent = { Text(group.name) },
+                    supportingContent = { Text("${group.memberCount} members") },
+                    leadingContent = {
+                        androidx.compose.material3.Surface(
+                            shape = androidx.compose.foundation.shape.CircleShape,
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(group.name.take(1).uppercase())
+                            }
+                        }
+                    },
+                    trailingContent = {
+                        androidx.compose.material3.Button(
+                            onClick = { onJoinClick(group.id) },
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Text("Join")
                         }
                     },
                     modifier = Modifier.clickable { onGroupClick(group.id) }

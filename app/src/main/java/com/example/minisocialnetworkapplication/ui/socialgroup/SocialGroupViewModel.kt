@@ -41,6 +41,9 @@ class SocialGroupViewModel @Inject constructor(
 
     private fun loadData() {
         viewModelScope.launch {
+            // Store all groups temporarily for filtering
+            var allGroupsCache: List<Group> = emptyList()
+            
             // Collect user flow
             getCurrentUserUseCase().collect { user ->
                  if (user == null) {
@@ -54,7 +57,13 @@ class SocialGroupViewModel @Inject constructor(
                 launch {
                     groupRepository.getGroupsForUser(user.id).collect { groups ->
                         updateState { currentState ->
-                            currentState.copy(myGroups = groups)
+                            // Recompute discover when myGroups changes
+                            val myGroupIds = groups.map { it.id }.toSet()
+                            val filteredDiscover = allGroupsCache.filter { it.id !in myGroupIds }
+                            currentState.copy(
+                                myGroups = groups,
+                                discoverGroups = filteredDiscover
+                            )
                         }
                     }
                 }
@@ -68,9 +77,10 @@ class SocialGroupViewModel @Inject constructor(
                     }
                 }
 
-                // 3. Discover - All groups (will be filtered in UI to exclude joined ones)
+                // 3. Discover - All groups, filtered to exclude joined ones
                 launch {
                     groupRepository.getAllGroups().collect { groups ->
+                        allGroupsCache = groups
                         updateState { currentState ->
                             // Filter out groups user already joined
                             val myGroupIds = currentState.myGroups.map { it.id }.toSet()
@@ -91,6 +101,7 @@ class SocialGroupViewModel @Inject constructor(
             }
         }
     }
+
     
     private fun updateState(update: (SocialGroupUiState.Success) -> SocialGroupUiState.Success) {
         val current = _uiState.value
@@ -99,6 +110,25 @@ class SocialGroupViewModel @Inject constructor(
         } else {
             // Initialize with empty success then update
             _uiState.value = update(SocialGroupUiState.Success())
+        }
+    }
+
+    fun joinGroup(groupId: String) {
+        viewModelScope.launch {
+            val result = groupRepository.joinGroup(groupId)
+            if (result is com.example.minisocialnetworkapplication.core.util.Result.Success) {
+                // Remove from discover and add to myGroups
+                val current = _uiState.value
+                if (current is SocialGroupUiState.Success) {
+                    val joinedGroup = current.discoverGroups.find { it.id == groupId }
+                    if (joinedGroup != null) {
+                        _uiState.value = current.copy(
+                            discoverGroups = current.discoverGroups.filter { it.id != groupId },
+                            myGroups = current.myGroups + joinedGroup
+                        )
+                    }
+                }
+            }
         }
     }
 }
