@@ -29,7 +29,8 @@ sealed interface SocialGroupUiState {
 @HiltViewModel
 class SocialGroupViewModel @Inject constructor(
     private val groupRepository: GroupRepository,
-    private val getCurrentUserUseCase: com.example.minisocialnetworkapplication.core.domain.usecase.auth.GetCurrentUserUseCase
+    private val getCurrentUserUseCase: com.example.minisocialnetworkapplication.core.domain.usecase.auth.GetCurrentUserUseCase,
+    private val toggleLikeUseCase: com.example.minisocialnetworkapplication.core.domain.usecase.post.ToggleLikeUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<SocialGroupUiState>(SocialGroupUiState.Loading)
@@ -129,6 +130,26 @@ class SocialGroupViewModel @Inject constructor(
                     }
                 }
             }
+        }
+    }
+
+    fun toggleLike(post: com.example.minisocialnetworkapplication.core.domain.model.Post) {
+        viewModelScope.launch {
+            // Optimistic update
+            updateState { currentState ->
+                val updatedPosts = currentState.allPosts.map { p ->
+                    if (p.id == post.id) {
+                        p.copy(
+                            likedByMe = !p.likedByMe,
+                            likeCount = if (p.likedByMe) p.likeCount - 1 else p.likeCount + 1
+                        )
+                    } else p
+                }
+                currentState.copy(allPosts = updatedPosts)
+            }
+            
+            // Actually toggle like in repository (fire and forget for optimistic UI)
+            toggleLikeUseCase(post.id)
         }
     }
 }

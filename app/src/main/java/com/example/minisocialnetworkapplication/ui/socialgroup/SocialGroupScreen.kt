@@ -40,8 +40,10 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.example.minisocialnetworkapplication.core.domain.model.Group
+import com.example.minisocialnetworkapplication.core.domain.model.Post
 import com.example.minisocialnetworkapplication.ui.auth.AuthViewModel
 import com.example.minisocialnetworkapplication.ui.components.BottomNavBar
+import com.example.minisocialnetworkapplication.ui.components.PostCard
 
 @Composable
 fun SocialGroupScreen(
@@ -49,6 +51,9 @@ fun SocialGroupScreen(
     authViewModel: AuthViewModel,
     onNavigateToCreateGroup: () -> Unit,
     onNavigateToGroupDetail: (String) -> Unit,
+    onNavigateToPostDetail: (String) -> Unit = {},
+    onNavigateToProfile: (String) -> Unit = {},
+    onNavigateToImageGallery: (String, Int) -> Unit = { _, _ -> },
     viewModel: SocialGroupViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -116,7 +121,14 @@ fun SocialGroupScreen(
                 is SocialGroupUiState.Success -> {
                     when (selectedFilter) {
                         0 -> GroupList(groups = state.myGroups, onGroupClick = onNavigateToGroupDetail)
-                        1 -> PostsList(posts = state.allPosts, onGroupClick = onNavigateToGroupDetail)
+                        1 -> PostsList(
+                            posts = state.allPosts, 
+                            onGroupClick = onNavigateToGroupDetail,
+                            onPostClick = onNavigateToPostDetail,
+                            onAuthorClick = onNavigateToProfile,
+                            onImageClick = onNavigateToImageGallery,
+                            onLikeClick = { post -> viewModel.toggleLike(post) }
+                        )
                         2 -> DiscoverGroupList(
                             groups = state.discoverGroups, 
                             onGroupClick = onNavigateToGroupDetail,
@@ -132,8 +144,12 @@ fun SocialGroupScreen(
 
 @Composable
 fun PostsList(
-    posts: List<com.example.minisocialnetworkapplication.core.domain.model.Post>,
-    onGroupClick: (String) -> Unit
+    posts: List<Post>,
+    onGroupClick: (String) -> Unit,
+    onPostClick: (String) -> Unit = {},
+    onAuthorClick: (String) -> Unit = {},
+    onImageClick: (String, Int) -> Unit = { _, _ -> },
+    onLikeClick: (Post) -> Unit = {}
 ) {
     if (posts.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -141,60 +157,22 @@ fun PostsList(
         }
     } else {
         LazyColumn(
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(vertical = 8.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            items(posts) { post ->
-                androidx.compose.material3.Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                        .clickable { post.groupId?.let { onGroupClick(it) } }
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        // Group name (if available)
-                        post.groupId?.let {
-                            Text(
-                                text = "Group Post", // TODO: Add group name
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                        }
-                        
-                        // Author
-                        Text(
-                            text = post.authorName,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        // Content
-                        Text(
-                            text = post.text,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        // Stats
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            Text(
-                                text = "${post.likeCount} likes",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.Gray
-                            )
-                            Text(
-                                text = "${post.commentCount} comments",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.Gray
-                            )
-                        }
-                    }
-                }
+            items(posts, key = { it.id }) { post ->
+                PostCard(
+                    post = post,
+                    onPostClicked = { onPostClick(post.id) },
+                    onLikeClicked = { onLikeClick(post) },
+                    onCommentClicked = { onPostClick(post.id) },
+                    onAuthorClicked = { onAuthorClick(post.authorId) },
+                    onImageClicked = { index -> onImageClick(post.id, index) },
+                    onDeleteClicked = { /* Handle in detail screen */ },
+                    onEditClicked = { /* Handle in detail screen */ },
+                    isOptimisticallyLiked = post.likedByMe,
+                    showMenuButton = false
+                )
             }
         }
     }
