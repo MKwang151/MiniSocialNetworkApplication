@@ -25,7 +25,9 @@ class AuthRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val conversationDao: ConversationDao,
     private val messageDao: MessageDao,
-    private val participantDao: ParticipantDao
+    private val participantDao: ParticipantDao,
+    private val postDao: com.example.minisocialnetworkapplication.core.data.local.PostDao,
+    private val remoteKeysDao: com.example.minisocialnetworkapplication.core.data.local.RemoteKeysDao
 ) : AuthRepository {
 
     override suspend fun register(email: String, password: String, name: String): Result<User> {
@@ -117,6 +119,11 @@ class AuthRepositoryImpl @Inject constructor(
             messageDao.clearAll()
             participantDao.clearAll()
             Timber.d("Local chat data cleared")
+            
+            // Clear posts and feed cache
+            postDao.clearAll()
+            remoteKeysDao.clearAll()
+            Timber.d("Local posts cache cleared")
             
             auth.signOut()
             Timber.d("User logged out successfully")

@@ -3,9 +3,13 @@ package com.example.minisocialnetworkapplication.ui.post
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.minisocialnetworkapplication.core.domain.model.GroupRole
+import com.example.minisocialnetworkapplication.core.domain.model.PostApprovalStatus
+import com.example.minisocialnetworkapplication.core.domain.repository.GroupRepository
 import com.example.minisocialnetworkapplication.core.domain.usecase.post.CreatePostUseCase
 import com.example.minisocialnetworkapplication.core.util.Constants
 import com.example.minisocialnetworkapplication.core.util.Result
+import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +28,8 @@ sealed interface ComposePostUiState {
 @HiltViewModel
 class ComposePostViewModel @Inject constructor(
     private val createPostUseCase: CreatePostUseCase,
+    private val groupRepository: GroupRepository,
+    private val auth: FirebaseAuth,
     savedStateHandle: androidx.lifecycle.SavedStateHandle
 ) : ViewModel() {
 
@@ -38,6 +44,37 @@ class ComposePostViewModel @Inject constructor(
 
     private val _postText = MutableStateFlow("")
     val postText: StateFlow<String> = _postText.asStateFlow()
+    
+    // Will post require approval message
+    private val _requiresApproval = MutableStateFlow(false)
+    val requiresApproval: StateFlow<Boolean> = _requiresApproval.asStateFlow()
+    
+    init {
+        // Check if this group requires post approval
+        if (groupId != null) {
+            checkPostApprovalRequired()
+        }
+    }
+    
+    private fun checkPostApprovalRequired() {
+        viewModelScope.launch {
+            val currentUserId = auth.currentUser?.uid ?: return@launch
+            
+            // Get group details
+            val groupResult = groupRepository.getGroupDetails(groupId!!)
+            if (groupResult is Result.Success) {
+                val group = groupResult.data
+                if (group.requirePostApproval) {
+                    // Check user role - admins and creators don't need approval
+                    val roleResult = groupRepository.getMemberRole(groupId, currentUserId)
+                    if (roleResult is Result.Success) {
+                        val role = roleResult.data
+                        _requiresApproval.value = role != GroupRole.ADMIN && role != GroupRole.CREATOR
+                    }
+                }
+            }
+        }
+    }
 
     fun updatePostText(text: String) {
         if (text.length <= Constants.MAX_POST_TEXT_LENGTH) {
@@ -103,16 +140,24 @@ class ComposePostViewModel @Inject constructor(
                     "Creating post with ${images.size} image${if (images.size > 1) "s" else ""}..."
                 }
                 _uiState.value = ComposePostUiState.Uploading(progressMessage)
-                Timber.d("Creating post instantly: text=${text.take(50)}, images=${images.size}")
+                
+                // Determine approval status
+                val approvalStatus = if (_requiresApproval.value) {
+                    PostApprovalStatus.PENDING
+                } else {
+                    PostApprovalStatus.APPROVED
+                }
+                
+                Timber.d("Creating post: text=${text.take(50)}, images=${images.size}, approvalStatus=$approvalStatus")
 
                 // Use IO dispatcher for potentially heavy I/O operations (copying images)
                 val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    createPostUseCase(text, images, groupId)
+                    createPostUseCase(text, images, groupId, approvalStatus)
                 }
 
                 when (result) {
                     is Result.Success -> {
-                        Timber.d("Post enqueued successfully")
+                        Timber.d("Post created successfully")
                         _uiState.value = ComposePostUiState.Success
                         clearPost()
                     }

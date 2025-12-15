@@ -638,9 +638,15 @@ fun NavGraph(
             val groupName = java.net.URLDecoder.decode(
                 backStackEntry.arguments?.getString("groupName") ?: "", "UTF-8"
             )
+            
+            // Get group details for post approval state
+            val groupViewModel: com.example.minisocialnetworkapplication.ui.socialgroup.GroupDetailViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+            val groupState by groupViewModel.uiState.collectAsState()
+            
             com.example.minisocialnetworkapplication.ui.socialgroup.GroupManagementScreen(
                 groupId = groupId,
                 groupName = groupName,
+                group = (groupState as? com.example.minisocialnetworkapplication.ui.socialgroup.GroupDetailUiState.Success)?.group,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToJoinRequests = {
                     navController.navigate("social_group_join_requests/$groupId")
@@ -648,6 +654,12 @@ fun NavGraph(
                 onNavigateToEditGroup = { /* TODO */ },
                 onNavigateToMembers = {
                     navController.navigate(Screen.GroupMembers.createRoute(groupId))
+                },
+                onNavigateToPendingPosts = {
+                    navController.navigate(Screen.PendingPosts.createRoute(groupId))
+                },
+                onTogglePostApproval = { enabled ->
+                    groupViewModel.togglePostApproval(enabled)
                 },
                 onDeleteGroup = { /* TODO */ }
             )
@@ -660,6 +672,20 @@ fun NavGraph(
         ) { backStackEntry ->
             val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
             com.example.minisocialnetworkapplication.ui.socialgroup.GroupMembersScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToProfile = { userId ->
+                    navController.navigate(Screen.Profile.createRoute(userId))
+                }
+            )
+        }
+        
+        // Pending Posts Screen
+        composable(
+            route = Screen.PendingPosts.route,
+            arguments = listOf(androidx.navigation.navArgument("groupId") { type = androidx.navigation.NavType.StringType })
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
+            com.example.minisocialnetworkapplication.ui.socialgroup.PendingPostsScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToProfile = { userId ->
                     navController.navigate(Screen.Profile.createRoute(userId))
