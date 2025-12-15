@@ -89,4 +89,8 @@ sealed class Screen(val route: String) {
     data object PendingPosts : Screen("pending_posts/{groupId}") {
         fun createRoute(groupId: String) = "pending_posts/$groupId"
     }
+    
+    data object GroupReports : Screen("group_reports/{groupId}") {
+        fun createRoute(groupId: String) = "group_reports/$groupId"
+    }
 }

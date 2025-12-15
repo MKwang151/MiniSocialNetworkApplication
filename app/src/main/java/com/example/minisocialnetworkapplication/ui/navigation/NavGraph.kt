@@ -658,6 +658,9 @@ fun NavGraph(
                 onNavigateToPendingPosts = {
                     navController.navigate(Screen.PendingPosts.createRoute(groupId))
                 },
+                onNavigateToReports = {
+                    navController.navigate(Screen.GroupReports.createRoute(groupId))
+                },
                 onTogglePostApproval = { enabled ->
                     groupViewModel.togglePostApproval(enabled)
                 },
@@ -690,6 +693,17 @@ fun NavGraph(
                 onNavigateToProfile = { userId ->
                     navController.navigate(Screen.Profile.createRoute(userId))
                 }
+            )
+        }
+        
+        // Group Reports Screen
+        composable(
+            route = Screen.GroupReports.route,
+            arguments = listOf(androidx.navigation.navArgument("groupId") { type = androidx.navigation.NavType.StringType })
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
+            com.example.minisocialnetworkapplication.ui.socialgroup.GroupReportsScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

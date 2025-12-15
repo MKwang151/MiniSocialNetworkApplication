@@ -127,4 +127,23 @@ class ReportRepositoryImpl @Inject constructor(
             Result.Error(e)
         }
     }
+
+    override suspend fun updateReportStatus(reportId: String, status: ReportStatus): Result<Unit> {
+        return try {
+            firestore.collection(REPORTS_COLLECTION)
+                .document(reportId)
+                .update("status", status.name)
+                .await()
+            
+            Timber.d("Report $reportId status updated to $status")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to update report status")
+            Result.Error(e)
+        }
+    }
+
+    override suspend fun dismissReport(reportId: String): Result<Unit> {
+        return updateReportStatus(reportId, ReportStatus.DISMISSED)
+    }
 }
