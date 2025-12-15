@@ -97,7 +97,7 @@ class PostRemoteMediator(
                     // Check group privacy in batches of 10
                     groupIdsToCheck.chunked(10).forEach { chunk ->
                         val groupsSnapshot = firestore.collection("groups")
-                            .whereIn("id", chunk)
+                            .whereIn(com.google.firebase.firestore.FieldPath.documentId(), chunk)
                             .get()
                             .await()
                         groupsSnapshot.documents.forEach { doc ->
@@ -107,6 +107,7 @@ class PostRemoteMediator(
                             }
                         }
                     }
+                    Timber.d("Found ${privateGroupIds.size} private groups from ${groupIdsToCheck.size} groups to check")
                 } catch (e: Exception) {
                     Timber.e(e, "Error fetching group privacy info")
                 }
@@ -135,6 +136,12 @@ class PostRemoteMediator(
                     // Filter: Hide posts from private groups if user is not a member
                     if (groupId != null && privateGroupIds.contains(groupId) && !userGroupIds.contains(groupId)) {
                         Timber.d("Filtering out post from private group: $groupId")
+                        return@mapNotNull null
+                    }
+                    
+                    // Filter: Hide pending/rejected posts from feed (only show APPROVED)
+                    if (approvalStatus != "APPROVED") {
+                        Timber.d("Filtering out non-approved post: ${doc.id}, status: $approvalStatus")
                         return@mapNotNull null
                     }
 
