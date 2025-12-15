@@ -291,7 +291,9 @@ class GroupRepositoryImpl @Inject constructor(
                     return@addSnapshotListener
                 }
                 
-                val posts = snapshot?.toObjects(com.example.minisocialnetworkapplication.core.domain.model.Post::class.java) ?: emptyList()
+                val posts = snapshot?.documents?.mapNotNull { doc ->
+                    doc.toObject(com.example.minisocialnetworkapplication.core.domain.model.Post::class.java)?.copy(id = doc.id)
+                } ?: emptyList()
                 trySend(posts)
             }
         awaitClose { listener.remove() }

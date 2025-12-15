@@ -157,18 +157,17 @@ fun GroupDetailScreen(
                             
                             PostCard(
                                 post = post,
-                                onPostClicked = { onNavigateToPostDetail(post.id) },
-                                onLikeClicked = { viewModel.toggleLike(post) },
-                                onCommentClicked = { onNavigateToPostDetail(post.id) },
+                                onPostClicked = { p -> onNavigateToPostDetail(p.id) },
+                                onLikeClicked = { p -> viewModel.toggleLike(p) },
+                                onCommentClicked = { p -> onNavigateToPostDetail(p.id) },
                                 onAuthorClicked = { onNavigateToProfile(post.authorId) },
                                 onImageClicked = { index -> onNavigateToImageGallery(post.id, index) },
-                                onDeleteClicked = if (isOwner || isAdmin) { 
-                                    { viewModel.deletePost(post.id) } 
-                                } else null,
-                                onEditClicked = if (isOwner) { 
-                                    { /* Will be handled by EditPostDialog */ } 
-                                } else null,
-                                isOptimisticallyLiked = post.likedByMe
+                                onDeleteClicked = { p -> 
+                                    if (isOwner || isAdmin) viewModel.deletePost(p.id) 
+                                },
+                                onEditClicked = { /* Edit will be handled via dialog */ },
+                                isOptimisticallyLiked = post.likedByMe,
+                                showMenuButton = isOwner || isAdmin
                             )
                         }
                     }
