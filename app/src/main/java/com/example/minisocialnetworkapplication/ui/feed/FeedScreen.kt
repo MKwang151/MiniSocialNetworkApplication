@@ -69,6 +69,7 @@ fun FeedScreen(
     onNavigateToProfile: (String) -> Unit,
     onNavigateToGroups: () -> Unit,
     onNavigateToImageGallery: (String, Int) -> Unit,
+    onNavigateToReportPost: (postId: String, authorId: String, groupId: String?) -> Unit = { _, _, _ -> },
     onNavigateToSettings: () -> Unit = {},
     onNavigateToNotifications: () -> Unit = {},
     onLogout: () -> Unit,
@@ -219,6 +220,7 @@ fun FeedScreen(
                 onScrolledToTop = { shouldScrollToTop = false },
                 onDeletePost = { postToDelete = it; showDeleteDialog = true },
                 onEditPost = { postToEdit = it; showEditDialog = true },
+                onReportPost = onNavigateToReportPost,
                 modifier = Modifier.padding(paddingValues)
             )
         }
@@ -275,7 +277,8 @@ fun FeedContent(
     onScrolledToTop: () -> Unit,
     modifier: Modifier = Modifier,
     onDeletePost: (Post) -> Unit = {},
-    onEditPost: (Post) -> Unit = {}
+    onEditPost: (Post) -> Unit = {},
+    onReportPost: (postId: String, authorId: String, groupId: String?) -> Unit = { _, _, _ -> }
 ) {
     val isRefreshing = lazyPagingItems.loadState.refresh is LoadState.Loading
     val listState = rememberLazyListState()
@@ -323,6 +326,9 @@ fun FeedContent(
                             },
                             onEditClicked = { onEditPost(it) },
                             onDeleteClicked = { onDeletePost(it) },
+                            onReportClicked = { post ->
+                                onReportPost(post.id, post.authorId, post.groupId)
+                            },
                             isOptimisticallyLiked = post.likedByMe
                         )
                     }
