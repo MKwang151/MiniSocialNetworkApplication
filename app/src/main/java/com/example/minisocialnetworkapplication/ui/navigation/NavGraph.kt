@@ -140,6 +140,15 @@ fun NavGraph(
                  },
                  onNavigateToGroupDetail = { groupId ->
                      navController.navigate(Screen.GroupDetail.createRoute(groupId))
+                 },
+                 onNavigateToPostDetail = { postId ->
+                     navController.navigate(Screen.PostDetail.createRoute(postId))
+                 },
+                 onNavigateToProfile = { userId ->
+                     navController.navigate(Screen.Profile.createRoute(userId))
+                 },
+                 onNavigateToImageGallery = { postId, index ->
+                     navController.navigate(Screen.ImageGallery.createRoute(postId, index))
                  }
              )
         }

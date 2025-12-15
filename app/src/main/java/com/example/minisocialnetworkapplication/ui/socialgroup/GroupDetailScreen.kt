@@ -8,11 +8,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -138,8 +144,37 @@ fun GroupDetailScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
+                    // Check if user can see posts
+                    val isPrivateGroup = state.group.privacy == com.example.minisocialnetworkapplication.core.domain.model.GroupPrivacy.PRIVATE
+                    val canSeePosts = !isPrivateGroup || state.isMember
 
-                    if (state.posts.isEmpty()) {
+                    if (!canSeePosts) {
+                        // Private group and user is not a member
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(32.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Icon(
+                                        imageVector = Icons.Default.Lock,
+                                        contentDescription = "Private",
+                                        modifier = Modifier.size(48.dp),
+                                        tint = MaterialTheme.colorScheme.outline
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text(
+                                        text = "Bạn cần tham gia nhóm để xem bài viết",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                    } else if (state.posts.isEmpty()) {
                         item {
                             Box(
                                 modifier = Modifier
@@ -188,7 +223,12 @@ fun GroupHeader(
     onInviteClick: () -> Unit
 ) {
     Column {
-        Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
+        // Cover image with avatar overlay
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+        ) {
             AsyncImage(
                 model = group.coverUrl ?: "https://via.placeholder.com/800x400",
                 contentDescription = "Cover Image",
@@ -197,16 +237,54 @@ fun GroupHeader(
             )
         }
         
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = group.name, style = MaterialTheme.typography.headlineMedium)
-            Text(
-                text = "${group.memberCount} members · ${group.privacy}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.Gray
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(text = group.description, style = MaterialTheme.typography.bodyLarge)
+        // Avatar and Group Info Row
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            // Group Avatar - overlapping cover image
+            Box(
+                modifier = Modifier
+                    .offset(y = (-40).dp)
+                    .size(80.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                    )
+                    .padding(3.dp)
+            ) {
+                AsyncImage(
+                    model = group.avatarUrl ?: "https://ui-avatars.com/api/?name=${group.name}&background=6366f1&color=fff&size=200",
+                    contentDescription = "Group Avatar",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp)),
+                    contentScale = ContentScale.Crop
+                )
+            }
             
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            // Group Name and Info
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(top = 8.dp)
+            ) {
+                Text(text = group.name, style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    text = "${group.memberCount} members · ${group.privacy}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray
+                )
+            }
+        }
+        
+        // Description
+        Column(modifier = Modifier.padding(horizontal = 16.dp).offset(y = (-24).dp)) {
+            Text(text = group.description, style = MaterialTheme.typography.bodyLarge)            
             Spacer(modifier = Modifier.height(16.dp))
             
             if (isMember) {
