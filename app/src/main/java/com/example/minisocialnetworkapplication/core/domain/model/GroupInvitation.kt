@@ -7,6 +7,7 @@ data class GroupInvitation(
     val groupAvatarUrl: String? = null,
     val inviterId: String = "",
     val inviterName: String = "",
+    val inviterRole: GroupRole? = null,  // ADMIN or MEMBER - affects join behavior for private groups
     val inviteeId: String = "",
     val status: InvitationStatus = InvitationStatus.PENDING,
     val createdAt: Long = System.currentTimeMillis()
