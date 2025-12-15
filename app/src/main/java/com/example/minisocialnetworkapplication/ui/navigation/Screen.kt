@@ -72,4 +72,17 @@ sealed class Screen(val route: String) {
             }
         }
     }
+
+    data object GroupJoinRequests : Screen("group_join_requests/{groupId}") {
+        fun createRoute(groupId: String) = "group_join_requests/$groupId"
+    }
+
+    data object GroupManagement : Screen("group_management/{groupId}/{groupName}") {
+        fun createRoute(groupId: String, groupName: String) = 
+            "group_management/$groupId/${java.net.URLEncoder.encode(groupName, "UTF-8")}"
+    }
+
+    data object GroupMembers : Screen("group_members/{groupId}") {
+        fun createRoute(groupId: String) = "group_members/$groupId"
+    }
 }

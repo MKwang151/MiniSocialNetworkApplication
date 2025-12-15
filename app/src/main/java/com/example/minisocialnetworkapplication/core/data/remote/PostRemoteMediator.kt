@@ -70,6 +70,48 @@ class PostRemoteMediator(
 
             // Fetch posts from Firestore
             val snapshot = query.get().await()
+            
+            // Get list of groups user is member of (for filtering private group posts)
+            val userGroupIds = if (currentUserId != null) {
+                try {
+                    firestore.collectionGroup("members")
+                        .whereEqualTo("userId", currentUserId)
+                        .get()
+                        .await()
+                        .documents
+                        .mapNotNull { it.getString("groupId") }
+                        .toSet()
+                } catch (e: Exception) {
+                    Timber.e(e, "Error fetching user group memberships")
+                    emptySet()
+                }
+            } else {
+                emptySet()
+            }
+            
+            // Get set of private group IDs for filtering
+            val privateGroupIds = mutableSetOf<String>()
+            val groupIdsToCheck = snapshot.documents.mapNotNull { it.getString("groupId") }.distinct()
+            if (groupIdsToCheck.isNotEmpty()) {
+                try {
+                    // Check group privacy in batches of 10
+                    groupIdsToCheck.chunked(10).forEach { chunk ->
+                        val groupsSnapshot = firestore.collection("groups")
+                            .whereIn("id", chunk)
+                            .get()
+                            .await()
+                        groupsSnapshot.documents.forEach { doc ->
+                            val privacy = doc.getString("privacy")
+                            if (privacy == "PRIVATE") {
+                                privateGroupIds.add(doc.id)
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "Error fetching group privacy info")
+                }
+            }
+            
             val posts = snapshot.documents.mapNotNull { doc ->
                 try {
                     val authorId = doc.getString(Constants.FIELD_AUTHOR_ID) ?: return@mapNotNull null
@@ -89,6 +131,12 @@ class PostRemoteMediator(
                     val groupName = doc.getString("groupName")
                     val groupAvatarUrl = doc.getString("groupAvatarUrl")
                     val approvalStatus = doc.getString("approvalStatus") ?: "APPROVED"
+
+                    // Filter: Hide posts from private groups if user is not a member
+                    if (groupId != null && privateGroupIds.contains(groupId) && !userGroupIds.contains(groupId)) {
+                        Timber.d("Filtering out post from private group: $groupId")
+                        return@mapNotNull null
+                    }
 
                     // Check if liked by current user
                     val likedByMe = if (currentUserId != null) {
