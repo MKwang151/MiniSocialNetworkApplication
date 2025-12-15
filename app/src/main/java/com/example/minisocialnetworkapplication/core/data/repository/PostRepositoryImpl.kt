@@ -163,8 +163,25 @@ class PostRepositoryImpl @Inject constructor(
             val userName = userDoc.getString("name") ?: "Unknown"
             val userAvatarUrl = userDoc.getString("avatarUrl")
 
+            // Get group info if this is a group post
+            var groupName: String? = null
+            var groupAvatarUrl: String? = null
+            if (groupId != null) {
+                try {
+                    val groupDoc = firestore.collection("groups")
+                        .document(groupId)
+                        .get()
+                        .await()
+                    groupName = groupDoc.getString("name")
+                    groupAvatarUrl = groupDoc.getString("avatarUrl")
+                    Timber.d("Fetched group info: name=$groupName, avatarUrl=$groupAvatarUrl")
+                } catch (e: Exception) {
+                    Timber.w(e, "Failed to fetch group info for groupId: $groupId")
+                }
+            }
+
             // STEP 1: Create post in Firestore IMMEDIATELY without images
-            val postData = hashMapOf(
+            val postData = hashMapOf<String, Any?>(
                 Constants.FIELD_AUTHOR_ID to userId,
                 "authorName" to userName,
                 "authorAvatarUrl" to userAvatarUrl,
@@ -173,9 +190,15 @@ class PostRepositoryImpl @Inject constructor(
                 Constants.FIELD_LIKE_COUNT to 0,
                 Constants.FIELD_COMMENT_COUNT to 0,
                 Constants.FIELD_CREATED_AT to com.google.firebase.Timestamp.now(),
-                "groupId" to groupId,
                 "approvalStatus" to approvalStatus.name
             )
+            
+            // Only add group fields if this is a group post
+            if (groupId != null) {
+                postData["groupId"] = groupId
+                postData["groupName"] = groupName
+                postData["groupAvatarUrl"] = groupAvatarUrl
+            }
 
             firestore.collection(Constants.COLLECTION_POSTS)
                 .document(postId)
@@ -199,7 +222,11 @@ class PostRepositoryImpl @Inject constructor(
                 commentCount = 0,
                 likedByMe = false,
                 createdAt = System.currentTimeMillis(),
-                isSyncPending = false  // Already synced to Firestore
+                isSyncPending = false,  // Already synced to Firestore
+                groupId = groupId,
+                groupName = groupName,
+                groupAvatarUrl = groupAvatarUrl,
+                approvalStatus = approvalStatus.name
             )
             database.postDao().insertPost(tempPost)
             Timber.d("Post inserted to Room cache with ${imageUris.size} local image URIs: $postId")
@@ -369,6 +396,17 @@ class PostRepositoryImpl @Inject constructor(
             val commentCount = postDoc.getLong(Constants.FIELD_COMMENT_COUNT)?.toInt() ?: 0
             val createdAt = postDoc.getTimestamp(Constants.FIELD_CREATED_AT) ?: com.google.firebase.Timestamp.now()
 
+            // Group fields
+            val groupId = postDoc.getString("groupId")
+            val groupName = postDoc.getString("groupName")
+            val groupAvatarUrl = postDoc.getString("groupAvatarUrl")
+            val approvalStatusStr = postDoc.getString("approvalStatus") ?: "APPROVED"
+            val approvalStatus = try {
+                com.example.minisocialnetworkapplication.core.domain.model.PostApprovalStatus.valueOf(approvalStatusStr)
+            } catch (e: Exception) {
+                com.example.minisocialnetworkapplication.core.domain.model.PostApprovalStatus.APPROVED
+            }
+
             // Check if liked by current user
             val likedByMe = if (userId != null) {
                 isPostLikedByCurrentUser(postId)
@@ -386,7 +424,11 @@ class PostRepositoryImpl @Inject constructor(
                 likeCount = likeCount,
                 commentCount = commentCount,
                 likedByMe = likedByMe,
-                createdAt = createdAt
+                createdAt = createdAt,
+                groupId = groupId,
+                groupName = groupName,
+                groupAvatarUrl = groupAvatarUrl,
+                approvalStatus = approvalStatus
             )
 
             Result.Success(post)

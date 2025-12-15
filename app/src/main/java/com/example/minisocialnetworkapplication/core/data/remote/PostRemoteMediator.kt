@@ -84,6 +84,12 @@ class PostRemoteMediator(
                     val createdAt = doc.getTimestamp(Constants.FIELD_CREATED_AT)?.toDate()?.time
                         ?: System.currentTimeMillis()
 
+                    // Group fields
+                    val groupId = doc.getString("groupId")
+                    val groupName = doc.getString("groupName")
+                    val groupAvatarUrl = doc.getString("groupAvatarUrl")
+                    val approvalStatus = doc.getString("approvalStatus") ?: "APPROVED"
+
                     // Check if liked by current user
                     val likedByMe = if (currentUserId != null) {
                         checkIfLiked(doc.id, currentUserId)
@@ -102,7 +108,11 @@ class PostRemoteMediator(
                         commentCount = commentCount,
                         likedByMe = likedByMe,
                         createdAt = createdAt,
-                        isSyncPending = false
+                        isSyncPending = false,
+                        groupId = groupId,
+                        groupName = groupName,
+                        groupAvatarUrl = groupAvatarUrl,
+                        approvalStatus = approvalStatus
                     )
                 } catch (e: Exception) {
                     Timber.e(e, "Error parsing post: ${doc.id}")
