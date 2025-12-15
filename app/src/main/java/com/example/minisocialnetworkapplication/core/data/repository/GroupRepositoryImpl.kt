@@ -1,5 +1,6 @@
 package com.example.minisocialnetworkapplication.core.data.repository
 
+import android.net.Uri
 import com.example.minisocialnetworkapplication.core.domain.model.Group
 import com.example.minisocialnetworkapplication.core.domain.model.GroupMember
 import com.example.minisocialnetworkapplication.core.domain.model.GroupPrivacy
@@ -9,6 +10,7 @@ import com.example.minisocialnetworkapplication.core.util.Result
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
@@ -21,10 +23,11 @@ import javax.inject.Inject
 
 class GroupRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val storage: FirebaseStorage
 ) : GroupRepository {
 
-    override suspend fun createGroup(name: String, description: String, privacy: GroupPrivacy): Result<String> {
+    override suspend fun createGroup(name: String, description: String, privacy: GroupPrivacy, avatarUri: Uri?): Result<String> {
         val currentUser = auth.currentUser
         if (currentUser == null) {
             return Result.Error(Exception("User not logged in"))
@@ -32,10 +35,26 @@ class GroupRepositoryImpl @Inject constructor(
 
         return try {
             val groupId = firestore.collection("groups").document().id
+            
+            // Upload avatar if provided
+            var avatarUrl: String? = null
+            if (avatarUri != null) {
+                try {
+                    // Use group_avatars path to match Storage rules
+                    val avatarRef = storage.reference.child("group_avatars/$groupId-avatar.jpg")
+                    avatarRef.putFile(avatarUri).await()
+                    avatarUrl = avatarRef.downloadUrl.await().toString()
+                    Timber.d("Group avatar uploaded: $avatarUrl")
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to upload group avatar, continuing without avatar")
+                }
+            }
+            
             val group = Group(
                 id = groupId,
                 name = name,
                 description = description,
+                avatarUrl = avatarUrl,
                 ownerId = currentUser.uid,
                 privacy = privacy,
                 memberCount = 1,
