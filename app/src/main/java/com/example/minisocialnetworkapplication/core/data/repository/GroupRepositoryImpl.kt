@@ -388,7 +388,10 @@ class GroupRepositoryImpl @Inject constructor(
                                 .whereEqualTo("approvalStatus", "APPROVED")
                                 .orderBy("createdAt", Query.Direction.DESCENDING)
                                 .get().await()
-                            posts.addAll(postsSnapshot.toObjects(com.example.minisocialnetworkapplication.core.domain.model.Post::class.java))
+                            // Map with document ID to ensure post.id is populated
+                            postsSnapshot.documents.mapNotNull { doc ->
+                                doc.toObject(com.example.minisocialnetworkapplication.core.domain.model.Post::class.java)?.copy(id = doc.id)
+                            }.also { posts.addAll(it) }
                         }
                         // Sort all posts by createdAt after combining
                         trySend(posts.sortedByDescending { it.createdAt })
