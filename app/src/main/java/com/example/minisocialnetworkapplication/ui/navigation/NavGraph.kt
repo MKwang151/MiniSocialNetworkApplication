@@ -192,6 +192,12 @@ fun NavGraph(
                  },
                  onNavigateToImageGallery = { postId, index ->
                      navController.navigate(Screen.ImageGallery.createRoute(postId, index))
+                 },
+                 onNavigateToJoinRequests = { groupId ->
+                     navController.navigate(Screen.GroupJoinRequests.createRoute(groupId))
+                 },
+                 onNavigateToManage = { groupId, groupName ->
+                     navController.navigate(Screen.GroupManagement.createRoute(groupId, groupName))
                  }
              )
         }
@@ -606,6 +612,58 @@ fun NavGraph(
         ) {
             com.example.minisocialnetworkapplication.ui.report.ReportScreen(
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // Social Group Join Requests Screen (for Admin)
+        composable(
+            route = "social_group_join_requests/{groupId}",
+            arguments = listOf(androidx.navigation.navArgument("groupId") { type = androidx.navigation.NavType.StringType })
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
+            com.example.minisocialnetworkapplication.ui.socialgroup.JoinRequestsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // Group Management Screen
+        composable(
+            route = Screen.GroupManagement.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("groupId") { type = androidx.navigation.NavType.StringType },
+                androidx.navigation.navArgument("groupName") { type = androidx.navigation.NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
+            val groupName = java.net.URLDecoder.decode(
+                backStackEntry.arguments?.getString("groupName") ?: "", "UTF-8"
+            )
+            com.example.minisocialnetworkapplication.ui.socialgroup.GroupManagementScreen(
+                groupId = groupId,
+                groupName = groupName,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToJoinRequests = {
+                    navController.navigate("social_group_join_requests/$groupId")
+                },
+                onNavigateToEditGroup = { /* TODO */ },
+                onNavigateToMembers = {
+                    navController.navigate(Screen.GroupMembers.createRoute(groupId))
+                },
+                onDeleteGroup = { /* TODO */ }
+            )
+        }
+
+        // Group Members Screen
+        composable(
+            route = Screen.GroupMembers.route,
+            arguments = listOf(androidx.navigation.navArgument("groupId") { type = androidx.navigation.NavType.StringType })
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
+            com.example.minisocialnetworkapplication.ui.socialgroup.GroupMembersScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToProfile = { userId ->
+                    navController.navigate(Screen.Profile.createRoute(userId))
+                }
             )
         }
     }
