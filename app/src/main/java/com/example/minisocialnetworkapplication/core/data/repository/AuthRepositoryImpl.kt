@@ -36,8 +36,31 @@ class AuthRepositoryImpl @Inject constructor(
             val authResult = auth.createUserWithEmailAndPassword(email, password).await()
             val firebaseUser = authResult.user
                 ?: return Result.Error(Exception("User creation failed"))
+            
+            // Get FCM token for push notifications
+            val fcmToken = try {
+                com.google.firebase.messaging.FirebaseMessaging.getInstance().token.await()
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to get FCM token during registration")
+                null
+            }
 
-            // Create user profile in Firestore
+            // Create user profile in Firestore with FCM token
+            val userData = hashMapOf(
+                "uid" to firebaseUser.uid,
+                "name" to name,
+                "email" to email,
+                "avatarUrl" to null,
+                "bio" to null,
+                "createdAt" to Timestamp.now(),
+                "fcmToken" to fcmToken
+            )
+
+            firestore.collection(Constants.COLLECTION_USERS)
+                .document(firebaseUser.uid)
+                .set(userData)
+                .await()
+            
             val user = User(
                 uid = firebaseUser.uid,
                 name = name,
@@ -47,12 +70,7 @@ class AuthRepositoryImpl @Inject constructor(
                 createdAt = Timestamp.now()
             )
 
-            firestore.collection(Constants.COLLECTION_USERS)
-                .document(firebaseUser.uid)
-                .set(user)
-                .await()
-
-            Timber.d("User registered successfully: ${user.uid}")
+            Timber.d("User registered successfully with FCM token: ${user.uid}")
             Result.Success(user)
         } catch (e: Exception) {
             Timber.e(e, "Registration failed")
@@ -87,6 +105,18 @@ class AuthRepositoryImpl @Inject constructor(
 
             val user = userDoc.toObject(User::class.java)
                 ?: return Result.Error(Exception("User profile not found"))
+            
+            // Refresh FCM token on every login to ensure push notifications work
+            try {
+                val fcmToken = com.google.firebase.messaging.FirebaseMessaging.getInstance().token.await()
+                firestore.collection(Constants.COLLECTION_USERS)
+                    .document(firebaseUser.uid)
+                    .update("fcmToken", fcmToken)
+                    .await()
+                Timber.d("FCM token updated on login: $fcmToken")
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to update FCM token on login")
+            }
 
             Timber.d("User logged in successfully: ${user.uid}")
             Result.Success(user)
