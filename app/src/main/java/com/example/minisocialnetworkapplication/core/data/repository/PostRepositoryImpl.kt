@@ -291,6 +291,96 @@ class PostRepositoryImpl @Inject constructor(
             }
 
             Timber.d("Post created successfully and will be visible immediately: $postId")
+            
+            // Create notifications for group members (if group post and APPROVED)
+            if (groupId != null && approvalStatus == com.example.minisocialnetworkapplication.core.domain.model.PostApprovalStatus.APPROVED) {
+                CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+                    try {
+                        // Get all group members except the author
+                        val membersSnapshot = firestore.collection("groups")
+                            .document(groupId)
+                            .collection("members")
+                            .limit(100)  // Limit to avoid overload
+                            .get()
+                            .await()
+                        
+                        val memberIds = membersSnapshot.documents
+                            .map { it.id }
+                            .filter { it != userId }  // Exclude author
+                        
+                        // Create notification for each member
+                        for (memberId in memberIds) {
+                            val notificationId = firestore.collection("notifications").document().id
+                            val notificationData = hashMapOf(
+                                "id" to notificationId,
+                                "userId" to memberId,
+                                "type" to "NEW_POST",
+                                "title" to "New Post in $groupName",
+                                "message" to "$userName posted in $groupName",
+                                "data" to mapOf(
+                                    "postId" to postId,
+                                    "groupId" to groupId,
+                                    "authorId" to userId,
+                                    "authorName" to userName
+                                ),
+                                "read" to false,
+                                "createdAt" to System.currentTimeMillis()
+                            )
+                            firestore.collection("notifications")
+                                .document(notificationId)
+                                .set(notificationData)
+                                .await()
+                        }
+                        Timber.d("Created NEW_POST notifications for ${memberIds.size} group members")
+                    } catch (e: Exception) {
+                        Timber.w(e, "Failed to create notifications for group post")
+                    }
+                }
+            }
+            
+            // Create notifications for friends (if personal post, not group)
+            if (groupId == null) {
+                CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+                    try {
+                        // Get all friends of the author
+                        val friendsSnapshot = firestore.collection(Constants.COLLECTION_USERS)
+                            .document(userId)
+                            .collection(Constants.COLLECTION_FRIENDS)
+                            .limit(100)  // Limit to avoid overload
+                            .get()
+                            .await()
+                        
+                        val friendIds = friendsSnapshot.documents.map { it.id }
+                        
+                        // Create notification for each friend
+                        for (friendId in friendIds) {
+                            val notificationId = firestore.collection("notifications").document().id
+                            val notificationData = hashMapOf(
+                                "id" to notificationId,
+                                "userId" to friendId,
+                                "type" to "NEW_POST",
+                                "title" to "New Post from $userName",
+                                "message" to "$userName shared a new post",
+                                "data" to mapOf(
+                                    "postId" to postId,
+                                    "authorId" to userId,
+                                    "authorName" to userName
+                                ),
+                                "read" to false,
+                                "createdAt" to System.currentTimeMillis()
+                            )
+                            firestore.collection("notifications")
+                                .document(notificationId)
+                                .set(notificationData)
+                                .await()
+                        }
+                        Timber.d("Created NEW_POST notifications for ${friendIds.size} friends")
+                    } catch (e: Exception) {
+                        Timber.w(e, "Failed to create notifications for personal post")
+                    }
+                }
+            }
+            
             Result.Success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "Failed to enqueue post upload")

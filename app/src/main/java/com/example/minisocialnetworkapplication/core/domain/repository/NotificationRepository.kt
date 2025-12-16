@@ -9,4 +9,5 @@ interface NotificationRepository {
     suspend fun markAsRead(notificationId: String): Result<Unit>
     suspend fun deleteNotification(notificationId: String): Result<Unit>
     fun getUnreadCount(userId: String): Flow<Int>
+    suspend fun createNotification(notification: Notification): Result<Unit>
 }

@@ -126,6 +126,34 @@ class FriendRepositoryImpl @Inject constructor(
 
             // Commit batch
             batch.commit().await()
+            
+            // Create notification for the receiver
+            try {
+                val senderDoc = firestore.collection(Constants.COLLECTION_USERS)
+                    .document(userId).get().await()
+                val senderName = senderDoc.getString("displayName") 
+                    ?: senderDoc.getString("name") 
+                    ?: "Someone"
+                
+                val notificationId = firestore.collection("notifications").document().id
+                val notificationData = hashMapOf(
+                    "id" to notificationId,
+                    "userId" to friendId,  // Notification goes to the receiver
+                    "type" to "FRIEND_REQUEST",
+                    "title" to "New Friend Request",
+                    "message" to "$senderName sent you a friend request",
+                    "data" to mapOf("senderId" to userId, "senderName" to senderName),
+                    "read" to false,
+                    "createdAt" to System.currentTimeMillis()
+                )
+                firestore.collection("notifications")
+                    .document(notificationId)
+                    .set(notificationData)
+                    .await()
+                Timber.d("Created friend request notification for user $friendId")
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to create notification, but friend request was sent")
+            }
 
             Timber.d("Uid=$userId sent friend request to uid=$friendId")
             Result.Success(Unit)

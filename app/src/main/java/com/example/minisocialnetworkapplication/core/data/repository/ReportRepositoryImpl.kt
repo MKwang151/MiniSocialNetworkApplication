@@ -28,11 +28,18 @@ class ReportRepositoryImpl @Inject constructor(
         return try {
             val reportId = firestore.collection(REPORTS_COLLECTION).document().id
             
+            // Fetch reporter name from Firestore users collection
+            val userDoc = firestore.collection("users").document(currentUser.uid).get().await()
+            val reporterName = userDoc.getString("displayName") 
+                ?: userDoc.getString("name")
+                ?: currentUser.displayName 
+                ?: "Unknown"
+            
             val reportData = hashMapOf(
                 "id" to reportId,
                 "postId" to report.postId,
                 "reporterId" to currentUser.uid,
-                "reporterName" to (currentUser.displayName ?: "Unknown"),
+                "reporterName" to reporterName,
                 "authorId" to report.authorId,
                 "groupId" to report.groupId,
                 "reason" to report.reason,

@@ -77,4 +77,32 @@ class NotificationRepositoryImpl @Inject constructor(
             }
         awaitClose { listener.remove() }
     }
+    
+    override suspend fun createNotification(notification: com.example.minisocialnetworkapplication.core.domain.model.Notification): Result<Unit> {
+        return try {
+            val notificationId = firestore.collection("notifications").document().id
+            
+            val notificationData = hashMapOf(
+                "id" to notificationId,
+                "userId" to notification.userId,
+                "type" to notification.type.name,
+                "title" to notification.title,
+                "message" to notification.message,
+                "data" to notification.data,
+                "read" to false,
+                "createdAt" to System.currentTimeMillis()
+            )
+            
+            firestore.collection("notifications")
+                .document(notificationId)
+                .set(notificationData)
+                .await()
+            
+            Timber.d("Created notification for user ${notification.userId}: ${notification.title}")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to create notification")
+            Result.Error(e)
+        }
+    }
 }

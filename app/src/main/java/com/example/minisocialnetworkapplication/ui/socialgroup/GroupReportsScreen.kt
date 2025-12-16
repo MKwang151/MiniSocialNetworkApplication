@@ -102,7 +102,7 @@ private fun ReportsTab(
     onDismiss: (String) -> Unit,
     onHidePost: (String, String) -> Unit,
     onDeletePost: (String, String) -> Unit,
-    onKickMember: (String, String) -> Unit
+    onKickMember: (String, String, String) -> Unit  // memberId, postId, reportId
 ) {
     if (reports.isEmpty()) {
         Box(
@@ -131,7 +131,7 @@ private fun ReportsTab(
                     onDismiss = { onDismiss(report.id) },
                     onHidePost = { onHidePost(report.postId, report.id) },
                     onDeletePost = { onDeletePost(report.postId, report.id) },
-                    onKickMember = { onKickMember(report.authorId, report.id) }
+                    onKickMember = { onKickMember(report.authorId, report.postId, report.id) }
                 )
             }
         }

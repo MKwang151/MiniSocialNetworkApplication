@@ -161,15 +161,22 @@ class GroupReportsViewModel @Inject constructor(
         }
     }
     
-    // 🚫 Kick Member from group
-    fun kickMember(memberId: String, reportId: String) {
+    // 🚫 Kick Member from group + Delete post
+    fun kickMember(memberId: String, postId: String, reportId: String) {
         viewModelScope.launch {
+            // 1. Delete the post first
+            val deleteResult = groupRepository.deletePost(postId)
+            if (deleteResult is Result.Error) {
+                Timber.e(deleteResult.exception, "Failed to delete post during kick")
+            }
+            
+            // 2. Remove member from group
             when (val result = groupRepository.removeMember(groupId, memberId)) {
                 is Result.Success -> {
                     reportRepository.updateReportStatus(reportId, ReportStatus.RESOLVED)
                     _state.value = _state.value.copy(
                         reports = _state.value.reports.filter { it.id != reportId },
-                        actionMessage = "Member removed from group"
+                        actionMessage = "Member removed and post deleted"
                     )
                 }
                 is Result.Error -> {
