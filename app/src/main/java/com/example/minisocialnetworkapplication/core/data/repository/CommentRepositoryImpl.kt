@@ -131,6 +131,40 @@ class CommentRepositoryImpl @Inject constructor(
             } catch (e: Exception) {
                 Timber.w(e, "Failed to update comment count in Room cache, will sync later")
             }
+            
+            // Create notification for post author (if not commenting on own post)
+            try {
+                val postDoc = firestore.collection(Constants.COLLECTION_POSTS)
+                    .document(postId).get().await()
+                val postAuthorId = postDoc.getString(Constants.FIELD_AUTHOR_ID)
+                
+                if (postAuthorId != null && postAuthorId != userId) {
+                    val notificationId = firestore.collection("notifications").document().id
+                    val commentPreview = if (text.length > 50) text.take(50) + "..." else text
+                    val notificationData = hashMapOf(
+                        "id" to notificationId,
+                        "userId" to postAuthorId,
+                        "type" to "COMMENT",
+                        "title" to "New comment on your post",
+                        "message" to "$userName commented: $commentPreview",
+                        "data" to mapOf(
+                            "postId" to postId,
+                            "commentId" to docRef.id,
+                            "commenterId" to userId,
+                            "commenterName" to userName
+                        ),
+                        "read" to false,
+                        "createdAt" to System.currentTimeMillis()
+                    )
+                    firestore.collection("notifications")
+                        .document(notificationId)
+                        .set(notificationData)
+                        .await()
+                    Timber.d("Created COMMENT notification for post author $postAuthorId")
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to create comment notification")
+            }
 
             val comment = Comment(
                 id = docRef.id,

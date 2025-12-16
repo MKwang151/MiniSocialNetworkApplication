@@ -446,6 +446,42 @@ class PostRepositoryImpl @Inject constructor(
 
                 // Update Room cache with both like status and count
                 database.postDao().updateLike(postId, newLikedState, newLikeCount)
+                
+                // Create notification for post author when liked (not when unliked)
+                if (newLikedState) {
+                    try {
+                        val postAuthorId = updatedPostSnapshot.getString(Constants.FIELD_AUTHOR_ID)
+                        if (postAuthorId != null && postAuthorId != userId) {
+                            // Get liker's name
+                            val userDoc = firestore.collection(Constants.COLLECTION_USERS)
+                                .document(userId).get().await()
+                            val userName = userDoc.getString("name") ?: "Someone"
+                            
+                            val notificationId = firestore.collection("notifications").document().id
+                            val notificationData = hashMapOf(
+                                "id" to notificationId,
+                                "userId" to postAuthorId,
+                                "type" to "POST_LIKE",
+                                "title" to "Someone liked your post",
+                                "message" to "$userName liked your post",
+                                "data" to mapOf(
+                                    "postId" to postId,
+                                    "likerId" to userId,
+                                    "likerName" to userName
+                                ),
+                                "read" to false,
+                                "createdAt" to System.currentTimeMillis()
+                            )
+                            firestore.collection("notifications")
+                                .document(notificationId)
+                                .set(notificationData)
+                                .await()
+                            Timber.d("Created POST_LIKE notification for post author $postAuthorId")
+                        }
+                    } catch (e: Exception) {
+                        Timber.w(e, "Failed to create like notification")
+                    }
+                }
 
                 Timber.d("Post $postId like toggled to $newLikedState, count=$newLikeCount")
                 Result.Success(newLikedState)

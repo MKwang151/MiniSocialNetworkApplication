@@ -88,3 +88,11 @@ signing/
 *.swp
 *.bak
 
+# Node.js (Cloud Functions)
+node_modules/
+functions/node_modules/
+
+# Firebase
+firebase-debug.log
+firebase-debug.*.log
+.firebase/
