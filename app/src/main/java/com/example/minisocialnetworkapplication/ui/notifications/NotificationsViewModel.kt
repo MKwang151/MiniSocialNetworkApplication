@@ -45,10 +45,12 @@ class NotificationsViewModel @Inject constructor(
                     return@collect
                 }
 
+                // Mark all as read when loading notifications screen
+                notificationRepository.markAllAsRead(user.id)
+
                 // Load notifications
                 launch {
                     notificationRepository.getNotifications(user.id).collect { notifications ->
-                        val currentState = _uiState.value
                         val unreadCount = notifications.count { !it.isRead }
                         
                         _uiState.value = NotificationsUiState.Success(

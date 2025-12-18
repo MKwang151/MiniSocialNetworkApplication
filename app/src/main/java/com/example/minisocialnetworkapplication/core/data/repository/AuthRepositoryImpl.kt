@@ -130,18 +130,19 @@ class AuthRepositoryImpl @Inject constructor(
         return try {
             val userId = auth.currentUser?.uid
             
-            // Set user as offline before signing out
+            // Set user as offline and clear FCM token before signing out
             if (userId != null) {
                 firestore.collection(Constants.COLLECTION_USERS)
                     .document(userId)
                     .update(
                         mapOf(
                             "isOnline" to false,
-                            "lastActive" to FieldValue.serverTimestamp()
+                            "lastActive" to FieldValue.serverTimestamp(),
+                            "fcmToken" to FieldValue.delete()
                         )
                     )
                     .await()
-                Timber.d("User $userId set as offline")
+                Timber.d("User $userId set as offline and FCM token cleared")
             }
             
             // Clear local chat data to prevent data mixing between accounts

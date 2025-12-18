@@ -27,7 +27,12 @@ interface UserRepository {
     suspend fun updateUserInPostsAndComments(userId: String, newName: String): Result<Unit>
 
     /**
-     * Update user avatar
+     * Upload user avatar to Storage and return download URL
+     */
+    suspend fun uploadAvatar(userId: String, imageUri: android.net.Uri): Result<String>
+
+    /**
+     * Update user avatar URL in Firestore
      */
     suspend fun updateAvatar(avatarUrl: String): Result<Unit>
 

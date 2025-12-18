@@ -44,16 +44,19 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         Timber.d("Message received from: ${message.from}")
 
-        message.notification?.let { notification ->
-            showNotification(
-                title = notification.title ?: "Mini Social",
-                body = notification.body ?: "",
-                postId = message.data["postId"]
-            )
-        }
+        // Priority 1: Data-only message (used for flattening)
+        // Priority 2: Notification message
+        val title = message.notification?.title ?: message.data["title"] ?: "Mini Social"
+        val body = message.notification?.body ?: message.data["message"] ?: ""
+        
+        showNotification(
+            title = title,
+            body = body,
+            data = message.data
+        )
     }
 
-    private fun showNotification(title: String, body: String, postId: String?) {
+    private fun showNotification(title: String, body: String, data: Map<String, String>) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         // Create notification channel for Android O+
@@ -66,10 +69,18 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             notificationManager.createNotificationChannel(channel)
         }
 
-        // Create intent
+        // Create intent based on notification type
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            postId?.let { putExtra("postId", it) }
+            
+            // Pass all data fields to the activity
+            data.forEach { (key, value) ->
+                putExtra(key, value)
+            }
+            
+            // Special handling for legacy navigation (if needed)
+            data["postId"]?.let { putExtra("postId", it) }
+            data["conversationId"]?.let { putExtra("conversationId", it) }
         }
 
         val pendingIntent = PendingIntent.getActivity(

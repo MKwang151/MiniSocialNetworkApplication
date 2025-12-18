@@ -650,45 +650,9 @@ class MessageRepositoryImpl @Inject constructor(
                 ))
                 .await()
             
-            // Create notification for other participants (NEW MESSAGE notification)
-            try {
-                val conversationDoc = firestore.collection(COLLECTION_CONVERSATIONS)
-                    .document(conversationId)
-                    .get()
-                    .await()
-                
-                val participantIds = conversationDoc.get("participantIds") as? List<*> ?: emptyList<String>()
-                val conversationName = conversationDoc.getString("name") ?: senderName
-                
-                // Notify all participants except sender
-                for (participantId in participantIds) {
-                    if (participantId != senderId && participantId is String) {
-                        val notificationId = firestore.collection("notifications").document().id
-                        val messagePreview = if (text.length > 50) text.take(50) + "..." else text
-                        val notificationData = hashMapOf(
-                            "id" to notificationId,
-                            "userId" to participantId,
-                            "type" to "NEW_MESSAGE",
-                            "title" to "New message from $senderName",
-                            "message" to messagePreview,
-                            "data" to mapOf(
-                                "conversationId" to conversationId,
-                                "senderId" to senderId,
-                                "senderName" to senderName
-                            ),
-                            "read" to false,
-                            "createdAt" to System.currentTimeMillis()
-                        )
-                        firestore.collection("notifications")
-                            .document(notificationId)
-                            .set(notificationData)
-                            .await()
-                    }
-                }
-                timber.log.Timber.d("Created NEW_MESSAGE notifications for conversation $conversationId")
-            } catch (e: Exception) {
-                timber.log.Timber.w(e, "Failed to create message notification")
-            }
+            // Redundant: Now handled by Firebase Cloud Function (onMessageCreate)
+            // for better reliability and performance.
+            timber.log.Timber.d("Message notification for conversation $conversationId will be handled by Cloud Functions")
             
             timber.log.Timber.d("updateConversationLastMessage: SUCCESS, updated sender's lastReadSequenceId=$sequenceId")
         } catch (e: Exception) {

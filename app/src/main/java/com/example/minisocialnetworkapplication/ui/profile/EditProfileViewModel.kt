@@ -1,5 +1,6 @@
 package com.example.minisocialnetworkapplication.ui.profile
 
+import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -36,6 +37,9 @@ class EditProfileViewModel @Inject constructor(
     private val _bio = MutableStateFlow("")
     val bio: StateFlow<String> = _bio.asStateFlow()
 
+    private val _avatarUrl = MutableStateFlow<String?>(null)
+    val avatarUrl: StateFlow<String?> = _avatarUrl.asStateFlow()
+
     private val _uiState = MutableStateFlow<EditProfileUiState>(EditProfileUiState.Idle)
     val uiState: StateFlow<EditProfileUiState> = _uiState.asStateFlow()
 
@@ -50,6 +54,7 @@ class EditProfileViewModel @Inject constructor(
                 is Result.Success -> {
                     _name.value = result.data.name
                     _bio.value = result.data.bio ?: ""
+                    _avatarUrl.value = result.data.avatarUrl
                     _uiState.value = EditProfileUiState.Idle
                 }
                 is Result.Error -> {
@@ -70,6 +75,36 @@ class EditProfileViewModel @Inject constructor(
 
     fun updateBio(newBio: String) {
         _bio.value = newBio
+    }
+
+    fun updateAvatar(uri: Uri) {
+        viewModelScope.launch {
+            _uiState.value = EditProfileUiState.Loading
+            when (val result = userRepository.uploadAvatar(userId, uri)) {
+                is Result.Success -> {
+                    val newAvatarUrl = result.data
+                    when (val updateResult = userRepository.updateAvatar(newAvatarUrl)) {
+                        is Result.Success -> {
+                            _avatarUrl.value = newAvatarUrl
+                            _uiState.value = EditProfileUiState.Idle
+                            Timber.d("Avatar updated successfully: $newAvatarUrl")
+                        }
+                        is Result.Error -> {
+                            _uiState.value = EditProfileUiState.Error(
+                                updateResult.message ?: "Failed to update avatar URL"
+                            )
+                        }
+                        is Result.Loading -> {}
+                    }
+                }
+                is Result.Error -> {
+                    _uiState.value = EditProfileUiState.Error(
+                        result.message ?: "Failed to upload avatar"
+                    )
+                }
+                is Result.Loading -> {}
+            }
+        }
     }
 
     fun saveProfile() {

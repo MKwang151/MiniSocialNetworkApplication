@@ -6,14 +6,22 @@ import com.example.minisocialnetworkapplication.core.util.Constants
 import com.example.minisocialnetworkapplication.core.util.Result
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
+import android.content.Context
+import android.net.Uri
+import com.example.minisocialnetworkapplication.core.util.ImageCompressor
+import java.util.UUID
 
 class UserRepositoryImpl @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val firestore: FirebaseFirestore,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val storage: FirebaseStorage
 ) : UserRepository {
 
     override suspend fun getUser(userId: String): Result<User> {
@@ -77,62 +85,36 @@ class UserRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateUserInPostsAndComments(userId: String, newName: String): Result<Unit> {
+        // Redundant: Now handled by Firebase Cloud Function (syncUserProfile)
+        // for better reliability and performance.
+        Timber.d("Profile sync for userId=$userId will be handled by Cloud Functions")
+        return Result.Success(Unit)
+    }
+
+    override suspend fun uploadAvatar(userId: String, imageUri: Uri): Result<String> {
         return try {
-            Timber.d("Updating user info in posts and comments: userId=$userId, newName=$newName")
+            // Compress image
+            val compressedFile = ImageCompressor.compressImage(context, imageUri)
+                ?: return Result.Error(Exception("Failed to compress image"))
 
-            // Update author name in all posts by this user
-            val postsQuery = firestore.collection(Constants.COLLECTION_POSTS)
-                .whereEqualTo(Constants.FIELD_AUTHOR_ID, userId)
-                .get()
-                .await()
+            // Generate filename
+            val filename = "${UUID.randomUUID()}.jpg"
+            val storageRef = storage.reference
+                .child("${Constants.STORAGE_AVATARS_PATH}/$userId/$filename")
 
-            val postBatch = firestore.batch()
-            var postsUpdated = 0
+            // Upload to Firebase Storage
+            storageRef.putFile(Uri.fromFile(compressedFile)).await()
 
-            postsQuery.documents.forEach { postDoc ->
-                postBatch.update(postDoc.reference, Constants.FIELD_AUTHOR_NAME, newName)
-                postsUpdated++
-            }
+            // Get download URL
+            val downloadUrl = storageRef.downloadUrl.await().toString()
 
-            if (postsUpdated > 0) {
-                postBatch.commit().await()
-                Timber.d("Updated $postsUpdated posts with new author name")
-            }
+            // Cleanup local compressed file
+            compressedFile.delete()
 
-            // Update author name in all comments by this user
-            // Need to query all posts first, then their comments
-            val allPostsSnapshot = firestore.collection(Constants.COLLECTION_POSTS)
-                .get()
-                .await()
-
-            var commentsUpdated = 0
-
-            allPostsSnapshot.documents.forEach { postDoc ->
-                val commentsQuery = postDoc.reference
-                    .collection(Constants.COLLECTION_COMMENTS)
-                    .whereEqualTo(Constants.FIELD_AUTHOR_ID, userId)
-                    .get()
-                    .await()
-
-                if (commentsQuery.documents.isNotEmpty()) {
-                    val commentBatch = firestore.batch()
-                    commentsQuery.documents.forEach { commentDoc ->
-                        commentBatch.update(commentDoc.reference, Constants.FIELD_AUTHOR_NAME, newName)
-                        commentsUpdated++
-                    }
-                    commentBatch.commit().await()
-                }
-            }
-
-            if (commentsUpdated > 0) {
-                Timber.d("Updated $commentsUpdated comments with new author name")
-            }
-
-            Timber.d("Successfully updated user info in posts and comments")
-            Result.Success(Unit)
+            Result.Success(downloadUrl)
 
         } catch (e: Exception) {
-            Timber.e(e, "Failed to update user in posts and comments")
+            Timber.e(e, "Failed to upload avatar")
             Result.Error(e)
         }
     }

@@ -49,6 +49,32 @@ class NotificationRepositoryImpl @Inject constructor(
             Result.Error(e)
         }
     }
+
+    override suspend fun markAllAsRead(userId: String): Result<Unit> {
+        return try {
+            val unreadNotifications = firestore.collection("notifications")
+                .whereEqualTo("userId", userId)
+                .whereEqualTo("read", false)
+                .get()
+                .await()
+            
+            if (unreadNotifications.isEmpty) {
+                return Result.Success(Unit)
+            }
+            
+            val batch = firestore.batch()
+            for (document in unreadNotifications.documents) {
+                batch.update(document.reference, "read", true)
+            }
+            
+            batch.commit().await()
+            Timber.d("Marked ${unreadNotifications.size()} notifications as read for user $userId")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Error marking all notifications as read")
+            Result.Error(e)
+        }
+    }
     
     override suspend fun deleteNotification(notificationId: String): Result<Unit> {
         return try {

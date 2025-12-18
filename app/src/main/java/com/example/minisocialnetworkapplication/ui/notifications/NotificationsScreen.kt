@@ -76,9 +76,6 @@ fun NotificationsScreen(
                         onDeclineInvitation = { invitationId, notificationId ->
                             viewModel.declineInvitation(invitationId, notificationId)
                         },
-                        onMarkAsRead = { notificationId ->
-                            viewModel.markAsRead(notificationId)
-                        },
                         modifier = Modifier.padding(paddingValues)
                     )
                 }
@@ -106,7 +103,6 @@ private fun NotificationsList(
     notifications: List<Notification>,
     onAcceptInvitation: (String, String) -> Unit,
     onDeclineInvitation: (String, String) -> Unit,
-    onMarkAsRead: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -118,8 +114,7 @@ private fun NotificationsList(
             NotificationItem(
                 notification = notification,
                 onAcceptInvitation = onAcceptInvitation,
-                onDeclineInvitation = onDeclineInvitation,
-                onMarkAsRead = onMarkAsRead
+                onDeclineInvitation = onDeclineInvitation
             )
         }
     }
@@ -129,8 +124,7 @@ private fun NotificationsList(
 private fun NotificationItem(
     notification: Notification,
     onAcceptInvitation: (String, String) -> Unit,
-    onDeclineInvitation: (String, String) -> Unit,
-    onMarkAsRead: (String) -> Unit
+    onDeclineInvitation: (String, String) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -183,7 +177,6 @@ private fun NotificationItem(
                         onClick = {
                             val invitationId = notification.data["invitationId"] ?: ""
                             onAcceptInvitation(invitationId, notification.id)
-                            onMarkAsRead(notification.id)
                         },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
@@ -204,7 +197,6 @@ private fun NotificationItem(
                         onClick = {
                             val invitationId = notification.data["invitationId"] ?: ""
                             onDeclineInvitation(invitationId, notification.id)
-                            onMarkAsRead(notification.id)
                         },
                         modifier = Modifier.weight(1f)
                     ) {
@@ -216,14 +208,6 @@ private fun NotificationItem(
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Decline")
                     }
-                }
-            } else if (!notification.isRead) {
-                // Mark as read button for other notification types
-                Spacer(modifier = Modifier.height(8.dp))
-                TextButton(
-                    onClick = { onMarkAsRead(notification.id) }
-                ) {
-                    Text("Mark as read")
                 }
             }
         }
