@@ -256,3 +256,213 @@ exports.cleanupOldNotifications = functions.pubsub
       return null;
     }
   });
+
+/**
+ * Cloud Function: Sync group info (name, avatar) across posts, invitations, and join requests
+ * Triggers on: groups/{groupId} update
+ */
+exports.onGroupUpdate = functions.firestore
+  .document("groups/{groupId}")
+  .onUpdate(async (change, context) => {
+    const newValue = change.after.data();
+    const previousValue = change.before.data();
+    const groupId = context.params.groupId;
+
+    const nameChanged = newValue.name !== previousValue.name;
+    const avatarChanged = newValue.avatarUrl !== previousValue.avatarUrl;
+
+    if (!nameChanged && !avatarChanged) {
+      return null;
+    }
+
+    console.log(`Syncing group ${groupId}: nameChanged=${nameChanged}, avatarChanged=${avatarChanged}`);
+
+    const postUpdates = {};
+    if (nameChanged) postUpdates.groupName = newValue.name;
+    if (avatarChanged) postUpdates.groupAvatarUrl = newValue.avatarUrl;
+
+    const invitationUpdates = {};
+    if (nameChanged) invitationUpdates.groupName = newValue.name;
+    if (avatarChanged) invitationUpdates.groupAvatarUrl = newValue.avatarUrl;
+
+    const joinRequestUpdates = {};
+    if (nameChanged) joinRequestUpdates.groupName = newValue.name;
+
+    try {
+      const promises = [];
+
+      // 1. Update posts
+      const postsSnapshot = await db.collection("posts")
+        .where("groupId", "==", groupId)
+        .get();
+      if (!postsSnapshot.empty) {
+        const batch = db.batch();
+        postsSnapshot.docs.forEach(doc => batch.update(doc.ref, postUpdates));
+        promises.push(batch.commit());
+      }
+
+      // 2. Update group_invitations
+      const invitationsSnapshot = await db.collection("group_invitations")
+        .where("groupId", "==", groupId)
+        .get();
+      if (!invitationsSnapshot.empty) {
+        const batch = db.batch();
+        invitationsSnapshot.docs.forEach(doc => batch.update(doc.ref, invitationUpdates));
+        promises.push(batch.commit());
+      }
+
+      // 3. Update join_requests
+      if (nameChanged) {
+        const requestsSnapshot = await db.collection("join_requests")
+          .where("groupId", "==", groupId)
+          .get();
+        if (!requestsSnapshot.empty) {
+          const batch = db.batch();
+          requestsSnapshot.docs.forEach(doc => batch.update(doc.ref, joinRequestUpdates));
+          promises.push(batch.commit());
+        }
+      }
+
+      await Promise.all(promises);
+      console.log(`Sync completed for group ${groupId}`);
+      return null;
+    } catch (error) {
+      console.error(`Error syncing group ${groupId}:`, error);
+      return null;
+    }
+  });
+
+/**
+ * Cloud Function: Clean up all group-related data when a group is deleted
+ * Triggers on: groups/{groupId} delete
+ */
+exports.onGroupDelete = functions.firestore
+  .document("groups/{groupId}")
+  .onDelete(async (snap, context) => {
+    const groupId = context.params.groupId;
+    console.log(`Cleaning up data for deleted group ${groupId}`);
+
+    try {
+      const promises = [];
+
+      // 1. Delete all posts and their images
+      const postsSnapshot = await db.collection("posts")
+        .where("groupId", "==", groupId)
+        .get();
+
+      if (!postsSnapshot.empty) {
+        const storage = admin.storage();
+        postsSnapshot.docs.forEach(async (doc) => {
+          const postData = doc.data();
+          const mediaUrls = postData.mediaUrls || [];
+
+          // Delete Storage images
+          mediaUrls.forEach(async (url) => {
+            try {
+              // Convert download URL to storage path or use getFileFromUrl logic
+              // Simple way if URLs are standard:
+              const bucket = storage.bucket();
+              const path = decodeURIComponent(url.split("/o/")[1].split("?")[0]);
+              await bucket.file(path).delete();
+            } catch (e) {
+              console.warn(`Failed to delete storage file: ${url}`, e);
+            }
+          });
+
+          // Delete post document
+          promises.push(doc.ref.delete());
+        });
+      }
+
+      // 2. Delete Invitations
+      const invitationsSnapshot = await db.collection("group_invitations")
+        .where("groupId", "==", groupId)
+        .get();
+      invitationsSnapshot.docs.forEach(doc => promises.push(doc.ref.delete()));
+
+      // 3. Delete Join Requests
+      const requestsSnapshot = await db.collection("join_requests")
+        .where("groupId", "==", groupId)
+        .get();
+      requestsSnapshot.docs.forEach(doc => promises.push(doc.ref.delete()));
+
+      // 4. Delete Members (subcollection)
+      const membersSnapshot = await db.collection("groups").doc(groupId).collection("members").get();
+      membersSnapshot.docs.forEach(doc => promises.push(doc.ref.delete()));
+
+      await Promise.all(promises);
+      console.log(`Cleanup completed for group ${groupId}`);
+      return null;
+    } catch (error) {
+      console.error(`Error cleaning up group ${groupId}:`, error);
+      return null;
+    }
+  });
+/**
+ * Cloud Function: Update Chat Group metadata and notify all participants
+ * Call this when group name or avatar changes
+ */
+exports.updateChatGroup = functions.https.onCall(async (data, context) => {
+  // Check auth
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
+  }
+
+  const { conversationId, name, avatarUrl } = data;
+  if (!conversationId) {
+    throw new functions.https.HttpsError("invalid-argument", "conversationId is required");
+  }
+
+  try {
+    const conversationRef = db.collection("conversations").doc(conversationId);
+    const conversationDoc = await conversationRef.get();
+
+    if (!conversationDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "Conversation not found");
+    }
+
+    const conversationData = conversationDoc.data();
+
+    // Authorization: Only admin can update
+    const isAdmin = conversationData.adminIds && conversationData.adminIds.includes(context.auth.uid);
+    if (!isAdmin) {
+      throw new functions.https.HttpsError("permission-denied", "Only admins can update group settings");
+    }
+
+    const updates = {};
+    if (name) updates.name = name;
+    if (avatarUrl) updates.avatarUrl = avatarUrl;
+    updates.updatedAt = Date.now();
+
+    await conversationRef.update(updates);
+    console.log(`Updated conversation ${conversationId} metadata`);
+
+    // Note: We don't need a trigger because clients can listen to doc changes,
+    // but if we want to force a refresh event via notifications:
+    const participantIds = conversationData.participantIds || [];
+    const notificationPromises = participantIds
+      .filter(uid => uid !== context.auth.uid)
+      .map(async (recipientId) => {
+        const notificationId = db.collection("notifications").doc().id;
+        return db.collection("notifications").doc(notificationId).set({
+          id: notificationId,
+          userId: recipientId,
+          type: "GROUP_METADATA_UPDATE",
+          title: "Group Updated",
+          message: `Group "${name || conversationData.name}" info has been updated`,
+          data: {
+            conversationId: conversationId
+          },
+          read: false,
+          createdAt: Date.now()
+        });
+      });
+
+    await Promise.all(notificationPromises);
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating chat group:", error);
+    throw new functions.https.HttpsError("internal", error.message);
+  }
+});

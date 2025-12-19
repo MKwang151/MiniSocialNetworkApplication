@@ -1,5 +1,7 @@
 package com.example.minisocialnetworkapplication.ui.auth
 
+import com.example.minisocialnetworkapplication.core.domain.model.User
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -36,7 +38,7 @@ import com.example.minisocialnetworkapplication.ui.theme.MiniSocialNetworkApplic
 @Composable
 fun LoginScreen(
     onNavigateToRegister: () -> Unit,
-    onLoginSuccess: () -> Unit,
+    onLoginSuccess: (User) -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     var email by remember { mutableStateOf("") }
@@ -49,7 +51,7 @@ fun LoginScreen(
     LaunchedEffect(authState) {
         when (authState) {
             is AuthState.Success -> {
-                onLoginSuccess()
+                onLoginSuccess((authState as AuthState.Success).user)
                 viewModel.resetState()
             }
             else -> {}
@@ -132,11 +134,20 @@ fun LoginScreen(
         }
 
         if (authState is AuthState.Error) {
+            val errorMessage = (authState as AuthState.Error).message
+            val displayMessage = if (errorMessage.contains("BANNED_ACCOUNT")) {
+                "Your account has been locked for violating community guidelines. Please contact support."
+            } else {
+                errorMessage
+            }
+            
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = (authState as AuthState.Error).message,
+                text = displayMessage,
                 color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(horizontal = 8.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
         }
 

@@ -1,13 +1,13 @@
 package com.example.minisocialnetworkapplication.ui.navigation
 
 sealed class Screen(val route: String) {
+    data object AuthCheck : Screen("auth_check")
     data object Login : Screen("login")
     data object Register : Screen("register")
     data object Feed : Screen("feed")
     data object ComposePost : Screen("compose_post?groupId={groupId}") {
         fun createRoute(groupId: String? = null) = if (groupId != null) "compose_post?groupId=$groupId" else "compose_post"
     }
-    data object Settings : Screen("settings")
     data object Notifications : Screen("notifications")
     data object ConversationList : Screen("conversation_list")
     data object ChatDetail : Screen("chat_detail/{conversationId}") {
@@ -63,13 +63,21 @@ sealed class Screen(val route: String) {
         fun createRoute(groupId: String) = "group_invite/$groupId"
     }
     
-    data object ReportPost : Screen("report_post/{postId}/{authorId}?groupId={groupId}") {
-        fun createRoute(postId: String, authorId: String, groupId: String? = null): String {
+    data object Report : Screen("report/{targetId}/{targetType}?authorId={authorId}&groupId={groupId}") {
+        fun createPostReport(postId: String, authorId: String, groupId: String? = null): String {
             return if (groupId != null) {
-                "report_post/$postId/$authorId?groupId=$groupId"
+                "report/$postId/POST?authorId=$authorId&groupId=$groupId"
             } else {
-                "report_post/$postId/$authorId"
+                "report/$postId/POST?authorId=$authorId"
             }
+        }
+
+        fun createUserReport(userId: String): String {
+            return "report/$userId/USER"
+        }
+
+        fun createGroupReport(groupId: String): String {
+            return "report/$groupId/GROUP"
         }
     }
 
@@ -93,4 +101,19 @@ sealed class Screen(val route: String) {
     data object GroupReports : Screen("group_reports/{groupId}") {
         fun createRoute(groupId: String) = "group_reports/$groupId"
     }
+
+    data object EditSocialGroup : Screen("edit_social_group/{groupId}") {
+        fun createRoute(groupId: String) = "edit_social_group/$groupId"
+    }
+
+    data object EditChatGroup : Screen("edit_chat_group/{conversationId}") {
+        fun createRoute(conversationId: String) = "edit_chat_group/$conversationId"
+    }
+
+    // Admin Screens
+    data object AdminDashboard : Screen("admin_dashboard")
+    data object AdminUserManagement : Screen("admin_user_management")
+    data object AdminContentModeration : Screen("admin_content_moderation")
+    data object AdminReportManagement : Screen("admin_report_management")
+    data object AdminGroupManagement : Screen("admin_group_management")
 }
