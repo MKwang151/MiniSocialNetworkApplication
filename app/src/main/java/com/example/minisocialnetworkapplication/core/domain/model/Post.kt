@@ -20,7 +20,8 @@ data class Post(
     val groupAvatarUrl: String? = null,
     val approvalStatus: PostApprovalStatus = PostApprovalStatus.APPROVED,
     val isPinned: Boolean = false,
-    val rejectionReason: String? = null
+    val rejectionReason: String? = null,
+    val isHidden: Boolean = false
 ) {
     fun toggleLike(): Post {
         return copy(

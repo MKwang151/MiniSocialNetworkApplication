@@ -310,6 +310,8 @@ class PostRepositoryImpl @Inject constructor(
                         
                         // Create notification for each member
                         for (memberId in memberIds) {
+                            if (auth.currentUser == null) break // Check again before each write
+                            
                             val notificationId = firestore.collection("notifications").document().id
                             val notificationData = hashMapOf(
                                 "id" to notificationId,
@@ -333,7 +335,11 @@ class PostRepositoryImpl @Inject constructor(
                         }
                         Timber.d("Created NEW_POST notifications for ${memberIds.size} group members")
                     } catch (e: Exception) {
-                        Timber.w(e, "Failed to create notifications for group post")
+                        if (e is com.google.firebase.firestore.FirebaseFirestoreException && e.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                            Timber.w("Permission denied while creating group post notifications - user likely logged out")
+                        } else {
+                            Timber.w(e, "Failed to create notifications for group post")
+                        }
                     }
                 }
             }
@@ -354,6 +360,8 @@ class PostRepositoryImpl @Inject constructor(
                         
                         // Create notification for each friend
                         for (friendId in friendIds) {
+                            if (auth.currentUser == null) break // Check again before each write
+                            
                             val notificationId = firestore.collection("notifications").document().id
                             val notificationData = hashMapOf(
                                 "id" to notificationId,
@@ -376,7 +384,11 @@ class PostRepositoryImpl @Inject constructor(
                         }
                         Timber.d("Created NEW_POST notifications for ${friendIds.size} friends")
                     } catch (e: Exception) {
-                        Timber.w(e, "Failed to create notifications for personal post")
+                        if (e is com.google.firebase.firestore.FirebaseFirestoreException && e.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                            Timber.w("Permission denied while creating personal post notifications - user likely logged out")
+                        } else {
+                            Timber.w(e, "Failed to create notifications for personal post")
+                        }
                     }
                 }
             }
