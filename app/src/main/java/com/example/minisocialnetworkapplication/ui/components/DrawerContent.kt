@@ -31,7 +31,6 @@ fun DrawerContent(
     user: User?,
     onNavigateToProfile: () -> Unit,
     onNavigateToGroups: () -> Unit,
-    onNavigateToSettings: () -> Unit,
     onLogout: () -> Unit,
     onCloseDrawer: () -> Unit
 ) {
@@ -63,11 +62,6 @@ fun DrawerContent(
             icon = Icons.Default.Group, 
             label = "Groups", 
             onClick = { onNavigateToGroups(); onCloseDrawer() }
-        )
-        DrawerItem(
-            icon = Icons.Default.Settings, 
-            label = "Settings", 
-            onClick = { onNavigateToSettings(); onCloseDrawer() }
         )
         
         Spacer(modifier = Modifier.weight(1f))
