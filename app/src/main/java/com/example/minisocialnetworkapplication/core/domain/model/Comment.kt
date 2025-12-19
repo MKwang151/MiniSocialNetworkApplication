@@ -14,6 +14,7 @@ data class Comment(
     val reactions: Map<String, List<String>> = emptyMap(),
     // Reply fields
     val replyToId: String? = null,
-    val replyToAuthorName: String? = null
+    val replyToAuthorName: String? = null,
+    val isHidden: Boolean = false
 )
 

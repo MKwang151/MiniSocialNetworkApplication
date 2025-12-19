@@ -25,6 +25,13 @@ class CommentRepositoryImpl @Inject constructor(
 ) : CommentRepository {
 
     override fun getComments(postId: String): Flow<List<Comment>> = callbackFlow {
+        // Early return if user is not signed in
+        if (auth.currentUser == null) {
+            trySend(emptyList())
+            close()
+            return@callbackFlow
+        }
+        
         val listenerRegistration = firestore
             .collection(Constants.COLLECTION_POSTS)
             .document(postId)
@@ -32,12 +39,11 @@ class CommentRepositoryImpl @Inject constructor(
             .orderBy(Constants.FIELD_CREATED_AT, Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    Timber.e(error, "Error listening to comments")
-                    // Don't crash on PERMISSION_DENIED (happens during logout)
                     if (error.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
                         Timber.w("PERMISSION_DENIED while listening to comments - user likely logged out")
                         trySend(emptyList())
                     } else {
+                        Timber.e(error, "Error listening to comments")
                         trySend(emptyList())
                     }
                     return@addSnapshotListener
