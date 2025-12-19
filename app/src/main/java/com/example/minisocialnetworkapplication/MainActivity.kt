@@ -18,7 +18,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.example.minisocialnetworkapplication.core.domain.repository.UserRepository
-import com.example.minisocialnetworkapplication.core.util.LanguageManager
 import com.example.minisocialnetworkapplication.ui.auth.AuthViewModel
 import com.example.minisocialnetworkapplication.ui.navigation.NavGraph
 import com.example.minisocialnetworkapplication.ui.navigation.Screen
@@ -38,11 +37,7 @@ class MainActivity : ComponentActivity() {
     lateinit var userRepository: UserRepository
 
     override fun attachBaseContext(newBase: Context) {
-        // Apply saved language before activity is created
-        val languageCode = LanguageManager.getLanguageSync(newBase)
-        android.util.Log.d("MainActivity", "Applying language: $languageCode")
-        val context = LanguageManager.applyLanguage(newBase, languageCode)
-        super.attachBaseContext(context)
+        super.attachBaseContext(newBase)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,7 +46,7 @@ class MainActivity : ComponentActivity() {
         
         // Check auth synchronously BEFORE setContent to avoid flash
         val isLoggedIn = firebaseAuth.currentUser != null
-        val initialDestination = if (isLoggedIn) Screen.Feed.route else Screen.Login.route
+        val initialDestination = if (isLoggedIn) Screen.AuthCheck.route else Screen.Login.route
         
         setContent {
             MiniSocialNetworkApplicationTheme {

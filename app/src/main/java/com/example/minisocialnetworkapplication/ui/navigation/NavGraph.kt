@@ -1,9 +1,12 @@
 package com.example.minisocialnetworkapplication.ui.navigation
 
+import com.example.minisocialnetworkapplication.core.domain.model.User
+
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -19,6 +22,7 @@ import com.example.minisocialnetworkapplication.ui.auth.AuthViewModel
 import com.example.minisocialnetworkapplication.ui.auth.LoginScreen
 import com.example.minisocialnetworkapplication.ui.auth.RegisterScreen
 import com.example.minisocialnetworkapplication.ui.components.BottomNavBar
+import com.example.minisocialnetworkapplication.ui.components.AdminBottomNavBar
 import com.example.minisocialnetworkapplication.ui.feed.FeedScreen
 import com.example.minisocialnetworkapplication.ui.friends.FriendScreen
 import com.example.minisocialnetworkapplication.ui.post.ComposePostScreen
@@ -26,7 +30,6 @@ import com.example.minisocialnetworkapplication.ui.postdetail.PostDetailScreen
 import com.example.minisocialnetworkapplication.ui.profile.EditProfileScreen
 import com.example.minisocialnetworkapplication.ui.profile.ProfileScreen
 import com.example.minisocialnetworkapplication.ui.search.SearchUserScreen
-import com.example.minisocialnetworkapplication.ui.settings.SettingsScreen
 
 @Composable
 fun NavGraph(
@@ -38,13 +41,55 @@ fun NavGraph(
         navController = navController,
         startDestination = startDestination
     ) {
+        composable(Screen.AuthCheck.route) {
+            val currentUser by authViewModel.currentUser.collectAsStateWithLifecycle()
+            
+            LaunchedEffect(currentUser) {
+                if (currentUser == null) {
+                    // If currentUser is null and Firebase Auth is also null, we are not logged in
+                    if (com.google.firebase.auth.FirebaseAuth.getInstance().currentUser == null) {
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(Screen.AuthCheck.route) { inclusive = true }
+                        }
+                    }
+                } else if (currentUser?.status == User.STATUS_BANNED) {
+                    // Force logout if user is banned
+                    authViewModel.logout()
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.AuthCheck.route) { inclusive = true }
+                    }
+                } else {
+                    val route = if (currentUser?.role == User.ROLE_ADMIN) {
+                        Screen.AdminDashboard.route
+                    } else {
+                        Screen.Feed.route
+                    }
+                    navController.navigate(route) {
+                        popUpTo(Screen.AuthCheck.route) { inclusive = true }
+                    }
+                }
+            }
+
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        }
+
         composable(Screen.Login.route) {
             LoginScreen(
                 onNavigateToRegister = {
                     navController.navigate(Screen.Register.route)
                 },
-                onLoginSuccess = {
-                    navController.navigate(Screen.Feed.route) {
+                onLoginSuccess = { user ->
+                    val route = if (user.role == com.example.minisocialnetworkapplication.core.domain.model.User.ROLE_ADMIN) {
+                        Screen.AdminDashboard.route
+                    } else {
+                        Screen.Feed.route
+                    }
+                    navController.navigate(route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 }
@@ -56,8 +101,13 @@ fun NavGraph(
                 onNavigateToLogin = {
                     navController.popBackStack()
                 },
-                onRegisterSuccess = {
-                    navController.navigate(Screen.Feed.route) {
+                onRegisterSuccess = { user ->
+                    val route = if (user.role == com.example.minisocialnetworkapplication.core.domain.model.User.ROLE_ADMIN) {
+                        Screen.AdminDashboard.route
+                    } else {
+                        Screen.Feed.route
+                    }
+                    navController.navigate(route) {
                         popUpTo(Screen.Register.route) { inclusive = true }
                     }
                 }
@@ -82,56 +132,67 @@ fun NavGraph(
 
             val currentUser by authViewModel.currentUser.collectAsStateWithLifecycle()
             
-            // Get unread notification count for bell icon badge
-            val notificationsViewModel: com.example.minisocialnetworkapplication.ui.notifications.NotificationsViewModel = hiltViewModel()
-            val notificationsState by notificationsViewModel.uiState.collectAsStateWithLifecycle()
-            val unreadCount = when (val state = notificationsState) {
-                is com.example.minisocialnetworkapplication.ui.notifications.NotificationsUiState.Success -> state.unreadCount
-                else -> 0
-            }
-
-            FeedScreen(
-                currentUser = currentUser,
-                shouldRefresh = shouldRefresh,
-                postDeleted = postDeleted,
-                profileUpdated = profileUpdated,
-                onNavigateToComposePost = {
-                    navController.navigate(Screen.ComposePost.createRoute()) // Use createRoute() for personal posts
-                },
-                onNavigateToPostDetail = { postId ->
-                    navController.navigate(Screen.PostDetail.createRoute(postId))
-                },
-                onNavigateToProfile = { userId ->
-                    navController.navigate(Screen.Profile.createRoute(userId))
-                },
-                onNavigateToGroups = {
-                    navController.navigate(Screen.GroupList.route)
-                },
-                onNavigateToImageGallery = { postId, imageIndex ->
-                    navController.navigate(Screen.ImageGallery.createRoute(postId, imageIndex))
-                },
-                onNavigateToReportPost = { postId, authorId, groupId ->
-                    navController.navigate(Screen.ReportPost.createRoute(postId, authorId, groupId))
-                },
-                onNavigateToSettings = {
-                    navController.navigate(Screen.Settings.route)
-                },
-                onNavigateToNotifications = {
-                    navController.navigate(Screen.Notifications.route)
-                },
-                onLogout = {
-                    authViewModel.logout()
-                    navController.navigate(Screen.Login.route) {
-                        popUpTo(navController.graph.startDestinationId) {
-                            inclusive = true
-                        }
+            // Redirect Admins away from User Feed
+            if (currentUser?.role == User.ROLE_ADMIN) {
+                LaunchedEffect(Unit) {
+                    navController.navigate(Screen.AdminDashboard.route) {
+                        popUpTo(Screen.Feed.route) { inclusive = true }
                     }
-                },
-                unreadNotificationCount = unreadCount,
-                bottomBar = {
-                    BottomNavBar(navController, authViewModel)
                 }
-            )
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                // Get unread notification count from FeedViewModel for cleaner data flow on main screen
+                val feedViewModel: com.example.minisocialnetworkapplication.ui.feed.FeedViewModel = hiltViewModel()
+                val unreadCount by feedViewModel.unreadCount.collectAsStateWithLifecycle()
+
+                FeedScreen(
+                    currentUser = currentUser,
+                    shouldRefresh = shouldRefresh,
+                    postDeleted = postDeleted,
+                    profileUpdated = profileUpdated,
+                    onNavigateToComposePost = {
+                        navController.navigate(Screen.ComposePost.createRoute()) // Use createRoute() for personal posts
+                    },
+                    onNavigateToPostDetail = { postId ->
+                        navController.navigate(Screen.PostDetail.createRoute(postId))
+                    },
+                    onNavigateToProfile = { userId ->
+                        navController.navigate(Screen.Profile.createRoute(userId))
+                    },
+                    onNavigateToGroups = {
+                        navController.navigate(Screen.GroupList.route)
+                    },
+                    onNavigateToImageGallery = { postId, imageIndex ->
+                        navController.navigate(Screen.ImageGallery.createRoute(postId, imageIndex))
+                    },
+                    onNavigateToReportPost = { postId, authorId, groupId ->
+                        navController.navigate(Screen.Report.createPostReport(postId, authorId, groupId))
+                    },
+                    onNavigateToNotifications = {
+                        navController.navigate(Screen.Notifications.route)
+                    },
+                    onNavigateToAdminDashboard = {
+                        navController.navigate(Screen.AdminDashboard.route) {
+                            popUpTo(Screen.Feed.route) { inclusive = true }
+                        }
+                    },
+                    onLogout = {
+                        authViewModel.logout()
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(navController.graph.startDestinationId) {
+                                inclusive = true
+                            }
+                        }
+                    },
+                    unreadNotificationCount = unreadCount,
+                    bottomBar = {
+                        BottomNavBar(navController, authViewModel)
+                    },
+                    viewModel = feedViewModel
+                )
+            }
         }
 
         composable(Screen.GroupList.route) {
@@ -198,6 +259,9 @@ fun NavGraph(
                  },
                  onNavigateToManage = { groupId, groupName ->
                      navController.navigate(Screen.GroupManagement.createRoute(groupId, groupName))
+                 },
+                 onNavigateToReport = { groupId ->
+                     navController.navigate(Screen.Report.createGroupReport(groupId))
                  }
              )
         }
@@ -234,16 +298,6 @@ fun NavGraph(
             )
         }
 
-        composable(Screen.Settings.route) {
-            SettingsScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                },
-                bottomBar = {
-                    BottomNavBar(navController, authViewModel)
-                }
-            )
-        }
 
         composable(Screen.Notifications.route) {
             com.example.minisocialnetworkapplication.ui.notifications.NotificationsScreen(
@@ -299,6 +353,9 @@ fun NavGraph(
                 },
                 onNavigateToChat = { otherUserId ->
                     navController.navigate(Screen.StartChat.createRoute(otherUserId))
+                },
+                onNavigateToReport = { userId ->
+                    navController.navigate(Screen.Report.createUserReport(userId))
                 },
                 shouldRefresh = profileUpdated,
                 bottomBar = {
@@ -483,6 +540,9 @@ fun NavGraph(
                 onNavigateToJoinRequests = {
                     navController.navigate(Screen.JoinRequests.createRoute(conversationId))
                 },
+                onNavigateToEditGroup = { conversationId ->
+                    navController.navigate(Screen.EditChatGroup.createRoute(conversationId))
+                },
                 onChatDeleted = {
                     // Navigate back to conversation list, popping everything up to it
                     navController.navigate(Screen.ConversationList.route) {
@@ -597,12 +657,17 @@ fun NavGraph(
             )
         }
 
-        // Report Post Screen
+        // Report Screen (generalized for Post, User, Group)
         composable(
-            route = Screen.ReportPost.route,
+            route = Screen.Report.route,
             arguments = listOf(
-                androidx.navigation.navArgument("postId") { type = androidx.navigation.NavType.StringType },
-                androidx.navigation.navArgument("authorId") { type = androidx.navigation.NavType.StringType },
+                androidx.navigation.navArgument("targetId") { type = androidx.navigation.NavType.StringType },
+                androidx.navigation.navArgument("targetType") { type = androidx.navigation.NavType.StringType },
+                androidx.navigation.navArgument("authorId") { 
+                    type = androidx.navigation.NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
                 androidx.navigation.navArgument("groupId") { 
                     type = androidx.navigation.NavType.StringType
                     nullable = true
@@ -626,6 +691,34 @@ fun NavGraph(
             )
         }
 
+        composable(
+            route = Screen.EditSocialGroup.route,
+            arguments = listOf(androidx.navigation.navArgument("groupId") { type = androidx.navigation.NavType.StringType })
+        ) {
+            com.example.minisocialnetworkapplication.ui.socialgroup.EditSocialGroupScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onGroupUpdated = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(
+            route = Screen.EditChatGroup.route,
+            arguments = listOf(androidx.navigation.navArgument("conversationId") { type = androidx.navigation.NavType.StringType })
+        ) {
+            com.example.minisocialnetworkapplication.ui.socialgroup.EditChatGroupScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onGroupUpdated = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
         // Group Management Screen
         composable(
             route = Screen.GroupManagement.route,
@@ -643,15 +736,20 @@ fun NavGraph(
             val groupViewModel: com.example.minisocialnetworkapplication.ui.socialgroup.GroupDetailViewModel = androidx.hilt.navigation.compose.hiltViewModel()
             val groupState by groupViewModel.uiState.collectAsState()
             
+            val successState = groupState as? com.example.minisocialnetworkapplication.ui.socialgroup.GroupDetailUiState.Success
+
             com.example.minisocialnetworkapplication.ui.socialgroup.GroupManagementScreen(
                 groupId = groupId,
                 groupName = groupName,
-                group = (groupState as? com.example.minisocialnetworkapplication.ui.socialgroup.GroupDetailUiState.Success)?.group,
+                group = successState?.group,
+                userRole = successState?.userRole,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToJoinRequests = {
                     navController.navigate("social_group_join_requests/$groupId")
                 },
-                onNavigateToEditGroup = { /* TODO */ },
+                onNavigateToEditGroup = {
+                    navController.navigate(Screen.EditSocialGroup.createRoute(groupId))
+                },
                 onNavigateToMembers = {
                     navController.navigate(Screen.GroupMembers.createRoute(groupId))
                 },
@@ -664,7 +762,20 @@ fun NavGraph(
                 onTogglePostApproval = { enabled ->
                     groupViewModel.togglePostApproval(enabled)
                 },
-                onDeleteGroup = { /* TODO */ }
+                onDeleteGroup = {
+                    groupViewModel.deleteGroup {
+                        navController.navigate(Screen.GroupList.route) {
+                            popUpTo(Screen.GroupList.route) { inclusive = true }
+                        }
+                    }
+                },
+                onLeaveGroup = {
+                    groupViewModel.leaveGroup {
+                        navController.navigate(Screen.GroupList.route) {
+                            popUpTo(Screen.GroupList.route) { inclusive = true }
+                        }
+                    }
+                }
             )
         }
 
@@ -704,6 +815,51 @@ fun NavGraph(
             val groupId = backStackEntry.arguments?.getString("groupId") ?: return@composable
             com.example.minisocialnetworkapplication.ui.socialgroup.GroupReportsScreen(
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // --- Admin Routes ---
+        composable(Screen.AdminDashboard.route) {
+            com.example.minisocialnetworkapplication.ui.admin.AdminDashboardScreen(
+                onNavigateToUserManagement = { navController.navigate(Screen.AdminUserManagement.route) },
+                onNavigateToContentModeration = { navController.navigate(Screen.AdminContentModeration.route) },
+                onNavigateToReportManagement = { navController.navigate(Screen.AdminReportManagement.route) },
+                onNavigateToGroupManagement = { navController.navigate(Screen.AdminGroupManagement.route) },
+                onLogout = {
+                    authViewModel.logout()
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                    }
+                },
+                bottomBar = { AdminBottomNavBar(navController) }
+            )
+        }
+
+        composable(Screen.AdminUserManagement.route) {
+            com.example.minisocialnetworkapplication.ui.admin.UserManagementScreen(
+                onNavigateBack = { navController.popBackStack() },
+                bottomBar = { AdminBottomNavBar(navController) }
+            )
+        }
+
+        composable(Screen.AdminContentModeration.route) {
+            com.example.minisocialnetworkapplication.ui.admin.ContentModerationScreen(
+                onNavigateBack = { navController.popBackStack() },
+                bottomBar = { AdminBottomNavBar(navController) }
+            )
+        }
+
+        composable(Screen.AdminReportManagement.route) {
+            com.example.minisocialnetworkapplication.ui.admin.ReportManagementScreen(
+                onNavigateBack = { navController.popBackStack() },
+                bottomBar = { AdminBottomNavBar(navController) }
+            )
+        }
+
+        composable(Screen.AdminGroupManagement.route) {
+            com.example.minisocialnetworkapplication.ui.admin.GroupManagementScreen(
+                onNavigateBack = { navController.popBackStack() },
+                bottomBar = { AdminBottomNavBar(navController) }
             )
         }
     }
