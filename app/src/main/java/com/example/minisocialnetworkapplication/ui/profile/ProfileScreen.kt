@@ -19,6 +19,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Report
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -35,11 +37,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
@@ -58,6 +63,7 @@ fun ProfileScreen(
     onNavigateToImageGallery: (String, Int) -> Unit = { _, _ -> },
     onNavigateToEditProfile: (String) -> Unit = {},
     onNavigateToChat: (String) -> Unit = {},
+    onNavigateToReport: (String) -> Unit = {},
     shouldRefresh: Boolean = false,
     bottomBar: @Composable () -> Unit,
     viewModel: ProfileViewModel = hiltViewModel()
@@ -86,15 +92,48 @@ fun ProfileScreen(
                     }
                 },
                 actions = {
-                    // Show Edit button only for own profile
-                    if (uiState is ProfileUiState.Success && (uiState as ProfileUiState.Success).isOwnProfile) {
-                        IconButton(onClick = {
-                            onNavigateToEditProfile((uiState as ProfileUiState.Success).user.uid)
-                        }) {
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = "Edit Profile"
-                            )
+                    val state = uiState
+                    if (state is ProfileUiState.Success) {
+                        if (state.isOwnProfile) {
+                            IconButton(onClick = {
+                                onNavigateToEditProfile(state.user.uid)
+                            }) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Edit Profile"
+                                )
+                            }
+                        } else {
+                            // Show Report button for other's profile
+                            var showMenu by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+                            
+                            Box {
+                                IconButton(onClick = { showMenu = true }) {
+                                    Icon(
+                                        imageVector = Icons.Default.MoreVert,
+                                        contentDescription = "More"
+                                    )
+                                }
+                                
+                                androidx.compose.material3.DropdownMenu(
+                                    expanded = showMenu,
+                                    onDismissRequest = { showMenu = false }
+                                ) {
+                                    androidx.compose.material3.DropdownMenuItem(
+                                        text = { Text("Report User") },
+                                        onClick = {
+                                            showMenu = false
+                                            onNavigateToReport(state.user.uid)
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.Report,
+                                                contentDescription = null
+                                            )
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -262,15 +301,24 @@ fun ProfileHeader(
         // Avatar
         Surface(
             modifier = Modifier.size(80.dp),
-            shape = MaterialTheme.shapes.medium,
+            shape = androidx.compose.foundation.shape.CircleShape,
             color = MaterialTheme.colorScheme.primaryContainer
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = user.name.take(2).uppercase(),
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+            if (!user.avatarUrl.isNullOrEmpty()) {
+                AsyncImage(
+                    model = user.avatarUrl,
+                    contentDescription = "Avatar",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
                 )
+            } else {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = user.name.take(2).uppercase(),
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
         }
 

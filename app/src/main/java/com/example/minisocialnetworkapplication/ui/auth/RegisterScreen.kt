@@ -1,5 +1,7 @@
 package com.example.minisocialnetworkapplication.ui.auth
 
+import com.example.minisocialnetworkapplication.core.domain.model.User
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -38,7 +40,7 @@ import com.example.minisocialnetworkapplication.ui.theme.MiniSocialNetworkApplic
 @Composable
 fun RegisterScreen(
     onNavigateToLogin: () -> Unit,
-    onRegisterSuccess: () -> Unit,
+    onRegisterSuccess: (User) -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     var name by remember { mutableStateOf("") }
@@ -56,7 +58,7 @@ fun RegisterScreen(
     LaunchedEffect(authState) {
         when (authState) {
             is AuthState.Success -> {
-                onRegisterSuccess()
+                onRegisterSuccess((authState as AuthState.Success).user)
                 viewModel.resetState()
             }
             else -> {}
