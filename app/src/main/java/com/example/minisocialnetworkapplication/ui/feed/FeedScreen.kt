@@ -70,8 +70,8 @@ fun FeedScreen(
     onNavigateToGroups: () -> Unit,
     onNavigateToImageGallery: (String, Int) -> Unit,
     onNavigateToReportPost: (postId: String, authorId: String, groupId: String?) -> Unit = { _, _, _ -> },
-    onNavigateToSettings: () -> Unit = {},
     onNavigateToNotifications: () -> Unit = {},
+    onNavigateToAdminDashboard: () -> Unit = {},
     onLogout: () -> Unit,
     shouldRefresh: StateFlow<Boolean>? = null,
     postDeleted: StateFlow<Boolean>? = null,
@@ -97,7 +97,15 @@ fun FeedScreen(
 
     // Auto refresh when screen appears
     LaunchedEffect(Unit) {
+        viewModel.syncCache()
         lazyPagingItems.refresh()
+    }
+
+    // Redirect admins to dashboard
+    LaunchedEffect(currentUser) {
+        if (currentUser?.role == User.ROLE_ADMIN) {
+            onNavigateToAdminDashboard()
+        }
     }
 
     // Refresh when returning from ComposePost
@@ -152,7 +160,6 @@ fun FeedScreen(
                     currentUser?.let { onNavigateToProfile(it.id) }
                 },
                 onNavigateToGroups = onNavigateToGroups,
-                onNavigateToSettings = onNavigateToSettings,
                 onLogout = onLogout,
                 onCloseDrawer = { 
                     scope.launch { drawerState.close() } 
