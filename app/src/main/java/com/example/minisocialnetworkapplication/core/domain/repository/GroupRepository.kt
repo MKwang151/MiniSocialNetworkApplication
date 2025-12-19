@@ -52,4 +52,8 @@ interface GroupRepository {
     suspend fun getHiddenPostsForGroup(groupId: String): Result<List<com.example.minisocialnetworkapplication.core.domain.model.Post>>
     suspend fun updatePostApprovalStatus(postId: String, status: String): Result<Unit>
     suspend fun deletePost(postId: String): Result<Unit>
+    
+    // Group Settings
+    suspend fun updateGroup(groupId: String, name: String, description: String, privacy: com.example.minisocialnetworkapplication.core.domain.model.GroupPrivacy, avatarUri: Uri? = null): Result<Unit>
+    suspend fun deleteGroup(groupId: String): Result<Unit>
 }

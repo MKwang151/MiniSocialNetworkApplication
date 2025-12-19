@@ -55,15 +55,16 @@ class GroupRepositoryImpl @Inject constructor(
                 avatarUrl = avatarUrl,
                 ownerId = currentUser.uid,
                 privacy = privacy,
+                requirePostApproval = privacy == GroupPrivacy.PRIVATE,
                 memberCount = 1,
-                createdAt = System.currentTimeMillis()
+                createdAt = com.google.firebase.Timestamp.now()
             )
 
             val member = GroupMember(
                 userId = currentUser.uid,
                 groupId = groupId,
                 role = GroupRole.CREATOR,
-                joinedAt = System.currentTimeMillis()
+                joinedAt = com.google.firebase.Timestamp.now()
             )
 
             firestore.runBatch { batch ->
@@ -79,7 +80,8 @@ class GroupRepositoryImpl @Inject constructor(
                     "postingPermission" to group.postingPermission.name,
                     "requirePostApproval" to group.requirePostApproval,
                     "memberCount" to group.memberCount,
-                    "createdAt" to group.createdAt
+                    "createdAt" to group.createdAt,
+                    "status" to Group.STATUS_ACTIVE
                 )
                 batch.set(groupRef, groupData)
 
@@ -176,6 +178,22 @@ class GroupRepositoryImpl @Inject constructor(
             val snapshot = firestore.collection("groups").document(groupId).get().await()
             val group = snapshot.toObject(Group::class.java)
             if (group != null) {
+                // Sync member count if it's wrong (self-healing)
+                val actualMembersCount = firestore.collection("groups").document(groupId)
+                    .collection("members")
+                    .count()
+                    .get(com.google.firebase.firestore.AggregateSource.SERVER)
+                    .await()
+                    .count
+
+                if (group.memberCount.toLong() != actualMembersCount) {
+                    Timber.d("Mismatch in memberCount for group $groupId: stored=${group.memberCount}, actual=$actualMembersCount. Syncing...")
+                    firestore.collection("groups").document(groupId)
+                        .update("memberCount", actualMembersCount)
+                        .await()
+                    return Result.Success(group.copy(memberCount = actualMembersCount))
+                }
+
                 Result.Success(group)
             } else {
                 Result.Error(Exception("Group not found"))
@@ -204,7 +222,7 @@ class GroupRepositoryImpl @Inject constructor(
                 userId = currentUser.uid,
                 groupId = groupId,
                 role = GroupRole.MEMBER,
-                joinedAt = System.currentTimeMillis()
+                joinedAt = com.google.firebase.Timestamp.now()
             )
             firestore.collection("groups").document(groupId)
                 .collection("members").document(currentUser.uid)
@@ -213,6 +231,7 @@ class GroupRepositoryImpl @Inject constructor(
             
              firestore.collection("groups").document(groupId)
                 .update("memberCount", com.google.firebase.firestore.FieldValue.increment(1))
+                .await()
             
             Result.Success(Unit)
         } catch (e: Exception) {
@@ -289,7 +308,8 @@ class GroupRepositoryImpl @Inject constructor(
                         } catch (e: Exception) {
                             GroupRole.MEMBER
                         },
-                        joinedAt = doc.getLong("joinedAt") ?: 0L
+                        joinedAt = (doc.getTimestamp("joinedAt") ?: com.google.firebase.Timestamp(java.util.Date(doc.getLong("joinedAt") ?: 0L))) 
+                            ?: com.google.firebase.Timestamp.now()
                     )
                 } catch (e: Exception) {
                     null
@@ -353,15 +373,24 @@ class GroupRepositoryImpl @Inject constructor(
                         return@addSnapshotListener
                     }
                     
-                    CoroutineScope(Dispatchers.IO).launch {
-                        val groups = mutableListOf<Group>()
-                        groupIds.chunked(10).forEach { chunk ->
-                            val groupsSnapshot = firestore.collection("groups")
-                                .whereIn(com.google.firebase.firestore.FieldPath.documentId(), chunk)
-                               .get().await()
-                            groups.addAll(groupsSnapshot.toObjects(Group::class.java))
+                    launch(Dispatchers.IO) {
+                        try {
+                            val groups = mutableListOf<Group>()
+                            groupIds.chunked(10).forEach { chunk ->
+                                val groupsSnapshot = firestore.collection("groups")
+                                    .whereIn(com.google.firebase.firestore.FieldPath.documentId(), chunk)
+                                    .get().await()
+                                groups.addAll(groupsSnapshot.toObjects(Group::class.java))
+                            }
+                            if (!isClosedForSend) {
+                                trySend(groups)
+                            }
+                        } catch (e: Exception) {
+                            Timber.e(e, "Error fetching admin groups details")
+                            if (!isClosedForSend) {
+                                trySend(emptyList())
+                            }
                         }
-                        trySend(groups)
                     }
                 }
             awaitClose { memberListener.remove() }
@@ -401,19 +430,28 @@ class GroupRepositoryImpl @Inject constructor(
                         return@addSnapshotListener
                     }
                     
-                    CoroutineScope(Dispatchers.IO).launch {
-                        val posts = mutableListOf<com.example.minisocialnetworkapplication.core.domain.model.Post>()
-                        groupIds.chunked(10).forEach { chunk ->
-                            val postsSnapshot = firestore.collection("posts")
-                                .whereIn("groupId", chunk)
-                                .whereEqualTo("approvalStatus", "APPROVED")
-                                .orderBy("createdAt", Query.Direction.DESCENDING)
-                                .get().await()
-                            postsSnapshot.documents.mapNotNull { doc ->
-                                doc.toObject(com.example.minisocialnetworkapplication.core.domain.model.Post::class.java)?.copy(id = doc.id)
-                            }.also { posts.addAll(it) }
+                    launch(Dispatchers.IO) {
+                        try {
+                            val posts = mutableListOf<com.example.minisocialnetworkapplication.core.domain.model.Post>()
+                            groupIds.chunked(10).forEach { chunk ->
+                                val postsSnapshot = firestore.collection("posts")
+                                    .whereIn("groupId", chunk)
+                                    .whereEqualTo("approvalStatus", "APPROVED")
+                                    .orderBy("createdAt", Query.Direction.DESCENDING)
+                                    .get().await()
+                                postsSnapshot.documents.mapNotNull { doc ->
+                                    doc.toObject(com.example.minisocialnetworkapplication.core.domain.model.Post::class.java)?.copy(id = doc.id)
+                                }.also { posts.addAll(it) }
+                            }
+                            if (!isClosedForSend) {
+                                trySend(posts.sortedByDescending { it.createdAt })
+                            }
+                        } catch (e: Exception) {
+                            Timber.e(e, "Error fetching posts from user groups")
+                            if (!isClosedForSend) {
+                                trySend(emptyList())
+                            }
                         }
-                        trySend(posts.sortedByDescending { it.createdAt })
                     }
                 }
             awaitClose { memberListener.remove() }
@@ -512,7 +550,8 @@ class GroupRepositoryImpl @Inject constructor(
                     val member = GroupMember(
                         userId = currentUser.uid,
                         groupId = invitation.groupId,
-                        role = GroupRole.MEMBER
+                        role = GroupRole.MEMBER,
+                        joinedAt = com.google.firebase.Timestamp.now()
                     )
                     firestore.collection("groups").document(invitation.groupId)
                         .collection("members").document(currentUser.uid)
@@ -587,7 +626,7 @@ class GroupRepositoryImpl @Inject constructor(
                 inviterName = inviterName,
                 inviterRole = inviterRole,
                 status = com.example.minisocialnetworkapplication.core.domain.model.JoinRequestStatus.PENDING,
-                createdAt = System.currentTimeMillis()
+                createdAt = com.google.firebase.Timestamp.now()
             )
             
             requestRef.set(joinRequest).await()
@@ -612,7 +651,18 @@ class GroupRepositoryImpl @Inject constructor(
                     return@addSnapshotListener
                 }
                 
-                val requests = snapshot?.toObjects(com.example.minisocialnetworkapplication.core.domain.model.JoinRequest::class.java) ?: emptyList()
+                val requests = snapshot?.documents?.mapNotNull { doc ->
+                    try {
+                        val request = doc.toObject(com.example.minisocialnetworkapplication.core.domain.model.JoinRequest::class.java)
+                        request?.copy(
+                            id = doc.id,
+                            createdAt = (doc.getTimestamp("createdAt") ?: com.google.firebase.Timestamp(java.util.Date(doc.getLong("createdAt") ?: 0L))) 
+                                ?: com.google.firebase.Timestamp.now()
+                        )
+                    } catch (e: Exception) {
+                        null
+                    }
+                } ?: emptyList()
                 trySend(requests)
             }
         awaitClose { listener.remove() }
@@ -632,7 +682,7 @@ class GroupRepositoryImpl @Inject constructor(
                 userId = request.userId,
                 groupId = request.groupId,
                 role = GroupRole.MEMBER,
-                joinedAt = System.currentTimeMillis()
+                joinedAt = com.google.firebase.Timestamp.now()
             )
             firestore.collection("groups").document(request.groupId)
                 .collection("members").document(request.userId)
@@ -773,7 +823,7 @@ class GroupRepositoryImpl @Inject constructor(
     
     override suspend fun rejectPost(postId: String, reason: String?): Result<Unit> {
         return try {
-            val updates = mutableMapOf<String, Any?>(
+            val updates = mutableMapOf<String, Any>(
                 "approvalStatus" to "REJECTED"
             )
             if (reason != null) {
@@ -781,7 +831,7 @@ class GroupRepositoryImpl @Inject constructor(
             }
             
             firestore.collection("posts").document(postId)
-                .update(updates as Map<String, Any>)
+                .update(updates)
                 .await()
             
             Timber.d("Rejected post $postId")
@@ -839,6 +889,57 @@ class GroupRepositoryImpl @Inject constructor(
             Result.Success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "Error deleting post")
+            Result.Error(e)
+        }
+    }
+
+    // ================================
+    // Group Settings Functions
+    // ================================
+
+    override suspend fun updateGroup(
+        groupId: String,
+        name: String,
+        description: String,
+        privacy: com.example.minisocialnetworkapplication.core.domain.model.GroupPrivacy,
+        avatarUri: Uri?
+    ): Result<Unit> {
+        return try {
+            var avatarUrl: String? = null
+            if (avatarUri != null) {
+                val avatarRef = storage.reference.child("group_avatars/$groupId-avatar.jpg")
+                avatarRef.putFile(avatarUri).await()
+                avatarUrl = avatarRef.downloadUrl.await().toString()
+            }
+
+            val updates = mutableMapOf<String, Any>(
+                "name" to name,
+                "description" to description,
+                "privacy" to privacy.name
+            )
+            if (avatarUrl != null) {
+                updates["avatarUrl"] = avatarUrl
+            }
+
+            firestore.collection("groups").document(groupId)
+                .update(updates)
+                .await()
+
+            Timber.d("Group updated: $groupId")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Error updating group")
+            Result.Error(e)
+        }
+    }
+
+    override suspend fun deleteGroup(groupId: String): Result<Unit> {
+        return try {
+            firestore.collection("groups").document(groupId).delete().await()
+            Timber.d("Group document $groupId deleted. Cloud Function will handle cleanup.")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Error deleting group document")
             Result.Error(e)
         }
     }
