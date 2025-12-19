@@ -100,4 +100,10 @@ interface ConversationRepository {
     suspend fun declineJoinRequest(conversationId: String, userId: String): Result<Unit>
     suspend fun leaveConversation(conversationId: String): Result<Unit>
     suspend fun deleteConversationPermanent(conversationId: String): Result<Unit>
+
+    suspend fun updateGroupMetadata(
+        conversationId: String,
+        name: String? = null,
+        avatarUrl: String? = null
+    ): Result<Unit>
 }

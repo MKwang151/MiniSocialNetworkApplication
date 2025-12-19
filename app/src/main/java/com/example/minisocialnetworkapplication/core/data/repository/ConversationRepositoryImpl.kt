@@ -24,6 +24,9 @@ import javax.inject.Singleton
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import com.google.firebase.firestore.FieldPath
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.functions.ktx.functions
+import com.google.firebase.storage.FirebaseStorage
 
 @Singleton
 class ConversationRepositoryImpl @Inject constructor(
@@ -215,7 +218,18 @@ class ConversationRepositoryImpl @Inject constructor(
                     .collection(COLLECTION_PARTICIPANTS)
                     .document(currentUserId)
                     .addSnapshotListener { doc, error ->
-                        if (error != null || doc == null) return@addSnapshotListener
+                        // Check if still signed in
+                        if (auth.currentUser == null) return@addSnapshotListener
+                        
+                        if (error != null) {
+                            if (error.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                                timber.log.Timber.w("Permission denied while listening to participant doc $convId - user likely logged out")
+                            } else {
+                                timber.log.Timber.e(error, "Error listening to participant doc $convId")
+                            }
+                            return@addSnapshotListener
+                        }
+                        if (doc == null) return@addSnapshotListener
                         
                         val lastReadSeqId = doc.getLong("lastReadSequenceId") ?: 0L
                         val oldValue = lastReadSeqIdCache[convId]
@@ -233,10 +247,22 @@ class ConversationRepositoryImpl @Inject constructor(
         val conversationsListener = firestore.collection(COLLECTION_CONVERSATIONS)
             .whereArrayContains("participantIds", currentUserId)
             .addSnapshotListener { snapshot, error ->
+                // Check if still signed in
+                if (auth.currentUser == null) {
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                
                 if (error != null) {
-                    kotlinx.coroutines.runBlocking {
-                        val localConversations = conversationDao.getAllConversationsSync()
-                        trySend(localConversations.map { it.toDomainModel() })
+                    if (error.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                        timber.log.Timber.w("Permission denied while listening to conversations - user likely logged out")
+                        trySend(emptyList())
+                    } else {
+                        timber.log.Timber.e(error, "Error listening to conversations")
+                        kotlinx.coroutines.runBlocking {
+                            val localConversations = conversationDao.getAllConversationsSync()
+                            trySend(localConversations.map { it.toDomainModel() })
+                        }
                     }
                     return@addSnapshotListener
                 }
@@ -673,12 +699,31 @@ class ConversationRepositoryImpl @Inject constructor(
     }
 
     override fun getJoinRequests(conversationId: String): Flow<List<com.example.minisocialnetworkapplication.core.domain.model.User>> = callbackFlow {
+        // Early return if user is not signed in
+        if (auth.currentUser == null) {
+            trySend(emptyList())
+            close()
+            return@callbackFlow
+        }
+        
         val listener = firestore.collection(COLLECTION_CONVERSATIONS)
             .document(conversationId)
             .collection(COLLECTION_JOIN_REQUESTS)
             .addSnapshotListener { snapshot, error ->
+                // Check if still signed in
+                if (auth.currentUser == null) {
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                
                 if (error != null) {
-                    timber.log.Timber.e(error, "Error listening for join requests")
+                    if (error.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                        timber.log.Timber.w("Permission denied while listening for join requests - user likely logged out")
+                        trySend(emptyList())
+                    } else {
+                        timber.log.Timber.e(error, "Error listening for join requests")
+                        trySend(emptyList())
+                    }
                     return@addSnapshotListener
                 }
                 
@@ -687,7 +732,6 @@ class ConversationRepositoryImpl @Inject constructor(
                     trySend(emptyList())
                 } else {
                     // Fetch users
-                    // Note: Ideally we should use a cached repository or user flow, but for now simple fetch
                     launch(kotlinx.coroutines.Dispatchers.IO) {
                          try {
                              val chunks = userIds.chunked(10)
@@ -700,9 +744,14 @@ class ConversationRepositoryImpl @Inject constructor(
                                      .await()
                                  users.addAll(userSnapshots.toObjects(com.example.minisocialnetworkapplication.core.domain.model.User::class.java))
                              }
-                             trySend(users)
+                             if (!isClosedForSend) {
+                                 trySend(users)
+                             }
                          } catch (e: Exception) {
                              timber.log.Timber.e(e, "Error fetching join request users")
+                             if (!isClosedForSend) {
+                                 trySend(emptyList())
+                             }
                          }
                     }
                 }
@@ -774,6 +823,36 @@ class ConversationRepositoryImpl @Inject constructor(
             conversationDao.deleteConversationById(conversationId)
             Result.Success(Unit)
         } catch (e: Exception) {
+            Result.Error(e)
+        }
+    }
+
+    override suspend fun updateGroupMetadata(
+        conversationId: String,
+        name: String?,
+        avatarUrl: String?
+    ): Result<Unit> {
+        return try {
+            val functions = com.google.firebase.ktx.Firebase.functions
+            val data = hashMapOf(
+                "conversationId" to conversationId,
+                "name" to name,
+                "avatarUrl" to avatarUrl
+            )
+
+            functions.getHttpsCallable("updateChatGroup")
+                .call(data)
+                .await()
+            
+            // Refresh local cache
+            val updatedConv = getConversation(conversationId)
+            if (updatedConv is Result.Success) {
+                conversationDao.insertConversation(ConversationEntity.fromDomainModel(updatedConv.data))
+            }
+
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            timber.log.Timber.e(e, "Error updating group metadata via Cloud Function")
             Result.Error(e)
         }
     }
