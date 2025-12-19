@@ -129,9 +129,9 @@ private fun ReportsTab(
                 ReportCard(
                     report = report,
                     onDismiss = { onDismiss(report.id) },
-                    onHidePost = { onHidePost(report.postId, report.id) },
-                    onDeletePost = { onDeletePost(report.postId, report.id) },
-                    onKickMember = { onKickMember(report.authorId, report.postId, report.id) }
+                    onHidePost = { onHidePost(report.targetId, report.id) },
+                    onDeletePost = { onDeletePost(report.targetId, report.id) },
+                    onKickMember = { onKickMember(report.authorId, report.targetId, report.id) }
                 )
             }
         }
@@ -354,7 +354,7 @@ private fun HiddenPostCard(
     }
 }
 
-private fun formatDate(timestamp: Long): String {
+private fun formatDate(timestamp: com.google.firebase.Timestamp): String {
     val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-    return sdf.format(Date(timestamp))
+    return sdf.format(timestamp.toDate())
 }

@@ -19,7 +19,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Report
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,6 +40,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -61,6 +64,7 @@ fun GroupDetailScreen(
     onNavigateToImageGallery: (String, Int) -> Unit,
     onNavigateToJoinRequests: (String) -> Unit = {},
     onNavigateToManage: (groupId: String, groupName: String) -> Unit = { _, _ -> },
+    onNavigateToReport: (String) -> Unit = {},
     viewModel: GroupDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -87,6 +91,41 @@ fun GroupDetailScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    if (uiState is GroupDetailUiState.Success) {
+                        val state = uiState as GroupDetailUiState.Success
+                        var showMenu by remember { androidx.compose.runtime.mutableStateOf(false) }
+                        
+                        Box {
+                            IconButton(onClick = { showMenu = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "More",
+                                    tint = Color.Black
+                                )
+                            }
+                            
+                            androidx.compose.material3.DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false }
+                            ) {
+                                androidx.compose.material3.DropdownMenuItem(
+                                    text = { Text("Report Group") },
+                                    onClick = {
+                                        showMenu = false
+                                        onNavigateToReport(state.group.id)
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Report,
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+                            }
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -132,7 +171,7 @@ fun GroupDetailScreen(
                             isMember = state.isMember,
                             userRole = state.userRole,
                             onJoinClick = viewModel::joinGroup,
-                            onLeaveClick = viewModel::leaveGroup,
+                            onLeaveClick = { viewModel.leaveGroup { /* No action needed */ } },
                             onManageClick = { onNavigateToManage(state.group.id, state.group.name) },
                             onInviteClick = { onNavigateToInvite(state.group.id) },
                             onJoinRequestsClick = { onNavigateToJoinRequests(state.group.id) }

@@ -1,5 +1,7 @@
 package com.example.minisocialnetworkapplication.core.domain.model
 
+import com.google.firebase.Timestamp
+
 data class Group(
     val id: String = "",
     val name: String = "",
@@ -11,8 +13,14 @@ data class Group(
     val postingPermission: GroupPostingPermission = GroupPostingPermission.EVERYONE,
     val requirePostApproval: Boolean = false,
     val memberCount: Long = 0,
-    val createdAt: Long = System.currentTimeMillis()
-)
+    val createdAt: Timestamp = Timestamp.now(),
+    val status: String = STATUS_ACTIVE
+) {
+    companion object {
+        const val STATUS_ACTIVE = "ACTIVE"
+        const val STATUS_BANNED = "BANNED"
+    }
+}
 
 enum class GroupPrivacy {
     PUBLIC, PRIVATE

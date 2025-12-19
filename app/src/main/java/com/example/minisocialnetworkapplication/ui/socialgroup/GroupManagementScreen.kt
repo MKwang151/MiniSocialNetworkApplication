@@ -52,6 +52,7 @@ fun GroupManagementScreen(
     groupId: String,
     groupName: String,
     group: Group? = null,
+    userRole: com.example.minisocialnetworkapplication.core.domain.model.GroupRole? = null,
     onNavigateBack: () -> Unit,
     onNavigateToJoinRequests: () -> Unit,
     onNavigateToEditGroup: () -> Unit = {},
@@ -59,9 +60,13 @@ fun GroupManagementScreen(
     onNavigateToPendingPosts: () -> Unit = {},
     onNavigateToReports: () -> Unit = {},
     onTogglePostApproval: (Boolean) -> Unit = {},
-    onDeleteGroup: () -> Unit = {}
+    onDeleteGroup: () -> Unit = {},
+    onLeaveGroup: () -> Unit = {}
 ) {
     var requirePostApproval by remember(group) { mutableStateOf(group?.requirePostApproval ?: false) }
+    
+    val isCreator = userRole == com.example.minisocialnetworkapplication.core.domain.model.GroupRole.CREATOR
+    val isAdmin = userRole == com.example.minisocialnetworkapplication.core.domain.model.GroupRole.ADMIN
     
     Scaffold(
         topBar = {
@@ -179,26 +184,38 @@ fun GroupManagementScreen(
                 )
             }
 
-            // Danger Zone
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Danger Zone",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.error,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
+            if (isCreator || isAdmin) {
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Danger Zone",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
 
-            item {
-                ManagementMenuItem(
-                    icon = Icons.Default.Delete,
-                    title = "Delete Group",
-                    subtitle = "Permanently delete this group",
-                    iconTint = MaterialTheme.colorScheme.error,
-                    titleColor = MaterialTheme.colorScheme.error,
-                    onClick = onDeleteGroup
-                )
+                item {
+                    if (isCreator) {
+                        ManagementMenuItem(
+                            icon = Icons.Default.Delete,
+                            title = "Delete Group",
+                            subtitle = "Permanently delete this group",
+                            iconTint = MaterialTheme.colorScheme.error,
+                            titleColor = MaterialTheme.colorScheme.error,
+                            onClick = onDeleteGroup
+                        )
+                    } else {
+                        ManagementMenuItem(
+                            icon = Icons.Default.Delete,
+                            title = "Leave Group",
+                            subtitle = "You will no longer be an admin",
+                            iconTint = MaterialTheme.colorScheme.error,
+                            titleColor = MaterialTheme.colorScheme.error,
+                            onClick = onLeaveGroup
+                        )
+                    }
+                }
             }
         }
     }

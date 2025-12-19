@@ -231,16 +231,6 @@ class GroupDetailViewModel @Inject constructor(
         }
     }
 
-    fun leaveGroup() {
-        viewModelScope.launch {
-            val result = groupRepository.leaveGroup(groupId)
-            if (result is Result.Success) {
-                loadGroupDetails()
-            } else if (result is Result.Error) {
-                _errorMessage.value = result.message ?: "Failed to leave group"
-            }
-        }
-    }
     
     fun togglePostApproval(enabled: Boolean) {
         viewModelScope.launch {
@@ -249,6 +239,28 @@ class GroupDetailViewModel @Inject constructor(
                 loadGroupDetails() // Reload to reflect change
             } else if (result is Result.Error) {
                 _errorMessage.value = result.message ?: "Failed to toggle post approval"
+            }
+        }
+    }
+
+    fun deleteGroup(onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            val result = groupRepository.deleteGroup(groupId)
+            if (result is Result.Success) {
+                onSuccess()
+            } else if (result is Result.Error) {
+                _errorMessage.value = result.message ?: "Failed to delete group"
+            }
+        }
+    }
+
+    fun leaveGroup(onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            val result = groupRepository.leaveGroup(groupId)
+            if (result is Result.Success) {
+                onSuccess()
+            } else if (result is Result.Error) {
+                _errorMessage.value = result.message ?: "Failed to leave group"
             }
         }
     }
