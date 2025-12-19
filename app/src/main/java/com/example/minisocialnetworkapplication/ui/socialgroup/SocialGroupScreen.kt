@@ -44,6 +44,8 @@ import com.example.minisocialnetworkapplication.core.domain.model.Post
 import com.example.minisocialnetworkapplication.ui.auth.AuthViewModel
 import com.example.minisocialnetworkapplication.ui.components.BottomNavBar
 import com.example.minisocialnetworkapplication.ui.components.PostCard
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 
 @Composable
 fun SocialGroupScreen(
@@ -197,15 +199,17 @@ fun GroupList(
                     headlineContent = { Text(group.name) },
                     supportingContent = { Text("${group.memberCount} members") },
                     leadingContent = {
-                        // Avatar placeholder
                         androidx.compose.material3.Surface(
                             shape = androidx.compose.foundation.shape.CircleShape,
                             color = MaterialTheme.colorScheme.secondaryContainer,
                             modifier = Modifier.size(40.dp)
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(group.name.take(1).uppercase())
-                            }
+                            AsyncImage(
+                                model = group.avatarUrl ?: "https://ui-avatars.com/api/?name=${java.net.URLEncoder.encode(group.name, "UTF-8")}&background=6366f1&color=fff",
+                                contentDescription = "Group Avatar",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
                         }
                     },
                     modifier = Modifier.clickable { onGroupClick(group.id) }
@@ -241,9 +245,12 @@ fun DiscoverGroupList(
                             color = MaterialTheme.colorScheme.secondaryContainer,
                             modifier = Modifier.size(40.dp)
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(group.name.take(1).uppercase())
-                            }
+                            AsyncImage(
+                                model = group.avatarUrl ?: "https://ui-avatars.com/api/?name=${java.net.URLEncoder.encode(group.name, "UTF-8")}&background=6366f1&color=fff",
+                                contentDescription = "Group Avatar",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
                         }
                     },
                     trailingContent = {
