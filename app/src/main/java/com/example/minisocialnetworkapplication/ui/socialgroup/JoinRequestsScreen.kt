@@ -202,9 +202,7 @@ fun JoinRequestItem(
                 }
                 
                 Text(
-                    text = DateTimeUtil.formatRelativeTime(
-                        com.google.firebase.Timestamp(java.util.Date(request.createdAt))
-                    ),
+                    text = DateTimeUtil.formatRelativeTime(request.createdAt),
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray
                 )
