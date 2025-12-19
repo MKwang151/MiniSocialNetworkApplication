@@ -14,8 +14,18 @@ data class User(
     @get:PropertyName("isOnline") @set:PropertyName("isOnline")
     var online: Boolean = false,
     val lastActive: Timestamp? = null,
-    val createdAt: Timestamp = Timestamp.now()
+    val createdAt: Timestamp = Timestamp.now(),
+    val role: String = ROLE_USER,
+    val status: String = STATUS_ACTIVE
 ) {
+    companion object {
+        const val ROLE_ADMIN = "ADMIN"
+        const val ROLE_USER = "USER"
+        
+        const val STATUS_ACTIVE = "ACTIVE"
+        const val STATUS_BANNED = "BANNED"
+    }
+
     // Alias for uid to make code more readable
     val id: String get() = uid
     

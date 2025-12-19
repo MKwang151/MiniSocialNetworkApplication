@@ -207,8 +207,19 @@ class UserRepositoryImpl @Inject constructor(
             val listener = firestore.collection(Constants.COLLECTION_USERS)
                 .document(userId)
                 .addSnapshotListener { snapshot, error ->
+                    // Check if still signed in
+                    if (auth.currentUser == null) {
+                        trySend(null)
+                        return@addSnapshotListener
+                    }
+                    
                     if (error != null) {
-                        Timber.e(error, "Failed to observe user: $userId")
+                        if (error.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                            Timber.w("Permission denied while observing user $userId - user likely logged out")
+                        } else {
+                            Timber.e(error, "Failed to observe user: $userId")
+                        }
+                        trySend(null)
                         return@addSnapshotListener
                     }
                     
