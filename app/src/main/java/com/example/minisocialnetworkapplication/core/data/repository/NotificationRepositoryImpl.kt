@@ -19,18 +19,41 @@ class NotificationRepositoryImpl @Inject constructor(
 ) : NotificationRepository {
     
     override fun getNotifications(userId: String): Flow<List<Notification>> = callbackFlow {
+        // Early return if user is not signed in
+        if (auth.currentUser == null) {
+            trySend(emptyList())
+            close()
+            return@callbackFlow
+        }
+        
         val listener = firestore.collection("notifications")
             .whereEqualTo("userId", userId)
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Timber.e(error, "Error listening to notifications")
+                // Check if still signed in
+                if (auth.currentUser == null) {
                     trySend(emptyList())
                     return@addSnapshotListener
                 }
                 
+                if (error != null) {
+                    if (error.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                        Timber.w("Permission denied while listening to notifications - user likely logged out")
+                        trySend(emptyList())
+                    } else {
+                        Timber.e(error, "Error listening to notifications")
+                        trySend(emptyList())
+                    }
+                    return@addSnapshotListener
+                }
+                
                 val notifications = snapshot?.documents?.mapNotNull { doc ->
-                    doc.toObject(Notification::class.java)?.copy(id = doc.id)
+                    try {
+                        doc.toObject(Notification::class.java)?.copy(id = doc.id)
+                    } catch (e: Exception) {
+                        Timber.e(e, "Error parsing notification ${doc.id}")
+                        null
+                    }
                 } ?: emptyList()
                 Timber.d("Loaded ${notifications.size} notifications for user $userId")
                 trySend(notifications)
@@ -89,13 +112,31 @@ class NotificationRepositoryImpl @Inject constructor(
     }
     
     override fun getUnreadCount(userId: String): Flow<Int> = callbackFlow {
+        // Early return if user is not signed in
+        if (auth.currentUser == null) {
+            trySend(0)
+            close()
+            return@callbackFlow
+        }
+        
         val listener = firestore.collection("notifications")
             .whereEqualTo("userId", userId)
             .whereEqualTo("read", false)  // Firebase uses "read" field, not "isRead"
             .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Timber.e(error, "Error listening to unread count")
+                // Check if still signed in
+                if (auth.currentUser == null) {
                     trySend(0)
+                    return@addSnapshotListener
+                }
+                
+                if (error != null) {
+                    if (error.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                        Timber.w("Permission denied while listening to unread count - user likely logged out")
+                        trySend(0)
+                    } else {
+                        Timber.e(error, "Error listening to unread count")
+                        trySend(0)
+                    }
                     return@addSnapshotListener
                 }
                 
