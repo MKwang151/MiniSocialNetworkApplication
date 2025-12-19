@@ -66,5 +66,11 @@ abstract class RepositoryModule {
     abstract fun bindReportRepository(
         reportRepositoryImpl: com.example.minisocialnetworkapplication.core.data.repository.ReportRepositoryImpl
     ): com.example.minisocialnetworkapplication.core.domain.repository.ReportRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAdminRepository(
+        adminRepositoryImpl: com.example.minisocialnetworkapplication.core.data.repository.AdminRepositoryImpl
+    ): com.example.minisocialnetworkapplication.core.domain.repository.AdminRepository
 }
 

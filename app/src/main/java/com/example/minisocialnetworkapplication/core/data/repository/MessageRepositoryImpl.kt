@@ -48,21 +48,24 @@ class MessageRepositoryImpl @Inject constructor(
 
     override fun getMessages(conversationId: String): Flow<List<Message>> = callbackFlow {
         val currentUserId = auth.currentUser?.uid
+        if (currentUserId == null) {
+            trySend(emptyList())
+            close()
+            return@callbackFlow
+        }
         
         // Get user's deletedAt timestamp for this conversation
         var deletedAt: com.google.firebase.Timestamp? = null
-        if (currentUserId != null) {
-            try {
-                val participantDoc = firestore.collection(COLLECTION_CONVERSATIONS)
-                    .document(conversationId)
-                    .collection(COLLECTION_PARTICIPANTS)
-                    .document(currentUserId)
-                    .get()
-                    .await()
-                deletedAt = participantDoc.getTimestamp("deletedAt")
-            } catch (e: Exception) {
-                timber.log.Timber.e(e, "Error getting deletedAt for $conversationId")
-            }
+        try {
+            val participantDoc = firestore.collection(COLLECTION_CONVERSATIONS)
+                .document(conversationId)
+                .collection(COLLECTION_PARTICIPANTS)
+                .document(currentUserId)
+                .get()
+                .await()
+            deletedAt = participantDoc.getTimestamp("deletedAt")
+        } catch (e: Exception) {
+            timber.log.Timber.e(e, "Error getting deletedAt for $conversationId")
         }
         
         val listener = firestore.collection(COLLECTION_CONVERSATIONS)
@@ -71,14 +74,20 @@ class MessageRepositoryImpl @Inject constructor(
             .orderBy("timestamp", Query.Direction.DESCENDING)
             .limit(100)
             .addSnapshotListener { snapshot, error ->
+                // Check if still signed in
+                if (auth.currentUser == null) {
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                
                 if (error != null) {
                     if (error.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
                         timber.log.Timber.w("getMessages: Permission denied (User likely logged out). Closing flow.")
-                        close()
+                        trySend(emptyList())
                     } else {
                         timber.log.Timber.e(error, "getMessages: Error - closing flow gracefully")
-                        close() // Close gracefully without throwing
                     }
+                    close() 
                     return@addSnapshotListener
                 }
 
@@ -541,20 +550,32 @@ class MessageRepositoryImpl @Inject constructor(
 
     override fun observeTypingStatus(conversationId: String): Flow<List<String>> = callbackFlow {
         val currentUserId = auth.currentUser?.uid
+        if (currentUserId == null) {
+            trySend(emptyList())
+            close()
+            return@callbackFlow
+        }
+        
         timber.log.Timber.d("observeTypingStatus: START for conv=$conversationId, currentUserId=$currentUserId")
 
         val listener = firestore.collection(COLLECTION_CONVERSATIONS)
             .document(conversationId)
             .collection(COLLECTION_TYPING)
             .addSnapshotListener { snapshot, error ->
+                // Check if still signed in
+                if (auth.currentUser == null) {
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                
                 if (error != null) {
                     if (error.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
                         timber.log.Timber.w("observeTypingStatus: Permission denied (User likely logged out). Closing flow.")
-                        close()
+                        trySend(emptyList())
                     } else {
                         timber.log.Timber.e(error, "observeTypingStatus: ERROR - closing flow gracefully")
-                        close() // Close gracefully without throwing
                     }
+                    close()
                     return@addSnapshotListener
                 }
 
