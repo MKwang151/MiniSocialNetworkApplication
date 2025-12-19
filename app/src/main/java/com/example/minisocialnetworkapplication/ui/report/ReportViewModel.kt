@@ -26,10 +26,11 @@ class ReportViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    // Get post info from navigation args
-    private val postId: String = checkNotNull(savedStateHandle["postId"])
-    private val authorId: String = savedStateHandle["authorId"] ?: ""
-    private val groupId: String? = savedStateHandle.get<String>("groupId")?.takeIf { it.isNotBlank() }
+    // Get info from navigation args
+    private val targetId: String = checkNotNull(savedStateHandle["targetId"])
+    private val targetType: String = checkNotNull(savedStateHandle["targetType"])
+    private val authorId: String? = savedStateHandle["authorId"]
+    private val groupId: String? = savedStateHandle["groupId"]
 
     private val _uiState = MutableStateFlow<ReportUiState>(ReportUiState.Idle)
     val uiState: StateFlow<ReportUiState> = _uiState.asStateFlow()
@@ -39,6 +40,9 @@ class ReportViewModel @Inject constructor(
 
     private val _description = MutableStateFlow("")
     val description = _description.asStateFlow()
+
+    private val _targetTypeState = MutableStateFlow(targetType)
+    val targetTypeState = _targetTypeState.asStateFlow()
 
     fun onReasonChange(value: String) {
         _reason.value = value
@@ -61,8 +65,9 @@ class ReportViewModel @Inject constructor(
             _uiState.value = ReportUiState.Loading
 
             val report = Report(
-                postId = postId,
-                authorId = authorId,
+                targetId = targetId,
+                targetType = targetType,
+                authorId = authorId ?: "",
                 groupId = groupId,
                 reason = reasonVal,
                 description = descriptionVal

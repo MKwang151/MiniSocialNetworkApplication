@@ -45,7 +45,15 @@ fun ReportScreen(
     val uiState by viewModel.uiState.collectAsState()
     val reason by viewModel.reason.collectAsState()
     val description by viewModel.description.collectAsState()
+    val targetType by viewModel.targetTypeState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    val targetLabel = when (targetType) {
+        "POST" -> "Post"
+        "USER" -> "User"
+        "GROUP" -> "Group"
+        else -> "Content"
+    }
 
     // Handle success - navigate back
     LaunchedEffect(uiState) {
@@ -66,7 +74,7 @@ fun ReportScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Report Post") },
+                title = { Text("Report $targetLabel") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -93,7 +101,7 @@ fun ReportScreen(
                 )
                 Spacer(modifier = Modifier.padding(horizontal = 8.dp))
                 Text(
-                    text = "Report this post",
+                    text = "Report this $targetLabel",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
@@ -102,7 +110,7 @@ fun ReportScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Please provide details about why you are reporting this post. Our team will review your report.",
+                text = "Please provide details about why you are reporting this $targetLabel. Our team will review your report.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

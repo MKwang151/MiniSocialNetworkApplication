@@ -37,7 +37,8 @@ class ReportRepositoryImpl @Inject constructor(
             
             val reportData = hashMapOf(
                 "id" to reportId,
-                "postId" to report.postId,
+                "targetId" to report.targetId,
+                "targetType" to report.targetType,
                 "reporterId" to currentUser.uid,
                 "reporterName" to reporterName,
                 "authorId" to report.authorId,
@@ -45,7 +46,7 @@ class ReportRepositoryImpl @Inject constructor(
                 "reason" to report.reason,
                 "description" to report.description,
                 "status" to ReportStatus.PENDING.name,
-                "createdAt" to System.currentTimeMillis()
+                "createdAt" to com.google.firebase.Timestamp.now()
             )
             
             firestore.collection(REPORTS_COLLECTION)
@@ -64,7 +65,7 @@ class ReportRepositoryImpl @Inject constructor(
     override suspend fun getReportsForPost(postId: String): Result<List<Report>> {
         return try {
             val snapshot = firestore.collection(REPORTS_COLLECTION)
-                .whereEqualTo("postId", postId)
+                .whereEqualTo("targetId", postId)
                 .get()
                 .await()
             
@@ -72,7 +73,8 @@ class ReportRepositoryImpl @Inject constructor(
                 try {
                     Report(
                         id = doc.getString("id") ?: "",
-                        postId = doc.getString("postId") ?: "",
+                        targetId = doc.getString("targetId") ?: doc.getString("postId") ?: "",
+                        targetType = doc.getString("targetType") ?: "POST",
                         reporterId = doc.getString("reporterId") ?: "",
                         reporterName = doc.getString("reporterName") ?: "",
                         authorId = doc.getString("authorId") ?: "",
@@ -84,7 +86,8 @@ class ReportRepositoryImpl @Inject constructor(
                         } catch (e: Exception) {
                             ReportStatus.PENDING
                         },
-                        createdAt = doc.getLong("createdAt") ?: 0L
+                        createdAt = (doc.getTimestamp("createdAt") ?: com.google.firebase.Timestamp(java.util.Date(doc.getLong("createdAt") ?: 0L))) 
+                            ?: com.google.firebase.Timestamp.now()
                     )
                 } catch (e: Exception) {
                     null
@@ -109,7 +112,8 @@ class ReportRepositoryImpl @Inject constructor(
                 try {
                     Report(
                         id = doc.getString("id") ?: "",
-                        postId = doc.getString("postId") ?: "",
+                        targetId = doc.getString("targetId") ?: doc.getString("postId") ?: "",
+                        targetType = doc.getString("targetType") ?: "POST",
                         reporterId = doc.getString("reporterId") ?: "",
                         reporterName = doc.getString("reporterName") ?: "",
                         authorId = doc.getString("authorId") ?: "",
@@ -121,7 +125,8 @@ class ReportRepositoryImpl @Inject constructor(
                         } catch (e: Exception) {
                             ReportStatus.PENDING
                         },
-                        createdAt = doc.getLong("createdAt") ?: 0L
+                        createdAt = (doc.getTimestamp("createdAt") ?: com.google.firebase.Timestamp(java.util.Date(doc.getLong("createdAt") ?: 0L))) 
+                            ?: com.google.firebase.Timestamp.now()
                     )
                 } catch (e: Exception) {
                     null
