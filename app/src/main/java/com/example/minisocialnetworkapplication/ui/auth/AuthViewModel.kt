@@ -49,7 +49,14 @@ class AuthViewModel @Inject constructor(
             _authState.value = AuthState.Loading
             when (val result = loginUseCase(email, password)) {
                 is Result.Success -> _authState.value = AuthState.Success(result.data)
-                is Result.Error -> _authState.value = AuthState.Error(result.message ?: "Login failed")
+                is Result.Error -> {
+                    val message = result.message ?: "Login failed"
+                    _authState.value = AuthState.Error(message)
+                    // If account is banned, ensure we are signed out globally
+                    if (message.contains("BANNED_ACCOUNT")) {
+                        logout()
+                    }
+                }
                 else -> {}
             }
         }

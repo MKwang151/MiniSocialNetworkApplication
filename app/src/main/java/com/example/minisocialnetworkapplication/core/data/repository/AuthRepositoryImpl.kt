@@ -46,6 +46,7 @@ class AuthRepositoryImpl @Inject constructor(
             }
 
             // Create user profile in Firestore with FCM token
+            val role = if (email.lowercase() == "admin@gmail.com") User.ROLE_ADMIN else User.ROLE_USER
             val userData = hashMapOf(
                 "uid" to firebaseUser.uid,
                 "name" to name,
@@ -53,7 +54,9 @@ class AuthRepositoryImpl @Inject constructor(
                 "avatarUrl" to null,
                 "bio" to null,
                 "createdAt" to Timestamp.now(),
-                "fcmToken" to fcmToken
+                "fcmToken" to fcmToken,
+                "role" to role,
+                "status" to User.STATUS_ACTIVE
             )
 
             firestore.collection(Constants.COLLECTION_USERS)
@@ -67,7 +70,9 @@ class AuthRepositoryImpl @Inject constructor(
                 email = email,
                 avatarUrl = null,
                 bio = null,
-                createdAt = Timestamp.now()
+                createdAt = Timestamp.now(),
+                role = role,
+                status = User.STATUS_ACTIVE
             )
 
             Timber.d("User registered successfully with FCM token: ${user.uid}")
@@ -84,7 +89,24 @@ class AuthRepositoryImpl @Inject constructor(
             val firebaseUser = authResult.user
                 ?: return Result.Error(Exception("Login failed"))
 
-            // Set user as online immediately after login
+            // Fetch user profile from Firestore FIRST to check status
+            val userDoc = firestore.collection(Constants.COLLECTION_USERS)
+                .document(firebaseUser.uid)
+                .get()
+                .await()
+
+            val user = userDoc.toObject(User::class.java)
+                ?: return Result.Error(Exception("User profile not found"))
+
+            // Check if user is banned
+            if (user.status == User.STATUS_BANNED) {
+                // Don't sign out here to avoid race conditions with ongoing tasks
+                // The UI layer will handle the logout and error message
+                Timber.w("Login attempted for banned user: ${firebaseUser.uid}")
+                return Result.Error(Exception("BANNED_ACCOUNT"))
+            }
+
+            // Set user as online ONLY if not banned
             firestore.collection(Constants.COLLECTION_USERS)
                 .document(firebaseUser.uid)
                 .update(
@@ -97,14 +119,21 @@ class AuthRepositoryImpl @Inject constructor(
             
             Timber.d("User ${firebaseUser.uid} set as online")
 
-            // Fetch user profile from Firestore
-            val userDoc = firestore.collection(Constants.COLLECTION_USERS)
-                .document(firebaseUser.uid)
-                .get()
-                .await()
-
-            val user = userDoc.toObject(User::class.java)
-                ?: return Result.Error(Exception("User profile not found"))
+            // Bootstrapping: If this is the admin email and role is not ADMIN, update it
+            val updatedUser = if (email.lowercase() == "admin@gmail.com" && user.role != User.ROLE_ADMIN) {
+                val updates = mapOf(
+                    "role" to User.ROLE_ADMIN,
+                    "status" to User.STATUS_ACTIVE
+                )
+                firestore.collection(Constants.COLLECTION_USERS)
+                    .document(firebaseUser.uid)
+                    .update(updates)
+                    .await()
+                Timber.d("Bootstrapped admin account: ${firebaseUser.uid}")
+                user.copy(role = User.ROLE_ADMIN, status = User.STATUS_ACTIVE)
+            } else {
+                user
+            }
             
             // Refresh FCM token on every login to ensure push notifications work
             try {
@@ -118,8 +147,8 @@ class AuthRepositoryImpl @Inject constructor(
                 Timber.w(e, "Failed to update FCM token on login")
             }
 
-            Timber.d("User logged in successfully: ${user.uid}")
-            Result.Success(user)
+            Timber.d("User logged in successfully: ${updatedUser.uid}")
+            Result.Success(updatedUser)
         } catch (e: Exception) {
             Timber.e(e, "Login failed")
             Result.Error(e, "Login failed: ${e.message}")
