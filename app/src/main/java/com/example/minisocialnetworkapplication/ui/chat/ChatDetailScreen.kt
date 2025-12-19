@@ -262,21 +262,6 @@ fun ChatDetailScreen(
                         Text("Reply", style = MaterialTheme.typography.bodyLarge)
                     }
                 }
-                
-                // Forward (disabled for now)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("↗️", modifier = Modifier.padding(end = 12.dp))
-                    Text(
-                        "Forward (coming soon)", 
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                    )
-                }
             }
         }
     }

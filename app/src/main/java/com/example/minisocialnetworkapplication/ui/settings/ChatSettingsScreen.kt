@@ -71,6 +71,7 @@ fun ChatSettingsScreen(
     onNavigateToMembers: () -> Unit,
     onNavigateToAddMember: () -> Unit,
     onNavigateToJoinRequests: () -> Unit,
+    onNavigateToEditGroup: (String) -> Unit,
     onChatDeleted: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -289,6 +290,14 @@ fun ChatSettingsScreen(
                                         icon = Icons.Default.Notifications, 
                                         text = "Join Requests",
                                         onClick = onNavigateToJoinRequests
+                                    )
+                                }
+
+                                if (state.isAdmin || state.isCreator) {
+                                    MenuItem(
+                                        icon = Icons.Default.Group,
+                                        text = "Edit Group",
+                                        onClick = { onNavigateToEditGroup(conversationId) }
                                     )
                                 }
                             }
