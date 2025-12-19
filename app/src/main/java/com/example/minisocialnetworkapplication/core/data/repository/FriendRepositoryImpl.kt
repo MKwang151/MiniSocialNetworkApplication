@@ -77,8 +77,20 @@ class FriendRepositoryImpl @Inject constructor(
         }
 
         val listener = firestore.receivedRequests(userId).addSnapshotListener { snapshot, error ->
+            // Check if still signed in
+            if (auth.currentUser == null) {
+                trySend(0)
+                return@addSnapshotListener
+            }
+
             if (error != null) {
-                Timber.e(error, "Error listening for friend requests count")
+                if (error.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) {
+                    Timber.w("Permission denied while listening for friend requests count - user likely logged out")
+                    trySend(0)
+                } else {
+                    Timber.e(error, "Error listening for friend requests count")
+                    trySend(0)
+                }
                 return@addSnapshotListener
             }
             trySend(snapshot?.size() ?: 0)
