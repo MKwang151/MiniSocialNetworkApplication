@@ -24,6 +24,7 @@ import com.example.minisocialnetworkapplication.core.domain.model.Post
 @Composable
 fun ContentModerationScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToPostDetail: (String) -> Unit,
     bottomBar: @Composable () -> Unit = {},
     viewModel: ContentModerationViewModel = hiltViewModel()
 ) {
@@ -61,6 +62,19 @@ fun ContentModerationScreen(
                 shape = RoundedCornerShape(12.dp)
             )
 
+            val selectedTab by viewModel.selectedTab.collectAsState()
+            val tabs = listOf("Posts", "Hidden")
+
+            TabRow(selectedTabIndex = selectedTab) {
+                tabs.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = { viewModel.onTabSelected(index) },
+                        text = { Text(title) }
+                    )
+                }
+            }
+
             Box(modifier = Modifier.weight(1f)) {
                 when (val state = uiState) {
                     is ContentModerationUiState.Loading -> {
@@ -85,7 +99,8 @@ fun ContentModerationScreen(
                                         post = post,
                                         onHide = { viewModel.hidePost(post.id) },
                                         onRestore = { viewModel.restorePost(post.id) },
-                                        onDelete = { viewModel.deletePost(post.id) }
+                                        onDelete = { viewModel.deletePost(post.id) },
+                                        onClick = { onNavigateToPostDetail(post.id) }
                                     )
                                 }
                             }
@@ -109,14 +124,16 @@ fun PostModItem(
     post: Post,
     onHide: () -> Unit,
     onRestore: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onClick: () -> Unit
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = if (post.isHidden) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) else CardDefaults.cardColors()
+        colors = if (post.isHidden) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) else CardDefaults.cardColors(),
+        onClick = onClick
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

@@ -26,6 +26,9 @@ class ContentModerationViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
 
+    private val _selectedTab = MutableStateFlow(0) // 0: Posts, 1: Hidden
+    val selectedTab = _selectedTab.asStateFlow()
+
     private val _allPosts = MutableStateFlow<List<Post>>(emptyList())
     private val _uiState = MutableStateFlow<ContentModerationUiState>(ContentModerationUiState.Loading)
     val uiState = _uiState.asStateFlow()
@@ -56,23 +59,33 @@ class ContentModerationViewModel @Inject constructor(
         viewModelScope.launch {
             searchQuery.collectLatest { applyFilter() }
         }
+        viewModelScope.launch {
+            selectedTab.collectLatest { applyFilter() }
+        }
     }
 
     private fun applyFilter() {
         val query = _searchQuery.value.lowercase()
-        val filtered = if (query.isEmpty()) {
-            _allPosts.value
-        } else {
-            _allPosts.value.filter { post ->
+        val isHiddenTab = _selectedTab.value == 1
+
+        val filtered = _allPosts.value.filter { post ->
+            val matchesSearch = query.isEmpty() || 
                 post.authorName.lowercase().contains(query) || 
                 post.text.lowercase().contains(query)
-            }
+            
+            val matchesTab = post.isHidden == isHiddenTab
+            
+            matchesSearch && matchesTab
         }
         _uiState.value = ContentModerationUiState.Success(filtered)
     }
 
     fun onSearchQueryChange(newQuery: String) {
         _searchQuery.value = newQuery
+    }
+
+    fun onTabSelected(index: Int) {
+        _selectedTab.value = index
     }
 
     fun hidePost(postId: String) {
