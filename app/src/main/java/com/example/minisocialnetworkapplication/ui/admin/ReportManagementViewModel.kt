@@ -8,8 +8,12 @@ import com.example.minisocialnetworkapplication.core.domain.repository.AdminRepo
 import com.example.minisocialnetworkapplication.core.util.Result
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -18,6 +22,14 @@ sealed interface ReportManagementUiState {
     data class Success(val reports: List<Report>) : ReportManagementUiState
     data class Error(val message: String) : ReportManagementUiState
 }
+
+data class WarningDialogState(
+    val reportId: String,
+    val targetUserId: String,
+    val type: String, // POST, USER, GROUP
+    val targetId: String? = null,
+    val groupId: String? = null
+)
 
 @HiltViewModel
 class ReportManagementViewModel @Inject constructor(
@@ -30,53 +42,37 @@ class ReportManagementViewModel @Inject constructor(
     private val _statusFilter = MutableStateFlow<ReportStatus?>(ReportStatus.PENDING)
     val statusFilter = _statusFilter.asStateFlow()
 
-    private val _allReports = MutableStateFlow<List<Report>>(emptyList())
-    private val _uiState = MutableStateFlow<ReportManagementUiState>(ReportManagementUiState.Loading)
-    val uiState = _uiState.asStateFlow()
+    private val _warningDialogState = MutableStateFlow<WarningDialogState?>(null)
+    val warningDialogState = _warningDialogState.asStateFlow()
 
-    init {
-        loadReports()
-        observeFilters()
-    }
-
-    private fun loadReports() {
-        viewModelScope.launch {
-            adminRepository.getAllReports().collectLatest { result ->
-                when (result) {
-                    is Result.Success -> {
-                        _allReports.value = result.data
-                        applyFilters()
-                    }
-                    is Result.Error -> {
-                        _uiState.value = ReportManagementUiState.Error(result.message ?: "Failed to load reports")
-                    }
-                    else -> {}
+    // Single source of truth for UI state using combine
+    val uiState: StateFlow<ReportManagementUiState> = combine(
+        adminRepository.getAllReports(),
+        _searchQuery,
+        _statusFilter
+    ) { result, query, status ->
+        when (result) {
+            is Result.Success -> {
+                val lowercaseQuery = query.lowercase()
+                val filtered = result.data.filter { report ->
+                    val matchesQuery = report.reporterName.lowercase().contains(lowercaseQuery) ||
+                                       report.reason.lowercase().contains(lowercaseQuery)
+                    val matchesStatus = status == null || report.status == status
+                    matchesQuery && matchesStatus
                 }
+                ReportManagementUiState.Success(filtered)
             }
+            is Result.Error -> {
+                ReportManagementUiState.Error(result.message ?: "Failed to load reports")
+            }
+            is Result.Loading -> ReportManagementUiState.Loading
+            else -> ReportManagementUiState.Loading
         }
-    }
-
-    private fun observeFilters() {
-        viewModelScope.launch {
-            searchQuery.collectLatest { applyFilters() }
-        }
-        viewModelScope.launch {
-            statusFilter.collectLatest { applyFilters() }
-        }
-    }
-
-    private fun applyFilters() {
-        val query = _searchQuery.value.lowercase()
-        val status = _statusFilter.value
-        
-        val filtered = _allReports.value.filter { report ->
-            val matchesQuery = report.reporterName.lowercase().contains(query) || 
-                              report.reason.lowercase().contains(query)
-            val matchesStatus = status == null || report.status == status
-            matchesQuery && matchesStatus
-        }
-        _uiState.value = ReportManagementUiState.Success(filtered)
-    }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = ReportManagementUiState.Loading
+    )
 
     fun onSearchQueryChange(newQuery: String) {
         _searchQuery.value = newQuery
@@ -86,21 +82,86 @@ class ReportManagementViewModel @Inject constructor(
         _statusFilter.value = newStatus
     }
 
-    fun resolveReport(reportId: String, action: String) {
+    // Common Actions
+    fun dismissReport(reportId: String) {
         viewModelScope.launch {
-            adminRepository.resolveReport(reportId, action)
+            adminRepository.resolveReport(reportId, "DISMISSED")
         }
     }
 
-    fun banUser(userId: String) {
+    fun openWarningDialog(report: Report) {
+        _warningDialogState.value = WarningDialogState(
+            reportId = report.id,
+            targetUserId = report.authorId,
+            type = report.targetType,
+            targetId = report.targetId,
+            groupId = report.groupId
+        )
+    }
+
+    fun closeWarningDialog() {
+        _warningDialogState.value = null
+    }
+
+    fun sendWarning(content: String) {
+        val state = _warningDialogState.value ?: return
         viewModelScope.launch {
-            adminRepository.banUser(userId)
+            val result = adminRepository.sendWarning(
+                userId = state.targetUserId,
+                content = content,
+                type = state.type,
+                targetId = state.targetId,
+                groupId = state.groupId
+            )
+            if (result is Result.Success) {
+                adminRepository.resolveReport(state.reportId, "RESOLVED")
+                closeWarningDialog()
+            }
         }
     }
 
-    fun hidePost(postId: String) {
+    // User Actions
+    fun banUserAndResolve(reportId: String, userId: String) {
         viewModelScope.launch {
-            adminRepository.hidePost(postId)
+            val result = adminRepository.banUser(userId)
+            if (result is Result.Success) {
+                adminRepository.resolveReport(reportId, "RESOLVED")
+            }
+        }
+    }
+
+    // Post Actions
+    fun hidePostAndResolve(reportId: String, postId: String) {
+        viewModelScope.launch {
+            val result = adminRepository.hidePost(postId)
+            if (result is Result.Success) {
+                adminRepository.resolveReport(reportId, "RESOLVED")
+            }
+        }
+    }
+
+    fun deletePostAndResolve(reportId: String, postId: String) {
+        viewModelScope.launch {
+            val result = adminRepository.deletePost(postId)
+            if (result is Result.Success) {
+                adminRepository.resolveReport(reportId, "RESOLVED")
+            }
+        }
+    }
+
+    // Group Actions
+    fun banGroupAndResolve(reportId: String, groupId: String) {
+        viewModelScope.launch {
+            val result = adminRepository.banGroup(groupId)
+            if (result is Result.Success) {
+                adminRepository.resolveReport(reportId, "RESOLVED")
+            }
+        }
+    }
+
+    fun resolveManually(reportId: String) {
+        viewModelScope.launch {
+            adminRepository.resolveReport(reportId, "RESOLVED")
         }
     }
 }

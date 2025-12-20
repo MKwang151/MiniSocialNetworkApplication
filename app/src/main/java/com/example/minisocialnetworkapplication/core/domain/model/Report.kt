@@ -24,7 +24,6 @@ data class Report(
 
 enum class ReportStatus {
     PENDING,
-    REVIEWED,
     RESOLVED,
     DISMISSED
 }

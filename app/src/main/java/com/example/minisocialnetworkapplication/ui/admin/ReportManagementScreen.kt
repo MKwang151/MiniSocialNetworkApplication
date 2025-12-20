@@ -78,7 +78,7 @@ fun ReportManagementScreen(
                     onClick = { viewModel.onStatusFilterChange(null) },
                     label = { Text("All") }
                 )
-                ReportStatus.entries.forEach { status ->
+                listOf(ReportStatus.PENDING, ReportStatus.RESOLVED, ReportStatus.DISMISSED).forEach { status ->
                     FilterChip(
                         selected = statusFilter == status,
                         onClick = { viewModel.onStatusFilterChange(status) },
@@ -109,9 +109,18 @@ fun ReportManagementScreen(
                                 items(state.reports) { report ->
                                     ReportItem(
                                         report = report,
-                                        onAction = { action -> viewModel.resolveReport(report.id, action) },
-                                        onBanUser = { viewModel.banUser(report.authorId) },
-                                        onHidePost = { viewModel.hidePost(report.targetId) }
+                                        onDismiss = { viewModel.dismissReport(report.id) },
+                                        onWarning = { viewModel.openWarningDialog(report) },
+                                        onBanUser = { 
+                                            val userId = if (report.targetType == "USER") report.targetId else report.authorId
+                                            if (userId.isNotBlank()) viewModel.banUserAndResolve(report.id, userId)
+                                        },
+                                        onHidePost = { viewModel.hidePostAndResolve(report.id, report.targetId) },
+                                        onDeletePost = { viewModel.deletePostAndResolve(report.id, report.targetId) },
+                                        onBanGroup = { 
+                                            val gId = if (report.targetType == "GROUP") report.targetId else report.groupId
+                                            gId?.let { viewModel.banGroupAndResolve(report.id, it) }
+                                        }
                                     )
                                 }
                             }
@@ -127,15 +136,71 @@ fun ReportManagementScreen(
                 }
             }
         }
+
+        // Warning Dialog
+        val warningDialogState by viewModel.warningDialogState.collectAsState()
+        warningDialogState?.let { state ->
+            WarningDialog(
+                onDismiss = viewModel::closeWarningDialog,
+                onConfirm = viewModel::sendWarning,
+                targetType = state.type
+            )
+        }
     }
+}
+
+@Composable
+fun WarningDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+    targetType: String
+) {
+    var warningText by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Send Warning") },
+        text = {
+            Column {
+                Text(
+                    text = "Message to be sent to the ${if (targetType == "GROUP") "group admin/creator" else "user"}:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                OutlinedTextField(
+                    value = warningText,
+                    onValueChange = { warningText = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    placeholder = { Text("Enter warning content...") }
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { if (warningText.isNotBlank()) onConfirm(warningText) },
+                enabled = warningText.isNotBlank()
+            ) {
+                Text("Send Warning")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable
 fun ReportItem(
     report: Report,
-    onAction: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onWarning: () -> Unit,
     onBanUser: () -> Unit,
-    onHidePost: () -> Unit
+    onHidePost: () -> Unit,
+    onDeletePost: () -> Unit,
+    onBanGroup: () -> Unit
 ) {
     val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
 
@@ -150,7 +215,8 @@ fun ReportItem(
                     color = when (report.targetType) {
                         "POST" -> MaterialTheme.colorScheme.primaryContainer
                         "USER" -> MaterialTheme.colorScheme.secondaryContainer
-                        else -> MaterialTheme.colorScheme.tertiaryContainer
+                        "GROUP" -> MaterialTheme.colorScheme.tertiaryContainer
+                        else -> MaterialTheme.colorScheme.surfaceVariant
                     },
                     shape = MaterialTheme.shapes.extraSmall
                 ) {
@@ -194,62 +260,91 @@ fun ReportItem(
                 text = "Reporter: ${report.reporterName}",
                 style = MaterialTheme.typography.labelMedium
             )
+            Text(
+                text = "Author: ${report.authorId.take(8)}...", // Show some context
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             
             Spacer(modifier = Modifier.height(16.dp))
 
             if (report.status == ReportStatus.PENDING) {
+                // ROW 1: Common Actions
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Quick Action: Dismiss
                     OutlinedButton(
-                        onClick = { onAction("DISMISSED") },
-                        modifier = Modifier.weight(1f)
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 4.dp)
                     ) {
-                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Dismiss", style = MaterialTheme.typography.labelSmall)
                     }
 
-                    // Quick Action: Resolve (Mark as handled)
                     Button(
-                        onClick = { onAction("RESOLVED") },
-                        modifier = Modifier.weight(1f)
+                        onClick = onWarning,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.warningColor),
+                        contentPadding = PaddingValues(horizontal = 4.dp)
                     ) {
-                        Icon(Icons.Default.AssignmentTurnedIn, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Resolve", style = MaterialTheme.typography.labelSmall)
+                        Text("Warning", style = MaterialTheme.typography.labelSmall)
                     }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // ROW 2: Specific Actions
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Severe Action: Ban User
-                    Button(
-                        onClick = onBanUser,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Icon(Icons.Default.Block, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Ban User", style = MaterialTheme.typography.labelSmall)
-                    }
-
-                    // Content Action: Hide Post (if it's a post)
-                    if (report.targetType == "POST") {
-                        Button(
-                            onClick = onHidePost,
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                        ) {
-                            Icon(Icons.Default.VisibilityOff, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Hide Post", style = MaterialTheme.typography.labelSmall)
+                    when (report.targetType) {
+                        "USER" -> {
+                            Button(
+                                onClick = onBanUser,
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Icon(Icons.Default.Block, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Ban User", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        "POST" -> {
+                            Button(
+                                onClick = onHidePost,
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                            ) {
+                                Icon(Icons.Default.VisibilityOff, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Hide", style = MaterialTheme.typography.labelSmall)
+                            }
+                            Button(
+                                onClick = onDeletePost,
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Delete", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        "GROUP" -> {
+                            Button(
+                                onClick = onBanGroup,
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Icon(Icons.Default.Block, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Ban Group", style = MaterialTheme.typography.labelSmall)
+                            }
                         }
                     }
                 }
@@ -258,12 +353,15 @@ fun ReportItem(
     }
 }
 
+// Helper for Warning Color
+private val ColorScheme.warningColor: androidx.compose.ui.graphics.Color
+    @Composable
+    get() = androidx.compose.ui.graphics.Color(0xFFFFA000) // Amber 700
 
 @Composable
 fun ReportStatusBadge(status: ReportStatus) {
     val (color, text) = when (status) {
         ReportStatus.PENDING -> MaterialTheme.colorScheme.error to "PENDING"
-        ReportStatus.REVIEWED -> MaterialTheme.colorScheme.primary to "REVIEWED"
         ReportStatus.RESOLVED -> MaterialTheme.colorScheme.secondary to "RESOLVED"
         ReportStatus.DISMISSED -> MaterialTheme.colorScheme.onSurfaceVariant to "DISMISSED"
     }
