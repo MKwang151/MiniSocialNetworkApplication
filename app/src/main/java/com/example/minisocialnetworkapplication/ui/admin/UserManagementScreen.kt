@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,6 +25,7 @@ import com.example.minisocialnetworkapplication.core.domain.model.User
 @Composable
 fun UserManagementScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToProfile: (String) -> Unit,
     bottomBar: @Composable () -> Unit = {},
     viewModel: UserManagementViewModel = hiltViewModel()
 ) {
@@ -42,36 +44,63 @@ fun UserManagementScreen(
         },
         bottomBar = bottomBar
     ) { paddingValues ->
-        Box(
+        val searchQuery by viewModel.searchQuery.collectAsState()
+
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            when (val state = uiState) {
-                is UserManagementUiState.Loading -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                }
-                is UserManagementUiState.Success -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(state.users) { user ->
-                            UserItem(
-                                user = user,
-                                onBan = { viewModel.banUser(user.id) },
-                                onUnban = { viewModel.unbanUser(user.id) }
+            // Search Bar
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = viewModel::onSearchQueryChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                placeholder = { Text("Search by name or email...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                singleLine = true,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+            )
+
+            Box(modifier = Modifier.weight(1f)) {
+                when (val state = uiState) {
+                    is UserManagementUiState.Loading -> {
+                        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    }
+                    is UserManagementUiState.Success -> {
+                        if (state.users.isEmpty()) {
+                            Text(
+                                text = "No users found matching search",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.align(Alignment.Center)
                             )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(state.users) { user ->
+                                    UserItem(
+                                        user = user,
+                                        onBan = { viewModel.banUser(user.id) },
+                                        onUnban = { viewModel.unbanUser(user.id) },
+                                        onClick = { onNavigateToProfile(user.id) }
+                                    )
+                                }
+                            }
                         }
                     }
-                }
-                is UserManagementUiState.Error -> {
-                    Text(
-                        text = state.message,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                    is UserManagementUiState.Error -> {
+                        Text(
+                            text = state.message,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    }
                 }
             }
         }
@@ -82,11 +111,13 @@ fun UserManagementScreen(
 fun UserItem(
     user: User,
     onBan: () -> Unit,
-    onUnban: () -> Unit
+    onUnban: () -> Unit,
+    onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        onClick = onClick
     ) {
         Row(
             modifier = Modifier

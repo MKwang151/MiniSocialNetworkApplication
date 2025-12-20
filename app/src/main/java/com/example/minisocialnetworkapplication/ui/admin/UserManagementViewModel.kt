@@ -23,11 +23,16 @@ class UserManagementViewModel @Inject constructor(
     private val adminRepository: AdminRepository
 ) : ViewModel() {
 
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery = _searchQuery.asStateFlow()
+
+    private val _allUsers = MutableStateFlow<List<User>>(emptyList())
     private val _uiState = MutableStateFlow<UserManagementUiState>(UserManagementUiState.Loading)
     val uiState = _uiState.asStateFlow()
 
     init {
         loadUsers()
+        observeFilters()
     }
 
     private fun loadUsers() {
@@ -35,7 +40,8 @@ class UserManagementViewModel @Inject constructor(
             adminRepository.getAllUsers().collectLatest { result ->
                 when (result) {
                     is Result.Success -> {
-                        _uiState.value = UserManagementUiState.Success(result.data)
+                        _allUsers.value = result.data
+                        applyFilter()
                     }
                     is Result.Error -> {
                         _uiState.value = UserManagementUiState.Error(result.message ?: "Failed to load users")
@@ -44,6 +50,29 @@ class UserManagementViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    private fun observeFilters() {
+        viewModelScope.launch {
+            searchQuery.collectLatest { applyFilter() }
+        }
+    }
+
+    private fun applyFilter() {
+        val query = _searchQuery.value.lowercase()
+        val filtered = if (query.isEmpty()) {
+            _allUsers.value
+        } else {
+            _allUsers.value.filter { user ->
+                user.name.lowercase().contains(query) || 
+                user.email.lowercase().contains(query)
+            }
+        }
+        _uiState.value = UserManagementUiState.Success(filtered)
+    }
+
+    fun onSearchQueryChange(newQuery: String) {
+        _searchQuery.value = newQuery
     }
 
     fun banUser(userId: String) {
