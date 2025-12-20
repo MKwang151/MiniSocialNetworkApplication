@@ -145,7 +145,8 @@ fun NavGraph(
             } else {
                 // Get unread notification count from FeedViewModel for cleaner data flow on main screen
                 val feedViewModel: com.example.minisocialnetworkapplication.ui.feed.FeedViewModel = hiltViewModel()
-                val unreadCount by feedViewModel.unreadCount.collectAsStateWithLifecycle()
+                val bottomNavViewModel: com.example.minisocialnetworkapplication.ui.components.BottomNavViewModel = hiltViewModel()
+                val unreadCount by bottomNavViewModel.unreadNotificationCount.collectAsStateWithLifecycle()
 
                 FeedScreen(
                     currentUser = currentUser,
@@ -359,7 +360,12 @@ fun NavGraph(
                 },
                 shouldRefresh = profileUpdated,
                 bottomBar = {
-                    BottomNavBar(navController, authViewModel)
+                    val user by authViewModel.currentUser.collectAsState()
+                    if (user?.role == com.example.minisocialnetworkapplication.core.domain.model.User.ROLE_ADMIN) {
+                        AdminBottomNavBar(navController)
+                    } else {
+                        BottomNavBar(navController, authViewModel)
+                    }
                 }
             )
         }
@@ -838,6 +844,9 @@ fun NavGraph(
         composable(Screen.AdminUserManagement.route) {
             com.example.minisocialnetworkapplication.ui.admin.UserManagementScreen(
                 onNavigateBack = { navController.popBackStack() },
+                onNavigateToProfile = { userId ->
+                    navController.navigate(Screen.Profile.createRoute(userId))
+                },
                 bottomBar = { AdminBottomNavBar(navController) }
             )
         }
@@ -845,6 +854,9 @@ fun NavGraph(
         composable(Screen.AdminContentModeration.route) {
             com.example.minisocialnetworkapplication.ui.admin.ContentModerationScreen(
                 onNavigateBack = { navController.popBackStack() },
+                onNavigateToPostDetail = { postId ->
+                    navController.navigate(Screen.PostDetail.createRoute(postId))
+                },
                 bottomBar = { AdminBottomNavBar(navController) }
             )
         }

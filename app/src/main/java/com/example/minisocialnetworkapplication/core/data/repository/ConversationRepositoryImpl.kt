@@ -13,7 +13,6 @@ import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -22,11 +21,8 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.Dispatchers
 import com.google.firebase.firestore.FieldPath
-import com.google.firebase.ktx.Firebase
 import com.google.firebase.functions.ktx.functions
-import com.google.firebase.storage.FirebaseStorage
 
 @Singleton
 class ConversationRepositoryImpl @Inject constructor(
@@ -616,6 +612,7 @@ class ConversationRepositoryImpl @Inject constructor(
             updatedAt = data["updatedAt"] as? Timestamp ?: Timestamp.now()
         )
     }
+
     override suspend fun addAdmin(conversationId: String, userId: String): Result<Unit> {
     // ... rest of implementation stays same
         return try {
@@ -789,6 +786,7 @@ class ConversationRepositoryImpl @Inject constructor(
             Result.Error(e)
         }
     }
+
     override suspend fun leaveConversation(conversationId: String): Result<Unit> {
         return try {
             val currentUserId = auth.currentUser?.uid 

@@ -4,9 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.minisocialnetworkapplication.core.domain.repository.ConversationRepository
 import com.example.minisocialnetworkapplication.core.domain.repository.FriendRepository
+import com.example.minisocialnetworkapplication.core.domain.repository.NotificationRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
@@ -14,7 +17,9 @@ import javax.inject.Inject
 @HiltViewModel
 class BottomNavViewModel @Inject constructor(
     conversationRepository: ConversationRepository,
-    friendRepository: FriendRepository
+    friendRepository: FriendRepository,
+    notificationRepository: NotificationRepository,
+    getCurrentUserUseCase: com.example.minisocialnetworkapplication.core.domain.usecase.auth.GetCurrentUserUseCase
 ) : ViewModel() {
 
     val unreadMessageCount: StateFlow<Int> = conversationRepository.getConversations()
@@ -33,4 +38,16 @@ class BottomNavViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = 0
         )
+
+    val unreadNotificationCount: StateFlow<Int> = getCurrentUserUseCase().flatMapLatest { user ->
+        if (user != null) {
+            notificationRepository.getUnreadCount(user.id)
+        } else {
+            flowOf(0)
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 0
+    )
 }

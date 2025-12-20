@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -30,7 +29,6 @@ class FeedViewModel @Inject constructor(
     private val getFeedPagingUseCase: GetFeedPagingUseCase,
     private val toggleLikeUseCase: ToggleLikeUseCase,
     private val postRepository: com.example.minisocialnetworkapplication.core.domain.repository.PostRepository,
-    private val notificationRepository: com.example.minisocialnetworkapplication.core.domain.repository.NotificationRepository,
     private val getCurrentUserUseCase: com.example.minisocialnetworkapplication.core.domain.usecase.auth.GetCurrentUserUseCase,
     private val cacheSyncUtil: com.example.minisocialnetworkapplication.core.util.CacheSyncUtil
 ) : ViewModel() {
@@ -49,25 +47,8 @@ class FeedViewModel @Inject constructor(
             }
         }
 
-    private val _unreadCount = MutableStateFlow(0)
-    val unreadCount: StateFlow<Int> = _unreadCount.asStateFlow()
-
     init {
-        observeUnreadCount()
-    }
-
-    private fun observeUnreadCount() {
-        viewModelScope.launch {
-            getCurrentUserUseCase().collectLatest { user ->
-                if (user != null) {
-                    notificationRepository.getUnreadCount(user.id).collect { count ->
-                        _unreadCount.value = count
-                    }
-                } else {
-                    _unreadCount.value = 0
-                }
-            }
-        }
+        // Initialization logic
     }
 
     fun syncCache() {

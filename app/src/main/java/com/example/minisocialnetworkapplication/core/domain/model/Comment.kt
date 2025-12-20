@@ -1,6 +1,7 @@
 package com.example.minisocialnetworkapplication.core.domain.model
 
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.PropertyName
 
 data class Comment(
     val id: String = "",
@@ -15,6 +16,7 @@ data class Comment(
     // Reply fields
     val replyToId: String? = null,
     val replyToAuthorName: String? = null,
+    @get:PropertyName("isHidden")
     val isHidden: Boolean = false
 )
 

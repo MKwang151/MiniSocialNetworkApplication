@@ -73,11 +73,11 @@ sealed class Screen(val route: String) {
         }
 
         fun createUserReport(userId: String): String {
-            return "report/$userId/USER"
+            return "report/$userId/USER?authorId=$userId"
         }
 
         fun createGroupReport(groupId: String): String {
-            return "report/$groupId/GROUP"
+            return "report/$groupId/GROUP?groupId=$groupId"
         }
     }
 

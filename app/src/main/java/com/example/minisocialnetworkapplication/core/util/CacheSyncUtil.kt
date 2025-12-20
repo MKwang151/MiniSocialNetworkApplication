@@ -72,6 +72,13 @@ class CacheSyncUtil @Inject constructor(
                     val createdAt = doc.getTimestamp(Constants.FIELD_CREATED_AT)?.toDate()?.time
                         ?: System.currentTimeMillis()
                     val likedByMe = likedPostIds.contains(postId)
+                    val isHidden = doc.getBoolean("isHidden") ?: false
+
+                    // Skip hidden posts
+                    if (isHidden) {
+                        Timber.d("Skipping hidden post in cache sync: $postId")
+                        return@forEach
+                    }
 
                     val postEntity = PostEntity(
                         id = postId,
@@ -84,7 +91,8 @@ class CacheSyncUtil @Inject constructor(
                         commentCount = commentCount,
                         likedByMe = likedByMe,
                         createdAt = createdAt,
-                        isSyncPending = false
+                        isSyncPending = false,
+                        isHidden = isHidden
                     )
 
                     postEntities.add(postEntity)
@@ -230,6 +238,14 @@ class CacheSyncUtil @Inject constructor(
             val commentCount = postDoc.getLong(Constants.FIELD_COMMENT_COUNT)?.toInt() ?: 0
             val createdAt = postDoc.getTimestamp(Constants.FIELD_CREATED_AT)?.toDate()?.time
                 ?: System.currentTimeMillis()
+            val isHidden = postDoc.getBoolean("isHidden") ?: false
+
+            // If post is hidden, remove from cache and return
+            if (isHidden) {
+                database.postDao().deletePost(postId)
+                Timber.d("Post $postId is hidden, removed from cache")
+                return Result.Success(Unit)
+            }
 
             // Check like status
             val likedByMe = if (userId != null) {
@@ -254,7 +270,8 @@ class CacheSyncUtil @Inject constructor(
                 commentCount = commentCount,
                 likedByMe = likedByMe,
                 createdAt = createdAt,
-                isSyncPending = false
+                isSyncPending = false,
+                isHidden = isHidden
             )
 
             // Insert hoặc update trong Room
