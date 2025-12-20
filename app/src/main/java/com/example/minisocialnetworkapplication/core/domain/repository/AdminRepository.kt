@@ -31,7 +31,8 @@ interface AdminRepository {
     
     // Report Management
     fun getAllReports(): Flow<Result<List<Report>>>
-    suspend fun resolveReport(reportId: String, action: String): Result<Unit>
+    suspend fun resolveReport(reportId: String, status: String): Result<Unit>
+    suspend fun sendWarning(userId: String, content: String, type: String, targetId: String? = null, groupId: String? = null): Result<Unit>
     
     // Stats
     suspend fun getDashboardStats(): Result<AdminStats>

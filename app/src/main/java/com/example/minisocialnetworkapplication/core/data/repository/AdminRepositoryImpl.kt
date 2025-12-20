@@ -70,7 +70,9 @@ class AdminRepositoryImpl @Inject constructor(
                     trySend(Result.Error(error))
                     return@addSnapshotListener
                 }
-                val posts = snapshot?.toObjects(Post::class.java) ?: emptyList()
+                val posts = snapshot?.documents?.mapNotNull { doc ->
+                    doc.toObject(Post::class.java)?.copy(id = doc.id)
+                } ?: emptyList()
                 trySend(Result.Success(posts))
             }
         awaitClose { subscription.remove() }
@@ -165,7 +167,7 @@ class AdminRepositoryImpl @Inject constructor(
                 val groups = snapshot?.documents?.mapNotNull { doc ->
                     try {
                         Group(
-                            id = doc.getString("id") ?: "",
+                            id = doc.id,
                             name = doc.getString("name") ?: "",
                             description = doc.getString("description") ?: "",
                             avatarUrl = doc.getString("avatarUrl"),
@@ -220,25 +222,70 @@ class AdminRepositoryImpl @Inject constructor(
                     trySend(Result.Error(error))
                     return@addSnapshotListener
                 }
-                val reports = snapshot?.toObjects(Report::class.java) ?: emptyList()
+                val reports = snapshot?.documents?.mapNotNull { doc ->
+                    doc.toObject(Report::class.java)?.copy(id = doc.id)
+                } ?: emptyList()
                 trySend(Result.Success(reports))
             }
         awaitClose { subscription.remove() }
     }
 
-    override suspend fun resolveReport(reportId: String, action: String): Result<Unit> {
+    override suspend fun resolveReport(reportId: String, status: String): Result<Unit> {
         return try {
-            val status = when (action) {
+            val reportStatus = when (status) {
                 "RESOLVED" -> ReportStatus.RESOLVED
                 "DISMISSED" -> ReportStatus.DISMISSED
-                else -> ReportStatus.REVIEWED
+                else -> ReportStatus.RESOLVED
             }
             firestore.collection("reports")
                 .document(reportId)
-                .update("status", status)
+                .update("status", reportStatus.name)
                 .await()
             Result.Success(Unit)
         } catch (e: Exception) {
+            Result.Error(e)
+        }
+    }
+
+    override suspend fun sendWarning(
+        userId: String,
+        content: String,
+        type: String,
+        targetId: String?,
+        groupId: String?
+    ): Result<Unit> {
+        return try {
+            val notificationId = firestore.collection("notifications").document().id
+            val title = when (type) {
+                "POST" -> "Post Content Warning"
+                "GROUP" -> "Group Content Warning"
+                else -> "Account Warning"
+            }
+            
+            val notificationData = hashMapOf(
+                "id" to notificationId,
+                "userId" to userId,
+                "type" to "SYSTEM_WARNING",
+                "title" to title,
+                "message" to content,
+                "data" to mutableMapOf<String, Any?>(
+                    "warningType" to type
+                ).apply {
+                    targetId?.let { put("targetId", it) }
+                    groupId?.let { put("groupId", it) }
+                },
+                "read" to false,
+                "createdAt" to System.currentTimeMillis()
+            )
+            
+            firestore.collection("notifications")
+                .document(notificationId)
+                .set(notificationData)
+                .await()
+                
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to send warning notification")
             Result.Error(e)
         }
     }
