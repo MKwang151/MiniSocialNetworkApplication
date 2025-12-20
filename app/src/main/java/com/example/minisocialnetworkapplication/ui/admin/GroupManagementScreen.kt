@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,36 +43,62 @@ fun GroupManagementScreen(
         },
         bottomBar = bottomBar
     ) { paddingValues ->
-        Box(
+        val searchQuery by viewModel.searchQuery.collectAsState()
+
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            when (val state = uiState) {
-                is GroupManagementUiState.Loading -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                }
-                is GroupManagementUiState.Success -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(state.groups) { group ->
-                            GroupModItem(
-                                group = group,
-                                onBan = { viewModel.banGroup(group.id) },
-                                onUnban = { viewModel.unbanGroup(group.id) }
+            // Search Bar
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = viewModel::onSearchQueryChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                placeholder = { Text("Search by name or description...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                singleLine = true,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+            )
+
+            Box(modifier = Modifier.weight(1f)) {
+                when (val state = uiState) {
+                    is GroupManagementUiState.Loading -> {
+                        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    }
+                    is GroupManagementUiState.Success -> {
+                        if (state.groups.isEmpty()) {
+                            Text(
+                                text = "No groups found matching search",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.align(Alignment.Center)
                             )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(state.groups) { group ->
+                                    GroupModItem(
+                                        group = group,
+                                        onBan = { viewModel.banGroup(group.id) },
+                                        onUnban = { viewModel.unbanGroup(group.id) }
+                                    )
+                                }
+                            }
                         }
                     }
-                }
-                is GroupManagementUiState.Error -> {
-                    Text(
-                        text = state.message,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                    is GroupManagementUiState.Error -> {
+                        Text(
+                            text = state.message,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    }
                 }
             }
         }

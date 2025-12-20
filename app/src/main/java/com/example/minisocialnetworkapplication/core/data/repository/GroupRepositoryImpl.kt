@@ -140,6 +140,9 @@ class GroupRepositoryImpl @Inject constructor(
                             .get()
                             .addOnSuccessListener { groupSnapshot ->
                                 val groups = groupSnapshot.toObjects(Group::class.java)
+                                // Only filter out banned groups if it's NOT the user's own groups list 
+                                // (Actually getGroupsForUser is usually for the user themselves, so they should see the ban)
+                                // Let's keep it visible but they won't be able to interact.
                                 trySend(groups)
                             }
                             .addOnFailureListener { e ->
@@ -166,9 +169,10 @@ class GroupRepositoryImpl @Inject constructor(
                     }
                     return@addSnapshotListener
                 }
-                
                 val groups = snapshot?.toObjects(Group::class.java) ?: emptyList()
-                trySend(groups)
+                // Filter banned groups in memory to avoid needing a composite index for (status, createdAt)
+                val activeGroups = groups.filter { it.status != Group.STATUS_BANNED }
+                trySend(activeGroups)
             }
         awaitClose { listener.remove() }
     }
@@ -178,6 +182,9 @@ class GroupRepositoryImpl @Inject constructor(
             val snapshot = firestore.collection("groups").document(groupId).get().await()
             val group = snapshot.toObject(Group::class.java)
             if (group != null) {
+                // Remove hardcoded admin check, rely on Firestore rules for true security.
+                // Repository just returns whatever it can read.
+                
                 // Sync member count if it's wrong (self-healing)
                 val actualMembersCount = firestore.collection("groups").document(groupId)
                     .collection("members")
@@ -337,7 +344,22 @@ class GroupRepositoryImpl @Inject constructor(
                 val posts = snapshot?.documents?.mapNotNull { doc ->
                     doc.toObject(com.example.minisocialnetworkapplication.core.domain.model.Post::class.java)?.copy(id = doc.id)
                 } ?: emptyList()
-                trySend(posts)
+                
+                // Extra safety: Filter out posts if group is banned (should be blocked by rules too)
+                launch {
+                    try {
+                        val groupDoc = firestore.collection("groups").document(groupId).get().await()
+                        val status = groupDoc.getString("status")
+                        if (status == Group.STATUS_BANNED) {
+                            trySend(emptyList())
+                        } else {
+                            trySend(posts)
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "Error checking group status in getGroupPosts")
+                        trySend(emptyList())
+                    }
+                }
             }
         awaitClose { listener.remove() }
     }

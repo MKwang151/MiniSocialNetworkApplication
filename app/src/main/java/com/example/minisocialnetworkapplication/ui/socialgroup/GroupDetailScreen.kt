@@ -3,6 +3,7 @@ package com.example.minisocialnetworkapplication.ui.socialgroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,6 +34,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -49,9 +51,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.minisocialnetworkapplication.core.domain.model.Group
 import com.example.minisocialnetworkapplication.ui.components.PostCard
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -134,15 +138,18 @@ fun GroupDetailScreen(
             )
         },
         floatingActionButton = {
-            if (uiState is GroupDetailUiState.Success && (uiState as GroupDetailUiState.Success).isMember) {
-                FloatingActionButton(
-                    onClick = {
-                        val group = (uiState as GroupDetailUiState.Success).group
-                        onNavigateToComposePost(group.id)
-                    },
-                    containerColor = MaterialTheme.colorScheme.primary
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Create Post")
+            if (uiState is GroupDetailUiState.Success) {
+                val state = uiState as GroupDetailUiState.Success
+                if (state.isMember && state.group.status != Group.STATUS_BANNED) {
+                    FloatingActionButton(
+                        onClick = {
+                            val group = state.group
+                            onNavigateToComposePost(group.id)
+                        },
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Create Post")
+                    }
                 }
             }
         }
@@ -176,6 +183,35 @@ fun GroupDetailScreen(
                             onInviteClick = { onNavigateToInvite(state.group.id) },
                             onJoinRequestsClick = { onNavigateToJoinRequests(state.group.id) }
                         )
+                    }
+
+                    if (state.group.status == Group.STATUS_BANNED) {
+                        item {
+                            Surface(
+                                color = MaterialTheme.colorScheme.errorContainer,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                shape = MaterialTheme.shapes.medium
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.Report,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Text(
+                                        text = "This group has been banned for violating community standards.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     item {
@@ -318,13 +354,15 @@ fun GroupHeader(
                     if (isAdminOrCreator) {
                         OutlinedButton(
                             onClick = onManageClick,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            enabled = group.status != Group.STATUS_BANNED
                         ) {
                             Text("Manage")
                         }
                         Button(
                             onClick = onInviteClick,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            enabled = group.status != Group.STATUS_BANNED
                         ) {
                             Text("Invite")
                         }
@@ -337,13 +375,14 @@ fun GroupHeader(
                         }
                         Button(
                             onClick = onInviteClick,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            enabled = group.status != Group.STATUS_BANNED
                         ) {
                             Text("Invite")
                         }
                     }
                 }
-            } else {
+            } else if (group.status != Group.STATUS_BANNED) {
                 Button(onClick = onJoinClick, modifier = Modifier.fillMaxWidth()) {
                     Text("Join Group")
                 }

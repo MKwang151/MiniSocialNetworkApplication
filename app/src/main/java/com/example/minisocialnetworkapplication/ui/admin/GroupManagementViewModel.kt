@@ -23,11 +23,16 @@ class GroupManagementViewModel @Inject constructor(
     private val adminRepository: AdminRepository
 ) : ViewModel() {
 
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery = _searchQuery.asStateFlow()
+
+    private val _allGroups = MutableStateFlow<List<Group>>(emptyList())
     private val _uiState = MutableStateFlow<GroupManagementUiState>(GroupManagementUiState.Loading)
     val uiState = _uiState.asStateFlow()
 
     init {
         loadGroups()
+        observeFilters()
     }
 
     private fun loadGroups() {
@@ -35,7 +40,8 @@ class GroupManagementViewModel @Inject constructor(
             adminRepository.getAllGroups().collectLatest { result ->
                 when (result) {
                     is Result.Success -> {
-                        _uiState.value = GroupManagementUiState.Success(result.data)
+                        _allGroups.value = result.data
+                        applyFilter()
                     }
                     is Result.Error -> {
                         _uiState.value = GroupManagementUiState.Error(result.message ?: "Failed to load groups")
@@ -44,6 +50,29 @@ class GroupManagementViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    private fun observeFilters() {
+        viewModelScope.launch {
+            searchQuery.collectLatest { applyFilter() }
+        }
+    }
+
+    private fun applyFilter() {
+        val query = _searchQuery.value.lowercase()
+        val filtered = if (query.isEmpty()) {
+            _allGroups.value
+        } else {
+            _allGroups.value.filter { group ->
+                group.name.lowercase().contains(query) || 
+                group.description.lowercase().contains(query)
+            }
+        }
+        _uiState.value = GroupManagementUiState.Success(filtered)
+    }
+
+    fun onSearchQueryChange(newQuery: String) {
+        _searchQuery.value = newQuery
     }
 
     fun banGroup(groupId: String) {
