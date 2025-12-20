@@ -10,16 +10,16 @@ import androidx.room.Update
 @Dao
 interface PostDao {
 
-    @Query("SELECT * FROM posts WHERE approvalStatus = 'APPROVED' ORDER BY createdAt DESC")
+    @Query("SELECT * FROM posts WHERE approvalStatus = 'APPROVED' AND isHidden = 0 ORDER BY createdAt DESC")
     fun getAllPosts(): PagingSource<Int, PostEntity>
 
-    @Query("SELECT * FROM posts WHERE approvalStatus = 'APPROVED' ORDER BY createdAt DESC")
+    @Query("SELECT * FROM posts WHERE approvalStatus = 'APPROVED' AND isHidden = 0 ORDER BY createdAt DESC")
     fun getPagingSource(): PagingSource<Int, PostEntity>
 
-    @Query("SELECT * FROM posts WHERE authorId = :userId ORDER BY createdAt DESC")
+    @Query("SELECT * FROM posts WHERE authorId = :userId AND isHidden = 0 ORDER BY createdAt DESC")
     fun getUserPosts(userId: String): PagingSource<Int, PostEntity>
 
-    @Query("SELECT * FROM posts WHERE authorId = :userId ORDER BY createdAt DESC")
+    @Query("SELECT * FROM posts WHERE authorId = :userId AND isHidden = 0 ORDER BY createdAt DESC")
     fun getUserPostsPagingSource(userId: String): PagingSource<Int, PostEntity>
 
     @Query("SELECT * FROM posts WHERE id = :postId")

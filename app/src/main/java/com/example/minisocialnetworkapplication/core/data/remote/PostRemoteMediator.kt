@@ -132,6 +132,7 @@ class PostRemoteMediator(
                     val groupName = doc.getString("groupName")
                     val groupAvatarUrl = doc.getString("groupAvatarUrl")
                     val approvalStatus = doc.getString("approvalStatus") ?: "APPROVED"
+                    val isHidden = doc.getBoolean("isHidden") ?: false
 
                     // Filter: Hide posts from private groups if user is not a member
                     if (groupId != null && privateGroupIds.contains(groupId) && !userGroupIds.contains(groupId)) {
@@ -142,6 +143,12 @@ class PostRemoteMediator(
                     // Filter: Hide pending/rejected posts from feed (only show APPROVED)
                     if (approvalStatus != "APPROVED") {
                         Timber.d("Filtering out non-approved post: ${doc.id}, status: $approvalStatus")
+                        return@mapNotNull null
+                    }
+
+                    // Filter: Hide moderated/hidden posts from feed
+                    if (isHidden) {
+                        Timber.d("Filtering out hidden post: ${doc.id}")
                         return@mapNotNull null
                     }
 
@@ -167,7 +174,8 @@ class PostRemoteMediator(
                         groupId = groupId,
                         groupName = groupName,
                         groupAvatarUrl = groupAvatarUrl,
-                        approvalStatus = approvalStatus
+                        approvalStatus = approvalStatus,
+                        isHidden = isHidden
                     )
                 } catch (e: Exception) {
                     Timber.e(e, "Error parsing post: ${doc.id}")

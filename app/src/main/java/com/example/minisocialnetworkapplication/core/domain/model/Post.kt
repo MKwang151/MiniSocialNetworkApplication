@@ -1,6 +1,7 @@
 package com.example.minisocialnetworkapplication.core.domain.model
 
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.PropertyName
 
 data class Post(
     val id: String = "",
@@ -19,8 +20,10 @@ data class Post(
     val groupName: String? = null,
     val groupAvatarUrl: String? = null,
     val approvalStatus: PostApprovalStatus = PostApprovalStatus.APPROVED,
+    @get:PropertyName("isPinned")
     val isPinned: Boolean = false,
     val rejectionReason: String? = null,
+    @get:PropertyName("isHidden")
     val isHidden: Boolean = false
 ) {
     fun toggleLike(): Post {

@@ -25,7 +25,8 @@ data class PostEntity(
     val groupAvatarUrl: String? = null,
     val approvalStatus: String = "APPROVED",
     val isPinned: Boolean = false,
-    val rejectionReason: String? = null
+    val rejectionReason: String? = null,
+    val isHidden: Boolean = false
 ) {
     fun toPost(): Post {
         return Post(
@@ -49,7 +50,8 @@ data class PostEntity(
                 com.example.minisocialnetworkapplication.core.domain.model.PostApprovalStatus.APPROVED
             },
             isPinned = isPinned,
-            rejectionReason = rejectionReason
+            rejectionReason = rejectionReason,
+            isHidden = isHidden
         )
     }
 
@@ -72,7 +74,8 @@ data class PostEntity(
                 groupAvatarUrl = post.groupAvatarUrl,
                 approvalStatus = post.approvalStatus.name,
                 isPinned = post.isPinned,
-                rejectionReason = post.rejectionReason
+                rejectionReason = post.rejectionReason,
+                isHidden = post.isHidden
             )
         }
     }

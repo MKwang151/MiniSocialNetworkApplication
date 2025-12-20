@@ -555,6 +555,8 @@ class PostRepositoryImpl @Inject constructor(
                 false
             }
 
+            val isHidden = postDoc.getBoolean("isHidden") ?: false
+
             val post = Post(
                 id = postId,
                 authorId = authorId,
@@ -569,7 +571,8 @@ class PostRepositoryImpl @Inject constructor(
                 groupId = groupId,
                 groupName = groupName,
                 groupAvatarUrl = groupAvatarUrl,
-                approvalStatus = approvalStatus
+                approvalStatus = approvalStatus,
+                isHidden = isHidden
             )
 
             Result.Success(post)
