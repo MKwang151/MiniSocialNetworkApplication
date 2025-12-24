@@ -76,8 +76,6 @@ fun EditProfileScreen(
         if (uiState is EditProfileUiState.Success) {
             // Trigger profile updated callback first
             onProfileUpdated()
-            // Then navigate back to ProfileScreen
-            onNavigateBack()
         }
     }
 
@@ -237,7 +235,6 @@ fun EditProfileScreen(
             onDismissRequest = {
                 showSuccessDialog = false
                 onProfileUpdated()
-                onNavigateBack()
             },
             icon = {
                 Icon(
@@ -253,7 +250,6 @@ fun EditProfileScreen(
                     onClick = {
                         showSuccessDialog = false
                         onProfileUpdated()
-                        onNavigateBack()
                     }
                 ) {
                     Text("OK")
