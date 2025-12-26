@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -28,6 +29,8 @@ import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -35,7 +38,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -49,15 +54,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.minisocialnetworkapplication.core.domain.model.ConversationType
+
+// Modern color palette
+private val GradientPrimary = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+private val ColorAccent = Color(0xFF667EEA)
+private val ColorError = Color(0xFFE53935)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,106 +99,99 @@ fun ChatSettingsScreen(
     }
 
     if (showDeleteConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirmDialog = false },
-            title = { Text(text = "Delete Conversation?") },
-            text = { Text("This will hide the conversation from your list. Other participants will still see it.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDeleteConfirmDialog = false
-                        viewModel.deleteConversation(conversationId) {
-                            onChatDeleted()
-                        }
-                    }
-                ) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
+        ModernAlertDialog(
+            title = "Delete Conversation?",
+            message = "This will hide the conversation from your list. Other participants will still see it.",
+            confirmText = "Delete",
+            onConfirm = {
+                showDeleteConfirmDialog = false
+                viewModel.deleteConversation(conversationId) {
+                    onChatDeleted()
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirmDialog = false }) {
-                    Text("Cancel")
-                }
-            }
+            onDismiss = { showDeleteConfirmDialog = false }
         )
     }
     
     if (showLeaveConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = { showLeaveConfirmDialog = false },
-            title = { Text(text = "Leave Group?") },
-            text = { Text("You will no longer receive messages from this group.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showLeaveConfirmDialog = false
-                        viewModel.leaveGroup(conversationId) {
-                            onChatDeleted()
-                        }
-                    }
-                ) {
-                    Text("Leave", color = MaterialTheme.colorScheme.error)
+        ModernAlertDialog(
+            title = "Leave Group?",
+            message = "You will no longer receive messages from this group.",
+            confirmText = "Leave",
+            onConfirm = {
+                showLeaveConfirmDialog = false
+                viewModel.leaveGroup(conversationId) {
+                    onChatDeleted()
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { showLeaveConfirmDialog = false }) {
-                    Text("Cancel")
-                }
-            }
+            onDismiss = { showLeaveConfirmDialog = false }
         )
     }
 
     if (showPermanentDeleteConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = { showPermanentDeleteConfirmDialog = false },
-            title = { Text(text = "Delete Group Permanently?") },
-            text = { Text("This will DELETE the conversation for ALL participants. This action cannot be undone.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showPermanentDeleteConfirmDialog = false
-                        viewModel.deleteGroupPermanent(conversationId) {
-                            onChatDeleted()
-                        }
-                    }
-                ) {
-                    Text("DELETE", color = MaterialTheme.colorScheme.error)
+        ModernAlertDialog(
+            title = "Delete Group Permanently?",
+            message = "This will DELETE the conversation for ALL participants. This action cannot be undone.",
+            confirmText = "DELETE",
+            onConfirm = {
+                showPermanentDeleteConfirmDialog = false
+                viewModel.deleteGroupPermanent(conversationId) {
+                    onChatDeleted()
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { showPermanentDeleteConfirmDialog = false }) {
-                    Text("Cancel")
-                }
-            }
+            onDismiss = { showPermanentDeleteConfirmDialog = false }
         )
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Details") },
+                title = {
+                    Text(
+                        "Details",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
                 )
             )
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                        )
+                    )
+                )
+        ) {
             when (val state = uiState) {
                 is ChatSettingsUiState.Loading -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(36.dp),
+                            strokeWidth = 3.dp,
+                            color = ColorAccent
+                        )
+                    }
                 }
                 is ChatSettingsUiState.Error -> {
-                    Text(
-                        text = state.message,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                    ModernErrorState(message = state.message)
                 }
                 is ChatSettingsUiState.Success -> {
                     Column(
@@ -194,7 +200,6 @@ fun ChatSettingsScreen(
                             .verticalScroll(rememberScrollState()),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Header
                         Spacer(modifier = Modifier.height(24.dp))
                         
                         val avatarUrl = if (state.conversation.type == ConversationType.DIRECT) {
@@ -209,28 +214,39 @@ fun ChatSettingsScreen(
                             state.conversation.name ?: "Group"
                         }
                         
-                        // Avatar
-                        Box(
-                            modifier = Modifier
-                                .size(100.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant),
-                            contentAlignment = Alignment.Center
+                        // Avatar with gradient fallback
+                        Surface(
+                            modifier = Modifier.size(100.dp),
+                            shape = CircleShape,
+                            color = Color.Transparent,
+                            shadowElevation = 4.dp
                         ) {
                             if (avatarUrl != null) {
                                 AsyncImage(
                                     model = avatarUrl,
                                     contentDescription = null,
-                                    modifier = Modifier.fillMaxSize(),
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(CircleShape),
                                     contentScale = ContentScale.Crop
                                 )
                             } else {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(50.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            Brush.linearGradient(GradientPrimary),
+                                            CircleShape
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(50.dp),
+                                        tint = Color.White
+                                    )
+                                }
                             }
                         }
                         
@@ -238,7 +254,7 @@ fun ChatSettingsScreen(
                         
                         Text(
                             text = name,
-                            style = MaterialTheme.typography.titleLarge,
+                            style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold
                         )
                         
@@ -250,14 +266,13 @@ fun ChatSettingsScreen(
                             horizontalArrangement = Arrangement.Center
                         ) {
                             if (state.conversation.type == ConversationType.DIRECT && state.otherUser != null) {
-                                ActionButton(
+                                ModernActionButton(
                                     icon = Icons.Default.Person,
                                     text = "Profile",
                                     onClick = { onNavigateToProfile(state.otherUser.uid) }
                                 )
                             } else {
-                                // Add member icon
-                                ActionButton(
+                                ModernActionButton(
                                     icon = Icons.Default.PersonAdd,
                                     text = "Add",
                                     onClick = onNavigateToAddMember
@@ -266,80 +281,103 @@ fun ChatSettingsScreen(
                             
                             Spacer(modifier = Modifier.width(32.dp))
                             
-                            ActionButton(
+                            ModernActionButton(
                                 icon = if (state.conversation.isMuted) Icons.Default.NotificationsOff else Icons.Default.Notifications,
                                 text = if (state.conversation.isMuted) "Unmute" else "Mute",
                                 onClick = { viewModel.toggleMute(conversationId, state.conversation.isMuted) }
                             )
                         }
                         
-                        HorizontalDivider()
-                        
-                        // Menu Items
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            if (state.conversation.type == ConversationType.GROUP) {
-                                MenuItem(
-                                    icon = Icons.Default.Group,
-                                    text = "See chat members",
-                                    onClick = onNavigateToMembers
-                                )
-                                // Add members list item REMOVED as requested
-                                
-                                if (state.isAdmin) {
-                                    MenuItem(
-                                        icon = Icons.Default.Notifications, 
-                                        text = "Join Requests",
-                                        onClick = onNavigateToJoinRequests
-                                    )
-                                }
-
-                                if (state.isAdmin || state.isCreator) {
-                                    MenuItem(
+                        // Menu Items Card
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .shadow(4.dp, RoundedCornerShape(20.dp)),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
+                            )
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                if (state.conversation.type == ConversationType.GROUP) {
+                                    ModernMenuItem(
                                         icon = Icons.Default.Group,
-                                        text = "Edit Group",
-                                        onClick = { onNavigateToEditGroup(conversationId) }
+                                        text = "See chat members",
+                                        onClick = onNavigateToMembers
                                     )
+                                    
+                                    if (state.isAdmin) {
+                                        ModernMenuItem(
+                                            icon = Icons.Default.Notifications, 
+                                            text = "Join Requests",
+                                            onClick = onNavigateToJoinRequests
+                                        )
+                                    }
+
+                                    if (state.isAdmin || state.isCreator) {
+                                        ModernMenuItem(
+                                            icon = Icons.Default.Group,
+                                            text = "Edit Group",
+                                            onClick = { onNavigateToEditGroup(conversationId) }
+                                        )
+                                    }
                                 }
+                                ModernMenuItem(
+                                    icon = Icons.Default.Search,
+                                    text = "Search in Conversation",
+                                    onClick = onNavigateToSearch
+                                )
+                                ModernMenuItem(
+                                    icon = Icons.Default.Image,
+                                    text = "View Media",
+                                    onClick = onNavigateToMedia
+                                )
                             }
-                            MenuItem(
-                                icon = Icons.Default.Search,
-                                text = "Search in Conversation",
-                                onClick = onNavigateToSearch
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        // Danger Zone Card
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .shadow(4.dp, RoundedCornerShape(20.dp)),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surface
                             )
-                            MenuItem(
-                                icon = Icons.Default.Image,
-                                text = "View Media",
-                                onClick = onNavigateToMedia
-                            )
-                            
-                            // Delete/Leave Actions
-                            if (state.conversation.type == ConversationType.DIRECT) {
-                                MenuItem(
-                                    icon = Icons.Default.Delete,
-                                    text = "Delete chat",
-                                    textColor = MaterialTheme.colorScheme.error,
-                                    onClick = { showDeleteConfirmDialog = true }
-                                )
-                            } else {
-                                // Group Chat Actions
-                                MenuItem(
-                                    icon = Icons.Default.Block, // Or Leave icon if available
-                                    text = "Leave chat",
-                                    textColor = MaterialTheme.colorScheme.error,
-                                    onClick = { showLeaveConfirmDialog = true }
-                                )
-                                
-                                // Permanent Delete for Creator
-                                if (state.isCreator) {
-                                    MenuItem(
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                if (state.conversation.type == ConversationType.DIRECT) {
+                                    ModernMenuItem(
                                         icon = Icons.Default.Delete,
-                                        text = "Delete Group (Permanent)",
-                                        textColor = MaterialTheme.colorScheme.error,
-                                        onClick = { showPermanentDeleteConfirmDialog = true }
+                                        text = "Delete chat",
+                                        textColor = ColorError,
+                                        onClick = { showDeleteConfirmDialog = true }
                                     )
+                                } else {
+                                    ModernMenuItem(
+                                        icon = Icons.Default.Block,
+                                        text = "Leave chat",
+                                        textColor = ColorError,
+                                        onClick = { showLeaveConfirmDialog = true }
+                                    )
+                                    
+                                    if (state.isCreator) {
+                                        ModernMenuItem(
+                                            icon = Icons.Default.Delete,
+                                            text = "Delete Group (Permanent)",
+                                            textColor = ColorError,
+                                            onClick = { showPermanentDeleteConfirmDialog = true }
+                                        )
+                                    }
                                 }
                             }
                         }
+                        
+                        Spacer(modifier = Modifier.height(24.dp))
                     }
                 }
             }
@@ -348,10 +386,13 @@ fun ChatSettingsScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.3f)),
+                        .background(Color.Black.copy(alpha = 0.4f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator()
+                    CircularProgressIndicator(
+                        color = ColorAccent,
+                        strokeWidth = 3.dp
+                    )
                 }
             }
         }
@@ -359,7 +400,7 @@ fun ChatSettingsScreen(
 }
 
 @Composable
-private fun ActionButton(
+private fun ModernActionButton(
     icon: ImageVector,
     text: String,
     onClick: () -> Unit
@@ -368,26 +409,31 @@ private fun ActionButton(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.clickable(onClick = onClick)
     ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.secondaryContainer),
-            contentAlignment = Alignment.Center
+        Surface(
+            modifier = Modifier.size(52.dp),
+            shape = CircleShape,
+            color = ColorAccent.copy(alpha = 0.12f)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSecondaryContainer
-            )
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = ColorAccent,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Text(text = text, style = MaterialTheme.typography.bodySmall)
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 
 @Composable
-private fun MenuItem(
+private fun ModernMenuItem(
     icon: ImageVector,
     text: String,
     textColor: Color = MaterialTheme.colorScheme.onSurface,
@@ -397,19 +443,84 @@ private fun MenuItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(16.dp),
+            .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = textColor
-        )
+        Surface(
+            modifier = Modifier.size(40.dp),
+            shape = RoundedCornerShape(12.dp),
+            color = if (textColor == ColorError) 
+                ColorError.copy(alpha = 0.1f) 
+            else 
+                ColorAccent.copy(alpha = 0.1f)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = textColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
         Spacer(modifier = Modifier.width(16.dp))
         Text(
             text = text,
             style = MaterialTheme.typography.bodyLarge,
-            color = textColor
+            color = textColor,
+            fontWeight = FontWeight.Medium
         )
+    }
+}
+
+@Composable
+private fun ModernAlertDialog(
+    title: String,
+    message: String,
+    confirmText: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                title,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = { Text(message) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(confirmText, color = ColorError, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+        shape = RoundedCornerShape(20.dp)
+    )
+}
+
+@Composable
+private fun ModernErrorState(message: String) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "😕",
+                style = MaterialTheme.typography.displayMedium
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
     }
 }
