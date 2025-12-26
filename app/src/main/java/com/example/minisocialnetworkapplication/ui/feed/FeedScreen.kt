@@ -66,7 +66,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.TopAppBarDefaults
-
+import androidx.compose.ui.graphics.Color
 
 
 
@@ -194,7 +194,7 @@ fun FeedScreen(
                         Text(
                             text = "Feed",
                             style = MaterialTheme.typography.titleLarge,
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold
                         )
                     },
                     navigationIcon = {
@@ -227,7 +227,7 @@ fun FeedScreen(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
                     )
                 )
             },
@@ -236,7 +236,8 @@ fun FeedScreen(
                 FloatingActionButton(
                     onClick = onNavigateToComposePost,
                     containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
@@ -343,8 +344,8 @@ fun FeedContent(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                contentPadding = PaddingValues(vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp) // Instagram-like minimal spacing
             ) {
                 items(
                     count = lazyPagingItems.itemCount,
@@ -381,7 +382,10 @@ fun FeedContent(
                                     .padding(16.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                CircularProgressIndicator()
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(32.dp),
+                                    strokeWidth = 3.dp
+                                )
                             }
                         }
                     }
@@ -420,42 +424,48 @@ fun EmptyFeedView() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Instagram-like empty state icon
             Box(
                 modifier = Modifier
-                    .size(86.dp)
+                    .size(96.dp)
                     .background(
-                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                        shape = RoundedCornerShape(24.dp)
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(28.dp)
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = null,
-                    modifier = Modifier.size(34.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    modifier = Modifier.size(40.dp),
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             Text(
                 text = "No posts yet",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Be the first to share something!",
+                text = "Be the first to share something!\nTap the + button to create a post",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.4
             )
         }
     }
@@ -470,17 +480,38 @@ fun ErrorFullScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Error emoji icon
+            Box(
+                modifier = Modifier
+                    .size(84.dp)
+                    .background(
+                        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(24.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "😕",
+                    style = MaterialTheme.typography.displayMedium
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
             Text(
                 text = "Oops!",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
                 text = message,
@@ -489,13 +520,18 @@ fun ErrorFullScreen(
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             Button(
                 onClick = onRetryClick,
-                modifier = Modifier.height(46.dp)
+                modifier = Modifier.height(48.dp),
+                shape = RoundedCornerShape(14.dp)
             ) {
-                Text("Retry")
+                Text(
+                    "Retry",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }
@@ -510,7 +546,7 @@ fun ErrorItem(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(
@@ -518,10 +554,10 @@ fun ErrorItem(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier
                 .background(
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.12f),
                     RoundedCornerShape(16.dp)
                 )
-                .padding(horizontal = 14.dp, vertical = 12.dp)
+                .padding(horizontal = 16.dp, vertical = 14.dp)
         ) {
             Text(
                 text = message,
@@ -530,8 +566,14 @@ fun ErrorItem(
                 modifier = Modifier.weight(1f)
             )
 
-            TextButton(onClick = onRetryClick) {
-                Text("Retry")
+            TextButton(
+                onClick = onRetryClick,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    "Retry",
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }

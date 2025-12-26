@@ -25,11 +25,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 /**
- * Display reactions below message bubble or comment
- * UI-only upgrade: Instagram-like pill chips + animations
+ * Instagram-like reaction display with smooth animations
+ * Shows reactions as beautiful pill chips below messages/comments
  */
 @Composable
 fun ReactionDisplay(
@@ -47,47 +48,49 @@ fun ReactionDisplay(
     ) {
         reactions.forEach { (emoji, userIds) ->
             val hasMyReaction = currentUserId != null && userIds.contains(currentUserId)
-            val shape = RoundedCornerShape(999.dp)
+            val shape = RoundedCornerShape(999.dp) // Perfect pill shape
 
-
+            // Track press state for animation
             val interactionSource = remember { MutableInteractionSource() }
             val pressed by interactionSource.collectIsPressedAsState()
 
-
+            // Smooth color transitions
             val containerColor by animateColorAsState(
                 targetValue = if (hasMyReaction)
-                    MaterialTheme.colorScheme.primaryContainer
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f)
                 else
-                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
-                animationSpec = tween(180),
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                animationSpec = tween(220),
                 label = "reactionContainer"
             )
 
             val borderColor by animateColorAsState(
                 targetValue = if (hasMyReaction)
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.55f)
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                 else
-                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
-                animationSpec = tween(180),
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                animationSpec = tween(220),
                 label = "reactionBorder"
             )
 
+            // Instagram-like subtle elevation
             val elevation by animateDpAsState(
-                targetValue = if (hasMyReaction) 6.dp else 1.dp,
-                animationSpec = spring(stiffness = 450f, dampingRatio = 0.9f),
+                targetValue = if (hasMyReaction) 4.dp else 0.5.dp,
+                animationSpec = spring(stiffness = 500f, dampingRatio = 0.85f),
                 label = "reactionElevation"
             )
 
+            // Bouncy scale on press
             val scale by animateFloatAsState(
-                targetValue = if (pressed) 0.96f else 1f,
-                animationSpec = spring(stiffness = 650f, dampingRatio = 0.75f),
+                targetValue = if (pressed) 0.92f else 1f,
+                animationSpec = spring(stiffness = 700f, dampingRatio = 0.7f),
                 label = "reactionScale"
             )
 
             Surface(
                 color = containerColor,
                 shape = shape,
-                tonalElevation = if (hasMyReaction) 2.dp else 0.dp,
+                tonalElevation = if (hasMyReaction) 1.dp else 0.dp,
                 shadowElevation = elevation,
                 modifier = Modifier
                     .graphicsLayer {
@@ -95,30 +98,37 @@ fun ReactionDisplay(
                         scaleY = scale
                     }
                     .clip(shape)
-                    .border(1.dp, borderColor, shape)
+                    .border(
+                        width = if (hasMyReaction) 1.5.dp else 1.dp,
+                        color = borderColor,
+                        shape = shape
+                    )
                     .clickable(
                         interactionSource = interactionSource,
-                        indication = null
+                        indication = null // Custom animation via scale
                     ) { onReactionClick(emoji) }
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    // Emoji
                     Text(
                         text = emoji,
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = if (hasMyReaction) FontWeight.Medium else FontWeight.Normal
+                        )
                     )
 
-
-                    if (userIds.size > 0) {
+                    // Count badge (if more than 0)
+                    if (userIds.isNotEmpty()) {
                         val countBg by animateColorAsState(
                             targetValue = if (hasMyReaction)
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
                             else
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
-                            animationSpec = tween(180),
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                            animationSpec = tween(220),
                             label = "countBg"
                         )
 
@@ -127,7 +137,7 @@ fun ReactionDisplay(
                                 MaterialTheme.colorScheme.primary
                             else
                                 MaterialTheme.colorScheme.onSurfaceVariant,
-                            animationSpec = tween(180),
+                            animationSpec = tween(220),
                             label = "countColor"
                         )
 
@@ -135,12 +145,14 @@ fun ReactionDisplay(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(999.dp))
                                 .background(countBg)
-                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                                .padding(horizontal = 7.dp, vertical = 2.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = userIds.size.toString(),
-                                style = MaterialTheme.typography.labelSmall,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = if (hasMyReaction) FontWeight.SemiBold else FontWeight.Medium
+                                ),
                                 color = countColor
                             )
                         }
