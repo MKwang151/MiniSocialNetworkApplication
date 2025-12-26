@@ -8,11 +8,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Message
+import androidx.compose.material.icons.filled.AlternateEmail
+import androidx.compose.material.icons.filled.Article
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Comment
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsNone
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -20,16 +28,30 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.minisocialnetworkapplication.core.domain.model.Notification
 import com.example.minisocialnetworkapplication.core.domain.model.NotificationType
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+// Modern color palette
+private val ColorAccent = Color(0xFF667EEA)
+private val ColorSuccess = Color(0xFF11998E)
+private val ColorLike = Color(0xFFFF416C)
+private val ColorComment = Color(0xFF4FACFE)
+private val ColorFriend = Color(0xFF764BA2)
+private val ColorGroup = Color(0xFFF7971E)
+private val ColorWarning = Color(0xFFFFA000)
+private val GradientPrimary = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,11 +69,12 @@ fun NotificationsScreen(
                         Text(
                             text = "Notifications",
                             style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp
                         )
                         Text(
                             text = "Stay updated",
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -70,62 +93,45 @@ fun NotificationsScreen(
             )
         }
     ) { paddingValues ->
-        when (val state = uiState) {
-            is NotificationsUiState.Loading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(36.dp),
-                        strokeWidth = 3.dp
-                    )
-                }
-            }
-
-            is NotificationsUiState.Success -> {
-                if (state.notifications.isEmpty()) {
-                    EmptyNotificationsView(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues)
-                    )
-                } else {
-                    NotificationsList(
-                        notifications = state.notifications,
-                        onAcceptInvitation = { invitationId, notificationId ->
-                            viewModel.acceptInvitation(invitationId, notificationId)
-                        },
-                        onDeclineInvitation = { invitationId, notificationId ->
-                            viewModel.declineInvitation(invitationId, notificationId)
-                        },
-                        modifier = Modifier.padding(paddingValues)
-                    )
-                }
-            }
-
-            is NotificationsUiState.Error -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "😕",
-                            style = MaterialTheme.typography.displayMedium
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = state.message,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error,
-                            textAlign = TextAlign.Center
+                    )
+                )
+                .padding(paddingValues)
+        ) {
+            when (val state = uiState) {
+                is NotificationsUiState.Loading -> {
+                    ModernLoadingView()
+                }
+
+                is NotificationsUiState.Success -> {
+                    if (state.notifications.isEmpty()) {
+                        ModernEmptyNotificationsView()
+                    } else {
+                        NotificationsList(
+                            notifications = state.notifications,
+                            onAcceptInvitation = { invitationId, notificationId ->
+                                viewModel.acceptInvitation(invitationId, notificationId)
+                            },
+                            onDeclineInvitation = { invitationId, notificationId ->
+                                viewModel.declineInvitation(invitationId, notificationId)
+                            }
                         )
                     }
+                }
+
+                is NotificationsUiState.Error -> {
+                    ModernErrorView(
+                        message = state.message,
+                        onRetry = { viewModel.refresh() }
+                    )
                 }
             }
         }
@@ -142,10 +148,10 @@ private fun NotificationsList(
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        items(notifications) { notification ->
-            NotificationItem(
+        items(notifications, key = { it.id }) { notification ->
+            ModernNotificationItem(
                 notification = notification,
                 onAcceptInvitation = onAcceptInvitation,
                 onDeclineInvitation = onDeclineInvitation
@@ -155,69 +161,102 @@ private fun NotificationsList(
 }
 
 @Composable
-private fun NotificationItem(
+private fun ModernNotificationItem(
     notification: Notification,
     onAcceptInvitation: (String, String) -> Unit,
     onDeclineInvitation: (String, String) -> Unit
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        color = if (notification.isRead) {
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-        } else {
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.18f)
-        },
-        tonalElevation = 0.dp
+    val (iconBgColor, icon) = getNotificationStyle(notification.type)
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                if (notification.isRead) 2.dp else 4.dp,
+                RoundedCornerShape(16.dp)
+            ),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (notification.isRead) {
+                MaterialTheme.colorScheme.surface
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        )
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(14.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                // Unread indicator dot
-                if (!notification.isRead) {
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 6.dp, end = 10.dp)
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary)
-                    )
+                // Type icon with colored background
+                Surface(
+                    modifier = Modifier.size(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = iconBgColor.copy(alpha = 0.12f)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp),
+                            tint = iconBgColor
+                        )
+                    }
                 }
                 
+                Spacer(modifier = Modifier.width(12.dp))
+                
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = notification.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = if (notification.isRead) FontWeight.Medium else FontWeight.SemiBold
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Unread dot
+                        if (!notification.isRead) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(ColorAccent)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        
+                        Text(
+                            text = notification.title,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = if (notification.isRead) FontWeight.Medium else FontWeight.Bold
+                        )
+                    }
+                    
                     Spacer(modifier = Modifier.height(4.dp))
+                    
                     Text(
                         text = notification.message,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 20.sp
                     )
+                    
                     Spacer(modifier = Modifier.height(6.dp))
+                    
                     Text(
                         text = formatTimestamp(notification.createdAt),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
                 }
             }
 
-            // Show action buttons for group invitations - Instagram-like pills
+            // Show action buttons for group invitations
             if (notification.type == NotificationType.GROUP_INVITATION) {
                 Spacer(modifier = Modifier.height(14.dp))
+                
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Accept button - filled pill
+                    // Accept button
                     Button(
                         onClick = {
                             val invitationId = notification.data["invitationId"] ?: ""
@@ -225,10 +264,10 @@ private fun NotificationItem(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(40.dp),
-                        shape = RoundedCornerShape(999.dp),
+                            .height(42.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
+                            containerColor = ColorSuccess
                         )
                     ) {
                         Icon(
@@ -243,7 +282,7 @@ private fun NotificationItem(
                         )
                     }
 
-                    // Decline button - outlined pill
+                    // Decline button
                     OutlinedButton(
                         onClick = {
                             val invitationId = notification.data["invitationId"] ?: ""
@@ -251,18 +290,28 @@ private fun NotificationItem(
                         },
                         modifier = Modifier
                             .weight(1f)
-                            .height(40.dp),
-                        shape = RoundedCornerShape(999.dp)
+                            .height(42.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(
+                            brush = Brush.linearGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
+                                    MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+                                )
+                            )
+                        )
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = null,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.error
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Decline",
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.error
                         )
                     }
                 }
@@ -272,46 +321,162 @@ private fun NotificationItem(
 }
 
 @Composable
-private fun EmptyNotificationsView(modifier: Modifier = Modifier) {
+private fun getNotificationStyle(type: NotificationType): Pair<Color, ImageVector> {
+    return when (type) {
+        NotificationType.POST_LIKE -> ColorLike to Icons.Default.Favorite
+        NotificationType.COMMENT -> ColorComment to Icons.Default.Comment
+        NotificationType.MENTION -> ColorComment to Icons.Default.AlternateEmail
+        NotificationType.FRIEND_REQUEST -> ColorFriend to Icons.Default.PersonAdd
+        NotificationType.FRIEND_ACCEPTED -> ColorSuccess to Icons.Default.PersonAdd
+        NotificationType.GROUP_INVITATION -> ColorGroup to Icons.Default.Group
+        NotificationType.GROUP_METADATA_UPDATE -> ColorGroup to Icons.Default.Group
+        NotificationType.NEW_POST -> ColorAccent to Icons.Default.Article
+        NotificationType.NEW_MESSAGE -> ColorAccent to Icons.AutoMirrored.Filled.Message
+        NotificationType.SYSTEM_WARNING -> ColorWarning to Icons.Default.Warning
+    }
+}
+
+@Composable
+private fun ModernLoadingView() {
     Box(
-        modifier = modifier.padding(32.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(48.dp),
+                strokeWidth = 3.dp,
+                color = ColorAccent
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Loading notifications...",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModernEmptyNotificationsView(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Instagram-like empty state icon
+            // Gradient icon background
             Box(
                 modifier = Modifier
-                    .size(96.dp)
-                    .clip(RoundedCornerShape(28.dp))
+                    .size(100.dp)
                     .background(
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
+                        Brush.linearGradient(
+                            colors = listOf(
+                                ColorAccent.copy(alpha = 0.15f),
+                                ColorFriend.copy(alpha = 0.15f)
+                            )
+                        ),
+                        RoundedCornerShape(28.dp)
                     ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.NotificationsNone,
                     contentDescription = null,
-                    modifier = Modifier.size(44.dp),
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                    modifier = Modifier.size(48.dp),
+                    tint = ColorAccent
                 )
             }
-            Spacer(modifier = Modifier.height(20.dp))
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
             Text(
                 text = "No notifications",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
             )
+            
             Spacer(modifier = Modifier.height(8.dp))
+            
             Text(
                 text = "You're all caught up!\nWhen you get notifications, they'll show up here",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
-                lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.3
+                lineHeight = 22.sp
             )
+        }
+    }
+}
+
+@Composable
+private fun ModernErrorView(
+    message: String,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            // Error emoji
+            Box(
+                modifier = Modifier
+                    .size(84.dp)
+                    .background(
+                        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(24.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "😕",
+                    style = MaterialTheme.typography.displayMedium
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(20.dp))
+            
+            Text(
+                text = "Oops!",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Button(
+                onClick = onRetry,
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ColorAccent
+                )
+            ) {
+                Icon(
+                    Icons.Default.Refresh,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("Retry", fontWeight = FontWeight.SemiBold)
+            }
         }
     }
 }

@@ -95,6 +95,14 @@ import java.util.Locale
 import androidx.compose.material3.Surface
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.shadow
+import androidx.compose.material3.CardDefaults
+
+// Modern color palette
+private val ColorAccent = Color(0xFF667EEA)
+private val ColorSuccess = Color(0xFF4CAF50)
+private val GradientPrimary = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
 
 
 
@@ -283,41 +291,51 @@ fun ChatDetailScreen(
                                 uiState.conversation?.id?.let { onNavigateToSettings(it) }
                             }
                     ) {
-                        // Avatar
-                        Box(modifier = Modifier.size(42.dp)) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
-                                contentAlignment = Alignment.Center
+                        // Avatar with gradient fallback
+                        Box(modifier = Modifier.size(44.dp)) {
+                            Surface(
+                                modifier = Modifier.fillMaxSize(),
+                                shape = CircleShape,
+                                color = Color.Transparent
                             ) {
                                 if (avatarUrl != null) {
                                     AsyncImage(
                                         model = avatarUrl,
                                         contentDescription = null,
-                                        modifier = Modifier.fillMaxSize(),
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .clip(CircleShape),
                                         contentScale = ContentScale.Crop
                                     )
                                 } else {
-                                    Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(22.dp),
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(
+                                                Brush.linearGradient(GradientPrimary),
+                                                CircleShape
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Person,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(22.dp),
+                                            tint = Color.White
+                                        )
+                                    }
                                 }
                             }
 
-                            // Online dot (giữ nguyên logic)
+                            // Online dot
                             if (uiState.otherUser?.isOnline == true) {
                                 Box(
                                     modifier = Modifier
-                                        .size(12.dp)
+                                        .size(14.dp)
                                         .align(Alignment.BottomEnd)
                                         .background(MaterialTheme.colorScheme.surface, CircleShape)
                                         .padding(2.dp)
-                                        .background(Color(0xFF4CAF50), CircleShape)
+                                        .background(ColorSuccess, CircleShape)
                                 )
                             }
                         }
@@ -516,11 +534,39 @@ fun ChatDetailScreen(
                     }
 
                     uiState.messages.isEmpty() -> {
-                        Text(
-                            text = "No messages yet. Say hello! 👋",
+                        Column(
                             modifier = Modifier.align(Alignment.Center),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .background(
+                                        Brush.linearGradient(
+                                            colors = listOf(
+                                                ColorAccent.copy(alpha = 0.12f),
+                                                Color(0xFF764BA2).copy(alpha = 0.12f)
+                                            )
+                                        ),
+                                        RoundedCornerShape(24.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("👋", style = MaterialTheme.typography.displaySmall)
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "Start the conversation",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Say hello!",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
 
                     else -> {
@@ -763,9 +809,9 @@ private fun MessageBubble(
     onReactionClick: (String) -> Unit = {}
 ) {
     val bubbleColor = if (isOutgoing) {
-        MaterialTheme.colorScheme.primary
+        ColorAccent
     } else {
-        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f)
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f)
     }
 
     val textColor = if (isOutgoing) {
@@ -1238,7 +1284,7 @@ private fun MessageInput(
                     .clip(CircleShape)
                     .background(
                         if (text.isNotBlank() && !isSending)
-                            MaterialTheme.colorScheme.primary
+                            ColorAccent
                         else
                             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                     )

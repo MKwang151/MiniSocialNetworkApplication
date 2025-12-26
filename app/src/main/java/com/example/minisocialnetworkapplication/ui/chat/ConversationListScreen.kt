@@ -20,18 +20,25 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -45,10 +52,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -62,8 +72,12 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import androidx.compose.material3.OutlinedTextFieldDefaults
 
+// Modern color palette
+private val ColorAccent = Color(0xFF667EEA)
+private val ColorSuccess = Color(0xFF4CAF50)
+private val ColorError = Color(0xFFFF416C)
+private val GradientPrimary = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,12 +90,9 @@ fun ConversationListScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val currentUserId = viewModel.currentUserId
     
-    // State for long press bottom sheet
     var selectedConversation by remember { mutableStateOf<ConversationWithUser?>(null) }
     val sheetState = rememberModalBottomSheetState()
     
-    // Refresh when screen resumes (e.g., after navigating back from chat)
-    // This uses cached data, not fresh Firestore fetch
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -103,54 +114,78 @@ fun ConversationListScreen(
         ModalBottomSheet(
             onDismissRequest = { selectedConversation = null },
             sheetState = sheetState,
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
                     .padding(bottom = 32.dp)
             ) {
                 // Pin/Unpin option
-                Row(
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
                             viewModel.pinConversation(conv.conversation.id, !isPinned)
                             selectedConversation = null
-                        }
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    )
                 ) {
-                    Text(
-                        text = if (isPinned) "📍" else "📌",
-                        modifier = Modifier.padding(end = 12.dp)
-                    )
-                    Text(
-                        text = if (isPinned) "Unpin conversation" else "Pin conversation",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.PushPin,
+                            contentDescription = null,
+                            tint = ColorAccent,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(Modifier.width(14.dp))
+                        Text(
+                            text = if (isPinned) "Unpin conversation" else "Pin conversation",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
                 
+                Spacer(Modifier.height(10.dp))
+                
                 // Delete option
-                Row(
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
                             viewModel.hideConversationForUser(conv.conversation.id)
                             selectedConversation = null
-                        }
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = ColorError.copy(alpha = 0.1f)
+                    )
                 ) {
-                    Text(
-                        text = "🗑️",
-                        modifier = Modifier.padding(end = 12.dp)
-                    )
-                    Text(
-                        text = "Delete conversation",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.error
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("🗑️", modifier = Modifier.padding(end = 12.dp))
+                        Text(
+                            text = "Delete conversation",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = ColorError
+                        )
+                    }
                 }
             }
         }
@@ -164,11 +199,12 @@ fun ConversationListScreen(
                         Text(
                             text = "Messages",
                             style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp
                         )
                         Text(
                             text = "Keep in touch with friends",
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -181,101 +217,91 @@ fun ConversationListScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onNavigateToNewChat,
-                containerColor = MaterialTheme.colorScheme.primary,
-                shape = RoundedCornerShape(16.dp)
+                containerColor = ColorAccent,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.shadow(8.dp, RoundedCornerShape(16.dp))
             ) {
-                Icon(Icons.Default.Edit, contentDescription = "New Chat")
+                Icon(Icons.Default.Edit, contentDescription = "New Chat", tint = Color.White)
             }
         },
         bottomBar = bottomBar
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                        )
+                    )
+                )
                 .padding(padding)
         ) {
-            // Search bar
-            OutlinedTextField(
-                value = uiState.searchQuery,
-                onValueChange = { viewModel.onSearchQueryChange(it) },
-                placeholder = { Text("Search") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                shape = RoundedCornerShape(999.dp),
-                singleLine = true,
-                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                )
-            )
-
-
-            when {
-                uiState.isLoading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
-
-                uiState.error != null -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = uiState.error ?: "Unknown error",
-                            color = MaterialTheme.colorScheme.error
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Search bar
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    )
+                ) {
+                    OutlinedTextField(
+                        value = uiState.searchQuery,
+                        onValueChange = { viewModel.onSearchQueryChange(it) },
+                        placeholder = { Text("Search messages...") },
+                        leadingIcon = { 
+                            Icon(
+                                Icons.Default.Search, 
+                                contentDescription = null,
+                                tint = ColorAccent
+                            ) 
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent
                         )
-                    }
+                    )
                 }
 
-                uiState.conversations.isEmpty() -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "No conversations yet",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Start chatting with your friends!",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                when {
+                    uiState.isLoading -> {
+                        ModernLoadingView()
                     }
-                }
 
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        items(
-                            items = uiState.conversations,
-                            key = { it.conversation.id }
-                        ) { conversationWithUser ->
-                            ConversationItem(
-                                conversationWithUser = conversationWithUser,
-                                currentUserId = currentUserId ?: "",
-                                onClick = {
-                                    viewModel.markAsRead(conversationWithUser.conversation.id)
-                                    onNavigateToChat(conversationWithUser.conversation.id)
-                                },
-                                onLongClick = {
-                                    selectedConversation = conversationWithUser
-                                }
-                            )
+                    uiState.error != null -> {
+                        ModernErrorView(message = uiState.error ?: "Unknown error")
+                    }
+
+                    uiState.conversations.isEmpty() -> {
+                        ModernEmptyView()
+                    }
+
+                    else -> {
+                        LazyColumn(modifier = Modifier.fillMaxSize()) {
+                            items(
+                                items = uiState.conversations,
+                                key = { it.conversation.id }
+                            ) { conversationWithUser ->
+                                ModernConversationItem(
+                                    conversationWithUser = conversationWithUser,
+                                    currentUserId = currentUserId ?: "",
+                                    onClick = {
+                                        viewModel.markAsRead(conversationWithUser.conversation.id)
+                                        onNavigateToChat(conversationWithUser.conversation.id)
+                                    },
+                                    onLongClick = {
+                                        selectedConversation = conversationWithUser
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -286,7 +312,7 @@ fun ConversationListScreen(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ConversationItem(
+private fun ModernConversationItem(
     conversationWithUser: ConversationWithUser,
     currentUserId: String,
     onClick: () -> Unit,
@@ -312,85 +338,99 @@ private fun ConversationItem(
     val lastMessageTime =
         conversation.lastMessage?.timestamp?.toDate()?.let { formatTimestamp(it) } ?: ""
 
-    // UI-only: pinned background nhẹ
-    val containerColor =
-        if (conversation.isPinned) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.08f)
-        else MaterialTheme.colorScheme.surface
-
-    androidx.compose.material3.Surface(
-        color = containerColor,
-        tonalElevation = 0.dp
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 5.dp)
+            .shadow(
+                if (conversation.isPinned) 4.dp else 2.dp,
+                RoundedCornerShape(16.dp)
+            )
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (conversation.isPinned) 
+                ColorAccent.copy(alpha = 0.04f) 
+            else 
+                MaterialTheme.colorScheme.surface
+        )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Avatar
+            // Avatar with gradient fallback
             Box(modifier = Modifier.size(56.dp)) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    shape = CircleShape,
+                    color = Color.Transparent
                 ) {
                     if (avatarUrl != null) {
                         AsyncImage(
                             model = avatarUrl,
                             contentDescription = "Avatar",
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape),
                             contentScale = ContentScale.Crop
                         )
                     } else {
-                        val icon = if (conversation.type == ConversationType.GROUP)
-                            Icons.Default.Group else Icons.Default.Person
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            modifier = Modifier.size(26.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.linearGradient(GradientPrimary),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            val icon = if (conversation.type == ConversationType.GROUP)
+                                Icons.Default.Group else Icons.Default.Person
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                modifier = Modifier.size(26.dp),
+                                tint = Color.White
+                            )
+                        }
                     }
                 }
 
-                // Online/status dot (giữ nguyên logic)
+                // Online/status dot
                 val minutesAgo = otherUser?.getMinutesAgo()
                 when {
                     otherUser?.isOnline == true -> {
                         Box(
                             modifier = Modifier
-                                .size(14.dp)
+                                .size(16.dp)
                                 .align(Alignment.BottomEnd)
                                 .background(MaterialTheme.colorScheme.surface, CircleShape)
                                 .padding(2.dp)
-                                .background(Color(0xFF4CAF50), CircleShape)
+                                .background(ColorSuccess, CircleShape)
                         )
                     }
 
                     minutesAgo != null -> {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .background(MaterialTheme.colorScheme.surface, CircleShape)
-                                .padding(1.dp)
-                                .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
-                                .padding(horizontal = 4.dp, vertical = 2.dp),
-                            contentAlignment = Alignment.Center
+                        Surface(
+                            modifier = Modifier.align(Alignment.BottomEnd),
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant
                         ) {
                             Text(
                                 text = "${minutesAgo}m",
                                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                             )
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Row(
@@ -398,14 +438,21 @@ private fun ConversationItem(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (conversation.isPinned) {
-                        Text("📌", modifier = Modifier.padding(end = 6.dp))
+                        Icon(
+                            Icons.Default.PushPin,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(14.dp)
+                                .padding(end = 4.dp),
+                            tint = ColorAccent
+                        )
                     }
 
                     Text(
                         text = displayName,
-                        style = MaterialTheme.typography.bodyLarge,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = if (conversation.unreadCount > 0)
-                            FontWeight.SemiBold else FontWeight.Medium,
+                            FontWeight.Bold else FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
@@ -413,9 +460,9 @@ private fun ConversationItem(
 
                     Text(
                         text = lastMessageTime,
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.labelSmall,
                         color = if (conversation.unreadCount > 0)
-                            MaterialTheme.colorScheme.primary
+                            ColorAccent
                         else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -441,20 +488,17 @@ private fun ConversationItem(
 
                     if (conversation.unreadCount > 0) {
                         Spacer(modifier = Modifier.width(10.dp))
-                        Box(
-                            modifier = Modifier
-                                .height(22.dp)
-                                .clip(RoundedCornerShape(999.dp))
-                                .background(MaterialTheme.colorScheme.primary)
-                                .padding(horizontal = 8.dp),
-                            contentAlignment = Alignment.Center
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = ColorAccent
                         ) {
                             Text(
                                 text = if (conversation.unreadCount > 99) "99+"
                                 else conversation.unreadCount.toString(),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                fontWeight = FontWeight.SemiBold
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
                     }
@@ -462,40 +506,138 @@ private fun ConversationItem(
             }
         }
     }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 84.dp) // canh với avatar
-            .height(0.5.dp)
-            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
-    )
 }
 
+@Composable
+private fun ModernLoadingView() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(48.dp),
+                strokeWidth = 3.dp,
+                color = ColorAccent
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Loading messages...",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModernErrorView(message: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                modifier = Modifier
+                    .size(84.dp)
+                    .background(
+                        ColorError.copy(alpha = 0.1f),
+                        RoundedCornerShape(24.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("😕", style = MaterialTheme.typography.displayMedium)
+            }
+            Spacer(modifier = Modifier.height(20.dp))
+            Text(
+                text = "Oops!",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModernEmptyView() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                ColorAccent.copy(alpha = 0.12f),
+                                Color(0xFF764BA2).copy(alpha = 0.12f)
+                            )
+                        ),
+                        RoundedCornerShape(28.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.ChatBubbleOutline,
+                    contentDescription = null,
+                    modifier = Modifier.size(48.dp),
+                    tint = ColorAccent
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Text(
+                text = "No conversations yet",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(
+                text = "Start chatting with your friends!\nTap + to begin",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                lineHeight = 22.sp
+            )
+        }
+    }
+}
 
 private fun formatTimestamp(date: Date): String {
     val now = Calendar.getInstance()
     val messageTime = Calendar.getInstance().apply { time = date }
 
     return when {
-        // Today: show time
         now.get(Calendar.DATE) == messageTime.get(Calendar.DATE) &&
         now.get(Calendar.MONTH) == messageTime.get(Calendar.MONTH) &&
         now.get(Calendar.YEAR) == messageTime.get(Calendar.YEAR) -> {
             SimpleDateFormat("HH:mm", Locale.getDefault()).format(date)
         }
-        // Yesterday
         now.get(Calendar.DATE) - messageTime.get(Calendar.DATE) == 1 &&
         now.get(Calendar.MONTH) == messageTime.get(Calendar.MONTH) &&
         now.get(Calendar.YEAR) == messageTime.get(Calendar.YEAR) -> {
             "Yesterday"
         }
-        // This week: show day name
         now.get(Calendar.WEEK_OF_YEAR) == messageTime.get(Calendar.WEEK_OF_YEAR) &&
         now.get(Calendar.YEAR) == messageTime.get(Calendar.YEAR) -> {
             SimpleDateFormat("EEE", Locale.getDefault()).format(date)
         }
-        // Older: show date
         else -> {
             SimpleDateFormat("dd/MM/yy", Locale.getDefault()).format(date)
         }

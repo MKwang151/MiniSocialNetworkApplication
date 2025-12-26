@@ -21,7 +21,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Message
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -35,6 +40,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -47,18 +53,29 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.example.minisocialnetworkapplication.core.domain.model.Friend
 import com.example.minisocialnetworkapplication.ui.profile.ErrorView
 import com.example.minisocialnetworkapplication.ui.profile.LoadingView
 
+// Modern color palette
+private val ColorAccent = Color(0xFF667EEA)
+private val ColorSuccess = Color(0xFF11998E)
+private val ColorError = Color(0xFFFF416C)
+private val GradientPrimary = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+
 private val ScreenPadding = 16.dp
-private val CardRadius = 20.dp
+private val CardRadius = 18.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,106 +97,130 @@ fun FriendScreen(
                         Text(
                             text = "Friends",
                             style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp
                         )
                         Text(
                             text = "Connect & chat instantly",
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
                 )
             )
         },
-        bottomBar = bottomBar,
-        containerColor = MaterialTheme.colorScheme.surface
+        bottomBar = bottomBar
     ) { paddingValues ->
-
-        LazyColumn(
+        Box(
             modifier = Modifier
-                .padding(paddingValues)
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surface),
-        ) {
-
-            item { SectionHeader(title = "Friend Requests") }
-
-            // Friend request list (logic giữ nguyên)
-            when (val state = requestState) {
-                is FriendRequestUiState.Loading -> item {
-                    LoadingView(modifier = Modifier.padding(ScreenPadding))
-                }
-                is FriendRequestUiState.Success -> {
-                    friendRequests(
-                        requestList = state.friendRequests,
-                        onNavigateToProfile = onNavigateToProfile,
-                        onAcceptRequest = viewModel::onAcceptRequest,
-                        onDeclineRequest = viewModel::onDeclineRequest
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                        )
                     )
-                }
-                is FriendRequestUiState.Error -> item {
-                    ErrorView(
-                        message = state.message,
-                        onRetryClick = viewModel::refresh,
-                        modifier = Modifier.padding(ScreenPadding)
-                    )
-                }
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(6.dp))
-                HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = ScreenPadding),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
                 )
-                Spacer(modifier = Modifier.height(6.dp))
-            }
+                .padding(paddingValues)
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                item { ModernSectionHeader(title = "Friend Requests", icon = Icons.Default.PersonAdd) }
 
-            item { SectionHeader(title = "Friends") }
-
-            // Friend list (logic giữ nguyên)
-            when (val state = friendState) {
-                is FriendUiState.Loading -> item {
-                    LoadingView(modifier = Modifier.padding(ScreenPadding))
+                when (val state = requestState) {
+                    is FriendRequestUiState.Loading -> item {
+                        LoadingView(modifier = Modifier.padding(ScreenPadding))
+                    }
+                    is FriendRequestUiState.Success -> {
+                        friendRequests(
+                            requestList = state.friendRequests,
+                            onNavigateToProfile = onNavigateToProfile,
+                            onAcceptRequest = viewModel::onAcceptRequest,
+                            onDeclineRequest = viewModel::onDeclineRequest
+                        )
+                    }
+                    is FriendRequestUiState.Error -> item {
+                        ErrorView(
+                            message = state.message,
+                            onRetryClick = viewModel::refresh,
+                            modifier = Modifier.padding(ScreenPadding)
+                        )
+                    }
                 }
-                is FriendUiState.Success -> {
-                    friends(
-                        friendList = state.friends,
-                        onNavigateToProfile = onNavigateToProfile,
-                        onNavigateToSearch = onNavigateToSearch,
-                        onNavigateToChat = onNavigateToChat,
-                        onUnfriend = viewModel::onUnfriend
+
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = ScreenPadding),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                     )
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
-                is FriendUiState.Error -> item {
-                    ErrorView(
-                        message = state.message,
-                        onRetryClick = viewModel::refresh,
-                        modifier = Modifier.padding(ScreenPadding)
-                    )
-                }
-            }
 
-            item { Spacer(modifier = Modifier.height(12.dp)) }
+                item { ModernSectionHeader(title = "Friends", icon = Icons.Default.Group) }
+
+                when (val state = friendState) {
+                    is FriendUiState.Loading -> item {
+                        LoadingView(modifier = Modifier.padding(ScreenPadding))
+                    }
+                    is FriendUiState.Success -> {
+                        friends(
+                            friendList = state.friends,
+                            onNavigateToProfile = onNavigateToProfile,
+                            onNavigateToSearch = onNavigateToSearch,
+                            onNavigateToChat = onNavigateToChat,
+                            onUnfriend = viewModel::onUnfriend
+                        )
+                    }
+                    is FriendUiState.Error -> item {
+                        ErrorView(
+                            message = state.message,
+                            onRetryClick = viewModel::refresh,
+                            modifier = Modifier.padding(ScreenPadding)
+                        )
+                    }
+                }
+
+                item { Spacer(modifier = Modifier.height(16.dp)) }
+            }
         }
     }
 }
 
 @Composable
-private fun SectionHeader(title: String) {
+private fun ModernSectionHeader(
+    title: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = ScreenPadding, vertical = 10.dp),
+            .padding(horizontal = ScreenPadding, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Surface(
+            color = ColorAccent.copy(alpha = 0.1f),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier
+                    .padding(8.dp)
+                    .size(20.dp),
+                tint = ColorAccent
+            )
+        }
+        Spacer(Modifier.width(12.dp))
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
+            fontWeight = FontWeight.Bold
         )
     }
 }
@@ -192,9 +233,10 @@ fun LazyListScope.friendRequests(
 ) {
     if (requestList.isEmpty()) {
         item {
-            EmptyBlock(
+            ModernEmptyBlock(
+                emoji = "📩",
                 title = "No friend requests",
-                subtitle = "When someone requests, it will appear here."
+                subtitle = "When someone sends a request, it will appear here."
             )
         }
     } else {
@@ -202,7 +244,7 @@ fun LazyListScope.friendRequests(
             items = requestList,
             key = { it.friendId }
         ) { friend ->
-            FriendRequestCard(
+            ModernFriendRequestCard(
                 friend = friend,
                 onNavigateToProfile = onNavigateToProfile,
                 onAcceptRequest = onAcceptRequest,
@@ -221,10 +263,12 @@ fun LazyListScope.friends(
 ) {
     if (friendList.isEmpty()) {
         item {
-            EmptyBlock(
+            ModernEmptyBlock(
+                emoji = "👥",
                 title = "No friends yet",
                 subtitle = "Search and add friends to start chatting.",
                 actionText = "Search",
+                actionIcon = Icons.Default.Search,
                 onActionClick = onNavigateToSearch
             )
         }
@@ -233,7 +277,7 @@ fun LazyListScope.friends(
             items = friendList,
             key = { it.friendId }
         ) { friend ->
-            FriendCard(
+            ModernFriendCard(
                 friend = friend,
                 onNavigateToProfile = onNavigateToProfile,
                 onNavigateToChat = onNavigateToChat,
@@ -244,10 +288,12 @@ fun LazyListScope.friends(
 }
 
 @Composable
-private fun EmptyBlock(
+private fun ModernEmptyBlock(
+    emoji: String,
     title: String,
     subtitle: String,
     actionText: String? = null,
+    actionIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
     onActionClick: (() -> Unit)? = null
 ) {
     Column(
@@ -258,44 +304,57 @@ private fun EmptyBlock(
     ) {
         Box(
             modifier = Modifier
-                .size(72.dp)
-                .clip(RoundedCornerShape(22.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)),
+                .size(90.dp)
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            ColorAccent.copy(alpha = 0.12f),
+                            Color(0xFF764BA2).copy(alpha = 0.12f)
+                        )
+                    ),
+                    RoundedCornerShape(24.dp)
+                ),
             contentAlignment = Alignment.Center
         ) {
-            Text("👥", style = MaterialTheme.typography.headlineSmall)
+            Text(emoji, style = MaterialTheme.typography.displaySmall)
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         Text(
             text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
         )
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         Text(
             text = subtitle,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
 
         if (actionText != null && onActionClick != null) {
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             Button(
                 onClick = onActionClick,
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = ColorAccent)
             ) {
-                Text(actionText)
+                if (actionIcon != null) {
+                    Icon(actionIcon, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(actionText, fontWeight = FontWeight.SemiBold)
             }
         }
     }
 }
 
 @Composable
-fun FriendCard(
+fun ModernFriendCard(
     friend: Friend,
     onNavigateToProfile: (String) -> Unit,
     onNavigateToChat: (String) -> Unit,
@@ -306,19 +365,12 @@ fun FriendCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = ScreenPadding, vertical = 7.dp)
+            .padding(horizontal = ScreenPadding, vertical = 6.dp)
+            .shadow(3.dp, RoundedCornerShape(CardRadius))
             .clickable { onNavigateToProfile(friend.friendId) },
         shape = RoundedCornerShape(CardRadius),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.18f)
-        ),
-
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = CardDefaults.outlinedCardBorder().copy(
-            width = 1.dp,
-            brush = androidx.compose.ui.graphics.SolidColor(
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)
-            )
+            containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
         Row(
@@ -327,35 +379,43 @@ fun FriendCard(
                 .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            AvatarIG(
+            ModernAvatarIG(
                 url = friend.friendAvatarUrl,
+                name = friend.friendName,
                 size = 56.dp
             )
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = friend.friendName,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
-                MutualPill(text = "${friend.mutualFriends} mutual friends")
+                ModernMutualPill(count = friend.mutualFriends)
             }
 
-            // Chat button (IG-like)
-            IconButton(
-                onClick = { onNavigateToChat(friend.friendId) }
+            // Chat button
+            Surface(
+                color = ColorAccent.copy(alpha = 0.1f),
+                shape = CircleShape,
+                modifier = Modifier.size(42.dp)
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Message,
-                    contentDescription = "Chat",
-                    tint = MaterialTheme.colorScheme.primary
-                )
+                IconButton(onClick = { onNavigateToChat(friend.friendId) }) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Message,
+                        contentDescription = "Chat",
+                        tint = ColorAccent,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
+
+            Spacer(Modifier.width(4.dp))
 
             Box {
                 IconButton(onClick = { showMenu = true }) {
@@ -373,7 +433,7 @@ fun FriendCard(
                         text = {
                             Text(
                                 "Unfriend",
-                                color = MaterialTheme.colorScheme.error,
+                                color = ColorError,
                                 fontWeight = FontWeight.SemiBold
                             )
                         },
@@ -389,7 +449,7 @@ fun FriendCard(
 }
 
 @Composable
-fun FriendRequestCard(
+fun ModernFriendRequestCard(
     friend: Friend,
     onNavigateToProfile: (String) -> Unit,
     onAcceptRequest: (String) -> Unit,
@@ -398,19 +458,12 @@ fun FriendRequestCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = ScreenPadding, vertical = 7.dp)
+            .padding(horizontal = ScreenPadding, vertical = 6.dp)
+            .shadow(4.dp, RoundedCornerShape(CardRadius))
             .clickable { onNavigateToProfile(friend.friendId) },
         shape = RoundedCornerShape(CardRadius),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.18f)
-        ),
-
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = CardDefaults.outlinedCardBorder().copy(
-            width = 1.dp,
-            brush = androidx.compose.ui.graphics.SolidColor(
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f)
-            )
+            containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
         Column(
@@ -418,28 +471,27 @@ fun FriendRequestCard(
                 .fillMaxWidth()
                 .padding(14.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                AvatarIG(
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ModernAvatarIG(
                     url = friend.friendAvatarUrl,
+                    name = friend.friendName,
                     size = 56.dp
                 )
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(14.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = friend.friendName,
-                        style = MaterialTheme.typography.titleSmall,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    MutualPill(text = "${friend.mutualFriends} mutual friends")
+                    Spacer(modifier = Modifier.height(4.dp))
+                    ModernMutualPill(count = friend.mutualFriends)
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(
@@ -447,13 +499,18 @@ fun FriendRequestCard(
                     modifier = Modifier
                         .weight(1f)
                         .height(44.dp)
-                        .pointerInput(Unit) {}, // prevent card click
-                    shape = RoundedCornerShape(14.dp),
+                        .pointerInput(Unit) {},
+                    shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
+                        containerColor = ColorSuccess
                     )
                 ) {
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
                     Text("Accept", fontWeight = FontWeight.SemiBold)
                 }
 
@@ -462,62 +519,98 @@ fun FriendRequestCard(
                     modifier = Modifier
                         .weight(1f)
                         .height(44.dp)
-                        .pointerInput(Unit) {}, // prevent card click
-                    shape = RoundedCornerShape(14.dp)
+                        .pointerInput(Unit) {},
+                    shape = RoundedCornerShape(12.dp),
+                    border = ButtonDefaults.outlinedButtonBorder.copy(
+                        brush = Brush.linearGradient(listOf(ColorError.copy(alpha = 0.5f), ColorError.copy(alpha = 0.5f)))
+                    )
                 ) {
-                    Text("Decline", fontWeight = FontWeight.SemiBold)
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = ColorError
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("Decline", fontWeight = FontWeight.SemiBold, color = ColorError)
                 }
             }
         }
     }
 }
 
-/** UI-only: avatar kiểu IG (viền nhẹ) */
 @Composable
-private fun AvatarIG(
+private fun ModernAvatarIG(
     url: String?,
+    name: String,
     size: androidx.compose.ui.unit.Dp
 ) {
-    Box(
+    Surface(
         modifier = Modifier
             .size(size)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f))
-            .border(
-                width = 2.dp,
-                color = MaterialTheme.colorScheme.surface,
-                shape = CircleShape
-            )
-            .border(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
-                shape = CircleShape
-            ),
-        contentAlignment = Alignment.Center
+            .border(2.dp, ColorAccent.copy(alpha = 0.3f), CircleShape),
+        shape = CircleShape,
+        color = Color.Transparent
     ) {
-        AsyncImage(
-            model = url,
-            contentDescription = null,
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(CircleShape)
+        if (!url.isNullOrEmpty()) {
+            AsyncImage(
+                model = url,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(GradientPrimary),
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = name.take(1).uppercase(),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModernMutualPill(count: Int) {
+    Surface(
+        color = ColorAccent.copy(alpha = 0.1f),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Text(
+            text = "$count mutual friends",
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = ColorAccent,
+            fontWeight = FontWeight.Medium
         )
     }
 }
 
-/** UI-only: pill cho mutual friends */
+// Keep backward compatibility
 @Composable
-private fun MutualPill(text: String) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
-            .padding(horizontal = 10.dp, vertical = 4.dp)
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
+fun FriendCard(
+    friend: Friend,
+    onNavigateToProfile: (String) -> Unit,
+    onNavigateToChat: (String) -> Unit,
+    onUnfriend: (String) -> Unit
+) = ModernFriendCard(friend, onNavigateToProfile, onNavigateToChat, onUnfriend)
+
+@Composable
+fun FriendRequestCard(
+    friend: Friend,
+    onNavigateToProfile: (String) -> Unit,
+    onAcceptRequest: (String) -> Unit,
+    onDeclineRequest: (String) -> Unit
+) = ModernFriendRequestCard(friend, onNavigateToProfile, onAcceptRequest, onDeclineRequest)
