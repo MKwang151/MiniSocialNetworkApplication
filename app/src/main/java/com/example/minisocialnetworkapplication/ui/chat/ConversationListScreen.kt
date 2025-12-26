@@ -62,6 +62,8 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import androidx.compose.material3.OutlinedTextFieldDefaults
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -156,9 +158,22 @@ fun ConversationListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Messages") },
+                title = {
+                    Column {
+                        Text(
+                            text = "Messages",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Keep in touch with friends",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
                 )
             )
         },
@@ -181,14 +196,21 @@ fun ConversationListScreen(
             OutlinedTextField(
                 value = uiState.searchQuery,
                 onValueChange = { viewModel.onSearchQueryChange(it) },
-                placeholder = { Text("Search conversations") },
+                placeholder = { Text("Search") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(24.dp),
-                singleLine = true
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                shape = RoundedCornerShape(999.dp),
+                singleLine = true,
+                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f),
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                )
             )
+
 
             when {
                 uiState.isLoading -> {
@@ -271,7 +293,6 @@ private fun ConversationItem(
     val conversation = conversationWithUser.conversation
     val otherUser = conversationWithUser.otherUser
 
-    // Determine display name and avatar
     val displayName = when {
         conversation.type == ConversationType.GROUP -> conversation.name ?: "Group"
         otherUser != null -> otherUser.name
@@ -284,167 +305,170 @@ private fun ConversationItem(
         else -> null
     }
 
-    val lastMessagePreview = conversation.lastMessage?.getPreviewText(currentUserId) ?: "No messages yet"
-    val lastMessageTime = conversation.lastMessage?.timestamp?.toDate()?.let { formatTimestamp(it) } ?: ""
+    val lastMessagePreview =
+        conversation.lastMessage?.getPreviewText(currentUserId) ?: "No messages yet"
+    val lastMessageTime =
+        conversation.lastMessage?.timestamp?.toDate()?.let { formatTimestamp(it) } ?: ""
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
-            )
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+    // UI-only: pinned background nhẹ
+    val containerColor =
+        if (conversation.isPinned) MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
+        else MaterialTheme.colorScheme.surface
+
+    androidx.compose.material3.Surface(
+        color = containerColor,
+        tonalElevation = 0.dp
     ) {
-        // Avatar with online indicator
-        Box(
-            modifier = Modifier.size(56.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                if (avatarUrl != null) {
-                    AsyncImage(
-                        model = avatarUrl,
-                        contentDescription = "Avatar",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    val icon = if (conversation.type == ConversationType.GROUP) Icons.Default.Group else Icons.Default.Person
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(28.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
-            
-            // Online/Status indicator
-            val minutesAgo = otherUser?.getMinutesAgo()
-            when {
-                otherUser?.isOnline == true -> {
-                    // Green dot for online
-                    Box(
-                        modifier = Modifier
-                            .size(14.dp)
-                            .align(Alignment.BottomEnd)
-                            .background(MaterialTheme.colorScheme.surface, CircleShape)
-                            .padding(2.dp)
-                            .background(Color(0xFF4CAF50), CircleShape)
-                    )
-                }
-                minutesAgo != null -> {
-                    // Show minutes if offline < 60 min
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .background(MaterialTheme.colorScheme.surface, CircleShape)
-                            .padding(1.dp)
-                            .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
-                            .padding(horizontal = 3.dp, vertical = 1.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "${minutesAgo}m",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 8.sp
-                            ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+            // Avatar
+            Box(modifier = Modifier.size(56.dp)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (avatarUrl != null) {
+                        AsyncImage(
+                            model = avatarUrl,
+                            contentDescription = "Avatar",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        val icon = if (conversation.type == ConversationType.GROUP)
+                            Icons.Default.Group else Icons.Default.Person
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(26.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-                // else: offline > 60 min, show nothing
+
+                // Online/status dot (giữ nguyên logic)
+                val minutesAgo = otherUser?.getMinutesAgo()
+                when {
+                    otherUser?.isOnline == true -> {
+                        Box(
+                            modifier = Modifier
+                                .size(14.dp)
+                                .align(Alignment.BottomEnd)
+                                .background(MaterialTheme.colorScheme.surface, CircleShape)
+                                .padding(2.dp)
+                                .background(Color(0xFF4CAF50), CircleShape)
+                        )
+                    }
+
+                    minutesAgo != null -> {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .background(MaterialTheme.colorScheme.surface, CircleShape)
+                                .padding(1.dp)
+                                .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                                .padding(horizontal = 4.dp, vertical = 2.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "${minutesAgo}m",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             }
-        }
 
-        Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
-        // Content
-        Column(
-            modifier = Modifier.weight(1f)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Row(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (conversation.isPinned) {
-                        Text(
-                            text = "📌",
-                            modifier = Modifier.padding(end = 4.dp)
-                        )
+                        Text("📌", modifier = Modifier.padding(end = 6.dp))
                     }
+
                     Text(
                         text = displayName,
                         style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = if (conversation.unreadCount > 0) FontWeight.Bold else FontWeight.Normal,
+                        fontWeight = if (conversation.unreadCount > 0)
+                            FontWeight.SemiBold else FontWeight.Medium,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    Text(
+                        text = lastMessageTime,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (conversation.unreadCount > 0)
+                            MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
-                Text(
-                    text = lastMessageTime,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (conversation.unreadCount > 0) 
-                        MaterialTheme.colorScheme.primary 
-                    else 
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+                Spacer(modifier = Modifier.height(4.dp))
 
-            Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = lastMessagePreview,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (conversation.unreadCount > 0)
+                            MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = if (conversation.unreadCount > 0)
+                            FontWeight.Medium else FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = lastMessagePreview,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (conversation.unreadCount > 0) 
-                        MaterialTheme.colorScheme.onSurface 
-                    else 
-                        MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = if (conversation.unreadCount > 0) FontWeight.Medium else FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-
-                // Unread badge
-                if (conversation.unreadCount > 0) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Box(
-                        modifier = Modifier
-                            .size(20.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = if (conversation.unreadCount > 99) "99+" else conversation.unreadCount.toString(),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
+                    if (conversation.unreadCount > 0) {
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Box(
+                            modifier = Modifier
+                                .height(22.dp)
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(MaterialTheme.colorScheme.primary)
+                                .padding(horizontal = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (conversation.unreadCount > 99) "99+"
+                                else conversation.unreadCount.toString(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
                     }
                 }
             }
         }
     }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 84.dp) // canh với avatar
+            .height(1.dp)
+            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.08f))
+    )
 }
+
 
 private fun formatTimestamp(date: Date): String {
     val now = Calendar.getInstance()

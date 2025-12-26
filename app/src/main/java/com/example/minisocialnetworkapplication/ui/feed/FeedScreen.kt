@@ -59,6 +59,16 @@ import com.example.minisocialnetworkapplication.ui.components.PostCard
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.TopAppBarDefaults
+
+
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -180,11 +190,15 @@ fun FeedScreen(
             modifier = modifier,
             topBar = {
                 TopAppBar(
-                    title = { Text(stringResource(R.string.feed)) },
+                    title = {
+                        Text(
+                            text = "Feed",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                        )
+                    },
                     navigationIcon = {
-                        IconButton(onClick = { 
-                            scope.launch { drawerState.open() }
-                        }) {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(
                                 imageVector = Icons.Default.Menu,
                                 contentDescription = "Menu"
@@ -192,13 +206,15 @@ fun FeedScreen(
                         }
                     },
                     actions = {
-                        // Notification bell icon with badge
                         IconButton(onClick = onNavigateToNotifications) {
                             BadgedBox(
                                 badge = {
                                     if (unreadNotificationCount > 0) {
                                         Badge {
-                                            Text(text = if (unreadNotificationCount > 99) "99+" else unreadNotificationCount.toString())
+                                            Text(
+                                                text = if (unreadNotificationCount > 99) "99+"
+                                                else unreadNotificationCount.toString()
+                                            )
                                         }
                                     }
                                 }
@@ -209,14 +225,18 @@ fun FeedScreen(
                                 )
                             }
                         }
-                    }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+                    )
                 )
             },
             bottomBar = bottomBar,
             floatingActionButton = {
                 FloatingActionButton(
                     onClick = onNavigateToComposePost,
-                    containerColor = MaterialTheme.colorScheme.primary
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
@@ -323,7 +343,8 @@ fun FeedContent(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(vertical = 8.dp)
+                contentPadding = PaddingValues(vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(
                     count = lazyPagingItems.itemCount,
@@ -397,19 +418,39 @@ fun FeedContent(
 @Composable
 fun EmptyFeedView() {
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(32.dp)
-        ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                modifier = Modifier
+                    .size(86.dp)
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                        shape = RoundedCornerShape(24.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(34.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             Text(
                 text = "No posts yet",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
             )
-            Spacer(modifier = Modifier.height(8.dp))
+
+            Spacer(modifier = Modifier.height(6.dp))
+
             Text(
                 text = "Be the first to share something!",
                 style = MaterialTheme.typography.bodyMedium,
@@ -420,32 +461,46 @@ fun EmptyFeedView() {
     }
 }
 
+
 @Composable
 fun ErrorFullScreen(
     message: String,
     onRetryClick: () -> Unit
 ) {
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(32.dp)
-        ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "Oops!",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
             Text(
                 text = message,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
+
             Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = onRetryClick) {
+
+            Button(
+                onClick = onRetryClick,
+                modifier = Modifier.height(46.dp)
+            ) {
                 Text("Retry")
             }
         }
     }
 }
+
 
 @Composable
 fun ErrorItem(
@@ -458,19 +513,28 @@ fun ErrorItem(
             .padding(16.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier
+                .background(
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    RoundedCornerShape(16.dp)
+                )
+                .padding(horizontal = 14.dp, vertical = 12.dp)
         ) {
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.error
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
             )
-            Spacer(modifier = Modifier.height(8.dp))
+
             TextButton(onClick = onRetryClick) {
                 Text("Retry")
             }
         }
     }
 }
+
 

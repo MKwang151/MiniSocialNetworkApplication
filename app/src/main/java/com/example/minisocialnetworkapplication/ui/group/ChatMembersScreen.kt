@@ -1,27 +1,32 @@
 package com.example.minisocialnetworkapplication.ui.group
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
-import com.example.minisocialnetworkapplication.core.domain.model.User
 import com.example.minisocialnetworkapplication.ui.navigation.Screen
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -39,72 +44,143 @@ fun ChatMembersScreen(
     var showBottomSheet by remember { mutableStateOf(false) }
     var selectedMember by remember { mutableStateOf<MemberUiModel?>(null) }
     val sheetState = rememberModalBottomSheetState()
-    
-    // Error handling
-    LaunchedEffect(error) {
-        if (error != null) {
-            // Show error (e.g. Snackbar) - simplified here
-        }
-    }
+
+    // error giữ nguyên (UI-only)
+    LaunchedEffect(error) { /* keep */ }
 
     if (showBottomSheet && selectedMember != null) {
+        val target = selectedMember!!
+        val targetIsAdmin = target.isAdmin
+        val targetIsCreator = target.isCreator
+
         ModalBottomSheet(
-            onDismissRequest = { 
-                showBottomSheet = false 
+            onDismissRequest = {
+                showBottomSheet = false
                 selectedMember = null
             },
-            sheetState = sheetState
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
+                    .padding(horizontal = 18.dp)
+                    .padding(bottom = 22.dp)
             ) {
-                Text(
-                    text = selectedMember?.user?.name ?: "",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
+                // Header (avatar + name + role)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp, bottom = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.size(52.dp)
+                    ) {
+                        AsyncImage(
+                            model = target.user.avatarUrl
+                                ?: "https://api.dicebear.com/7.x/initials/svg?seed=${target.user.name}",
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
 
-                if (currentUserIsAdmin) {
-                     val targetIsAdmin = selectedMember?.isAdmin == true
-                     val targetIsCreator = selectedMember?.isCreator == true
+                    Spacer(Modifier.width(12.dp))
 
-                     if (!targetIsCreator) {
-                         ListItem(
-                             headlineContent = { 
-                                 Text(if (targetIsAdmin) "Dismiss as Admin" else "Make Group Admin") 
-                             },
-                             leadingContent = {
-                                 Icon(Icons.Default.Star, contentDescription = null)
-                             },
-                             modifier = Modifier.clickable {
-                                 if (targetIsAdmin) {
-                                     viewModel.demoteAdmin(selectedMember!!.user.uid)
-                                 } else {
-                                     viewModel.promoteToAdmin(selectedMember!!.user.uid)
-                                 }
-                                 showBottomSheet = false
-                             }
-                         )
-                         
-                         ListItem(
-                             headlineContent = { Text("Remove from Group", color = MaterialTheme.colorScheme.error) },
-                             modifier = Modifier.clickable {
-                                 viewModel.removeMember(selectedMember!!.user.uid)
-                                 showBottomSheet = false
-                             }
-                         )
-                     }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = target.user.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        val sub = when {
+                            targetIsCreator -> "Group creator"
+                            targetIsAdmin -> "Admin"
+                            else -> "Member"
+                        }
+                        Text(
+                            text = sub,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
-                
-                ListItem(
-                     headlineContent = { Text("View Profile") },
-                     modifier = Modifier.clickable {
-                         navController.navigate(Screen.Profile.createRoute(selectedMember!!.user.uid))
-                         showBottomSheet = false
-                     }
+                @Composable
+                fun SheetAction(
+                    title: String,
+                    icon: @Composable () -> Unit,
+                    tint: Color = MaterialTheme.colorScheme.onSurface,
+                    onClick: () -> Unit
+                ) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable(onClick = onClick),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CompositionLocalProvider(LocalContentColor provides tint) {
+                                icon()
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = tint
+                            )
+                        }
+                    }
+                }
+
+                if (currentUserIsAdmin && !targetIsCreator) {
+                    SheetAction(
+                        title = if (targetIsAdmin) "Dismiss as admin" else "Make group admin",
+                        icon = { Icon(Icons.Default.Star, contentDescription = null) },
+                        onClick = {
+                            if (targetIsAdmin) viewModel.demoteAdmin(target.user.uid)
+                            else viewModel.promoteToAdmin(target.user.uid)
+                            showBottomSheet = false
+                        }
+                    )
+
+                    Spacer(Modifier.height(10.dp))
+
+                    SheetAction(
+                        title = "Remove from group",
+                        icon = { Icon(Icons.Default.DeleteOutline, contentDescription = null) },
+                        tint = MaterialTheme.colorScheme.error,
+                        onClick = {
+                            viewModel.removeMember(target.user.uid)
+                            showBottomSheet = false
+                        }
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    Spacer(Modifier.height(12.dp))
+                }
+
+                SheetAction(
+                    title = "View profile",
+                    icon = { Icon(Icons.Default.Person, contentDescription = null) },
+                    onClick = {
+                        navController.navigate(Screen.Profile.createRoute(target.user.uid))
+                        showBottomSheet = false
+                    }
                 )
+
+                Spacer(Modifier.height(10.dp))
             }
         }
     }
@@ -112,11 +188,15 @@ fun ChatMembersScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { 
+                title = {
                     Column {
-                        Text("Group Members")
                         Text(
-                            "${members.size} members", 
+                            "Members",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "${members.size} members",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -126,29 +206,50 @@ fun ChatMembersScreen(
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f)
+                )
             )
         }
     ) { padding ->
-        if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
             }
-        } else {
-            LazyColumn(modifier = Modifier.padding(padding)) {
-                items(members) { member ->
-                    MemberItem(
-                        member = member,
-                        onClick = {
-                             navController.navigate(Screen.Profile.createRoute(member.user.uid))
-                        },
-                        onLongClick = {
-                            if (currentUserIsAdmin) {
-                                selectedMember = member
-                                showBottomSheet = true
+
+            else -> {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    items(
+                        items = members,
+                        key = { it.user.uid }
+                    ) { member ->
+                        MemberCard(
+                            member = member,
+                            onClick = {
+                                navController.navigate(Screen.Profile.createRoute(member.user.uid))
+                            },
+                            onLongClick = {
+                                if (currentUserIsAdmin) {
+                                    selectedMember = member
+                                    showBottomSheet = true
+                                }
                             }
-                        }
-                    )
+                        )
+                    }
                 }
             }
         }
@@ -157,44 +258,95 @@ fun ChatMembersScreen(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun MemberItem(
+private fun MemberCard(
     member: MemberUiModel,
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
-    ListItem(
-        modifier = Modifier.combinedClickable(
-            onClick = onClick,
-            onLongClick = onLongClick
-        ),
-        headlineContent = { Text(member.user.name) },
-        supportingContent = {
-            if (member.isAdmin) {
-                Text(
-                    text = if(member.isCreator) "Group Creator" else "Admin",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.labelMedium
+    val roleLabel = when {
+        member.isCreator -> "Creator"
+        member.isAdmin -> "Admin"
+        else -> null
+    }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.18f),
+                tonalElevation = 1.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // avatar
+            Surface(
+                modifier = Modifier.size(52.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceVariant
+            ) {
+                AsyncImage(
+                    model = member.user.avatarUrl
+                        ?: "https://api.dicebear.com/7.x/initials/svg?seed=${member.user.name}",
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
                 )
             }
-        },
-        leadingContent = {
-            AsyncImage(
-                model = member.user.avatarUrl ?: "https://api.dicebear.com/7.x/initials/svg?seed=${member.user.name}",
-                contentDescription = null,
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape),
-                contentScale = ContentScale.Crop
-            )
-        },
-        trailingContent = {
-            if (member.isAdmin) {
+
+            Spacer(Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = member.user.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    if (roleLabel != null) {
+                        Spacer(Modifier.width(10.dp))
+                        RolePill(text = roleLabel, highlight = member.isCreator)
+                    }
+                }
+
                 Text(
-                    "Admin",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
+                    text = if (member.isCreator) "Group creator"
+                    else if (member.isAdmin) "Group admin"
+                    else "Member",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
-    )
+    }
+}
+
+@Composable
+private fun RolePill(
+    text: String,
+    highlight: Boolean
+) {
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = if (highlight)
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+        else
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = if (highlight) MaterialTheme.colorScheme.primary
+            else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 }
