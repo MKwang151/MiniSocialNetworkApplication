@@ -69,4 +69,7 @@ interface PostDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPost(post: PostEntity)
+    
+    @Query("DELETE FROM posts WHERE groupId IN (:groupIds)")
+    suspend fun deletePostsByGroupIds(groupIds: List<String>)
 }

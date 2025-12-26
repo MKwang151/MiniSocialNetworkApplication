@@ -43,9 +43,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -78,6 +80,10 @@ fun GroupDetailScreen(
     
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    
+    // Edit post dialog state
+    var showEditPostDialog by remember { mutableStateOf(false) }
+    var postToEdit by remember { mutableStateOf<com.example.minisocialnetworkapplication.core.domain.model.Post?>(null) }
 
     // Show error messages
     LaunchedEffect(errorMessage) {
@@ -295,7 +301,12 @@ fun GroupDetailScreen(
                                 onDeleteClicked = { p -> 
                                     if (isOwner || isAdmin) viewModel.deletePost(p.id) 
                                 },
-                                onEditClicked = { /* Edit will be handled via dialog */ },
+                                onEditClicked = { p ->
+                                    if (isOwner) {
+                                        postToEdit = p
+                                        showEditPostDialog = true
+                                    }
+                                },
                                 isOptimisticallyLiked = post.likedByMe,
                                 showMenuButton = isOwner || isAdmin
                             )
@@ -304,6 +315,24 @@ fun GroupDetailScreen(
                 }
             }
         }
+    }
+    
+    // Edit post dialog
+    if (showEditPostDialog && postToEdit != null) {
+        EditPostDialog(
+            initialText = postToEdit?.text ?: "",
+            onConfirm = { newText ->
+                postToEdit?.let { post ->
+                    viewModel.updatePost(post.id, newText)
+                }
+                showEditPostDialog = false
+                postToEdit = null
+            },
+            onDismiss = {
+                showEditPostDialog = false
+                postToEdit = null
+            }
+        )
     }
 }
 
@@ -404,4 +433,42 @@ fun GroupHeader(
             }
         }
     }
+}
+
+@Composable
+private fun EditPostDialog(
+    initialText: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var text by remember { mutableStateOf(initialText) }
+    
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Post") },
+        text = {
+            androidx.compose.material3.OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(150.dp),
+                placeholder = { Text("Enter text...") },
+                maxLines = 5
+            )
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(
+                onClick = { onConfirm(text) },
+                enabled = text.isNotBlank()
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }

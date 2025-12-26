@@ -456,20 +456,30 @@ fun CommentItem(
             )
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        // Avatar placeholder - clickable
+        // Avatar - use actual image or fallback to initial
         Surface(
             modifier = Modifier
                 .size(40.dp)
+                .clip(MaterialTheme.shapes.small)
                 .clickable { onAuthorClicked(comment.authorId) },
             shape = MaterialTheme.shapes.small,
             color = MaterialTheme.colorScheme.primaryContainer
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = comment.authorName.take(1).uppercase(),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+            if (!comment.authorAvatarUrl.isNullOrEmpty()) {
+                coil.compose.AsyncImage(
+                    model = comment.authorAvatarUrl,
+                    contentDescription = "Avatar of ${comment.authorName}",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
                 )
+            } else {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = comment.authorName.take(1).uppercase(),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
         }
 
