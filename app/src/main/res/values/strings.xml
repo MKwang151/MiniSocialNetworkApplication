@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Mini Social Network</string>
+    <string name="app_name">SoMe</string>
 
     <!-- Authentication -->
     <string name="login">Login</string>
