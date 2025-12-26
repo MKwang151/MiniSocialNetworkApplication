@@ -35,16 +35,29 @@ class UserManagementViewModel @Inject constructor(
         observeFilters()
     }
 
+    private var retryCount = 0
+    private val maxRetries = 3
+
     private fun loadUsers() {
         viewModelScope.launch {
             adminRepository.getAllUsers().collectLatest { result ->
                 when (result) {
                     is Result.Success -> {
+                        retryCount = 0 // Reset on success
                         _allUsers.value = result.data
                         applyFilter()
                     }
                     is Result.Error -> {
-                        _uiState.value = UserManagementUiState.Error(result.message ?: "Failed to load users")
+                        val errorMessage = result.message ?: result.exception?.message ?: "Unknown error"
+                        // Check if it's a permission error and we haven't exceeded retries
+                        if (errorMessage.contains("PERMISSION_DENIED", ignoreCase = true) && retryCount < maxRetries) {
+                            retryCount++
+                            timber.log.Timber.w("Permission denied, retrying in 1 second... (attempt $retryCount/$maxRetries)")
+                            kotlinx.coroutines.delay(1000) // Wait for auth token to be ready
+                            loadUsers() // Retry
+                        } else {
+                            _uiState.value = UserManagementUiState.Error(errorMessage)
+                        }
                     }
                     else -> {}
                 }
