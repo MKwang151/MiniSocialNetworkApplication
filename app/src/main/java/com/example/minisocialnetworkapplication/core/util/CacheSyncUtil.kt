@@ -54,6 +54,17 @@ class CacheSyncUtil @Inject constructor(
             } else {
                 emptySet()
             }
+            
+            // Bước 3.5: Lấy user's group memberships và private groups để filter
+            val userGroupIds = if (userId != null) {
+                getUserGroupMemberships(userId)
+            } else {
+                emptySet()
+            }
+            
+            // Lấy danh sách private groups
+            val privateGroupIds = getPrivateGroupIds()
+            Timber.d("User is member of ${userGroupIds.size} groups, found ${privateGroupIds.size} private groups")
 
             // Bước 4: Convert Firebase documents thành PostEntity
             val postEntities = mutableListOf<PostEntity>()
@@ -73,12 +84,33 @@ class CacheSyncUtil @Inject constructor(
                         ?: System.currentTimeMillis()
                     val likedByMe = likedPostIds.contains(postId)
                     val isHidden = doc.getBoolean("isHidden") ?: false
+                    val approvalStatusStr = doc.getString("approvalStatus") ?: "APPROVED"
 
                     // Skip hidden posts
                     if (isHidden) {
                         Timber.d("Skipping hidden post in cache sync: $postId")
                         return@forEach
                     }
+                    
+                    // Skip PENDING or HIDDEN approval status posts
+                    if (approvalStatusStr != "APPROVED") {
+                        Timber.d("Skipping non-approved post in cache sync: $postId, status: $approvalStatusStr")
+                        return@forEach
+                    }
+                    
+                    // Skip posts from private groups where user is not a member
+                    val groupId = doc.getString("groupId")
+                    if (groupId != null && privateGroupIds.contains(groupId)) {
+                        // This is a post from a private group
+                        if (!userGroupIds.contains(groupId) && authorId != userId) {
+                            Timber.d("Skipping private group post in cache sync: $postId, groupId: $groupId")
+                            return@forEach
+                        }
+                    }
+
+                    // Get group info
+                    val groupName = doc.getString("groupName")
+                    val groupAvatarUrl = doc.getString("groupAvatarUrl")
 
                     val postEntity = PostEntity(
                         id = postId,
@@ -92,6 +124,10 @@ class CacheSyncUtil @Inject constructor(
                         likedByMe = likedByMe,
                         createdAt = createdAt,
                         isSyncPending = false,
+                        groupId = groupId,
+                        groupName = groupName,
+                        groupAvatarUrl = groupAvatarUrl,
+                        approvalStatus = approvalStatusStr,
                         isHidden = isHidden
                     )
 
@@ -205,6 +241,58 @@ class CacheSyncUtil @Inject constructor(
             emptySet()
         }
     }
+    
+    /**
+     * Lấy danh sách các group mà user là thành viên
+     */
+    private suspend fun getUserGroupMemberships(userId: String): Set<String> {
+        return try {
+            val membershipSnapshot = firestore.collectionGroup("members")
+                .whereEqualTo("userId", userId)
+                .get()
+                .await()
+            
+            val groupIds = membershipSnapshot.documents
+                .mapNotNull { doc ->
+                    // Extract groupId from the document path: groups/{groupId}/members/{memberId}
+                    // Path segments: [groups, {groupId}, members, {memberId}]
+                    // groupId is at index 1
+                    val pathSegments = doc.reference.path.split("/")
+                    if (pathSegments.size >= 4 && pathSegments[0] == "groups") {
+                        pathSegments[1] // groupId
+                    } else {
+                        Timber.w("Unexpected member path: ${doc.reference.path}")
+                        null
+                    }
+                }
+                .toSet()
+            
+            Timber.d("getUserGroupMemberships found ${groupIds.size} groups: $groupIds")
+            groupIds
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to get user group memberships")
+            emptySet()
+        }
+    }
+    
+    /**
+     * Lấy danh sách các group có privacy là PRIVATE
+     */
+    private suspend fun getPrivateGroupIds(): Set<String> {
+        return try {
+            val groupsSnapshot = firestore.collection("groups")
+                .whereEqualTo("privacy", "PRIVATE")
+                .get()
+                .await()
+            
+            groupsSnapshot.documents
+                .map { it.id }
+                .toSet()
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to get private group ids")
+            emptySet()
+        }
+    }
 
     /**
      * Đồng bộ một post cụ thể từ Firebase về cache
@@ -239,11 +327,19 @@ class CacheSyncUtil @Inject constructor(
             val createdAt = postDoc.getTimestamp(Constants.FIELD_CREATED_AT)?.toDate()?.time
                 ?: System.currentTimeMillis()
             val isHidden = postDoc.getBoolean("isHidden") ?: false
+            val approvalStatusStr = postDoc.getString("approvalStatus") ?: "APPROVED"
 
             // If post is hidden, remove from cache and return
             if (isHidden) {
                 database.postDao().deletePost(postId)
                 Timber.d("Post $postId is hidden, removed from cache")
+                return Result.Success(Unit)
+            }
+            
+            // If post is not approved (PENDING, REJECTED, HIDDEN), remove from cache
+            if (approvalStatusStr != "APPROVED") {
+                database.postDao().deletePost(postId)
+                Timber.d("Post $postId has status $approvalStatusStr, removed from cache")
                 return Result.Success(Unit)
             }
 
@@ -259,6 +355,11 @@ class CacheSyncUtil @Inject constructor(
                 false
             }
 
+            // Get group info
+            val groupId = postDoc.getString("groupId")
+            val groupName = postDoc.getString("groupName")
+            val groupAvatarUrl = postDoc.getString("groupAvatarUrl")
+
             val postEntity = PostEntity(
                 id = postId,
                 authorId = authorId,
@@ -271,6 +372,10 @@ class CacheSyncUtil @Inject constructor(
                 likedByMe = likedByMe,
                 createdAt = createdAt,
                 isSyncPending = false,
+                groupId = groupId,
+                groupName = groupName,
+                groupAvatarUrl = groupAvatarUrl,
+                approvalStatus = approvalStatusStr,
                 isHidden = isHidden
             )
 
