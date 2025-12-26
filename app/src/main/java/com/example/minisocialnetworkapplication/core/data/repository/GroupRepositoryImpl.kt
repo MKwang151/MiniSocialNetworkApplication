@@ -869,7 +869,7 @@ class GroupRepositoryImpl @Inject constructor(
         return try {
             val snapshot = firestore.collection("posts")
                 .whereEqualTo("groupId", groupId)
-                .whereEqualTo("approvalStatus", "REJECTED")
+                .whereEqualTo("approvalStatus", "HIDDEN")
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .get()
                 .await()
@@ -896,6 +896,34 @@ class GroupRepositoryImpl @Inject constructor(
             Result.Success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "Error updating post approval status")
+            Result.Error(e)
+        }
+    }
+
+    override suspend fun hidePost(postId: String): Result<Unit> {
+        return try {
+            firestore.collection("posts").document(postId)
+                .update("approvalStatus", "HIDDEN")
+                .await()
+            
+            Timber.d("Hidden post $postId")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Error hiding post")
+            Result.Error(e)
+        }
+    }
+
+    override suspend fun restorePost(postId: String): Result<Unit> {
+        return try {
+            firestore.collection("posts").document(postId)
+                .update("approvalStatus", "APPROVED")
+                .await()
+            
+            Timber.d("Restored post $postId")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Error restoring post")
             Result.Error(e)
         }
     }

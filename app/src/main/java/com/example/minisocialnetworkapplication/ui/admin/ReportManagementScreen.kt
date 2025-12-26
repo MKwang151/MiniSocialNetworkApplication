@@ -1,10 +1,13 @@
 package com.example.minisocialnetworkapplication.ui.admin
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -15,9 +18,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.example.minisocialnetworkapplication.core.domain.model.Report
 import com.example.minisocialnetworkapplication.core.domain.model.ReportStatus
 import java.text.SimpleDateFormat
@@ -27,6 +34,9 @@ import java.util.*
 @Composable
 fun ReportManagementScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToProfile: (String) -> Unit = {},
+    onNavigateToGroupDetail: (String) -> Unit = {},
+    onNavigateToPostDetail: (String) -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
     viewModel: ReportManagementViewModel = hiltViewModel()
 ) {
@@ -109,6 +119,13 @@ fun ReportManagementScreen(
                                 items(state.reports) { report ->
                                     ReportItem(
                                         report = report,
+                                        onTargetClick = {
+                                            when (report.targetType) {
+                                                "USER" -> onNavigateToProfile(report.targetId)
+                                                "GROUP" -> onNavigateToGroupDetail(report.targetId)
+                                                "POST" -> onNavigateToPostDetail(report.targetId)
+                                            }
+                                        },
                                         onDismiss = { viewModel.dismissReport(report.id) },
                                         onWarning = { viewModel.openWarningDialog(report) },
                                         onBanUser = { 
@@ -195,6 +212,7 @@ fun WarningDialog(
 @Composable
 fun ReportItem(
     report: Report,
+    onTargetClick: () -> Unit,
     onDismiss: () -> Unit,
     onWarning: () -> Unit,
     onBanUser: () -> Unit,
@@ -210,6 +228,7 @@ fun ReportItem(
         colors = if (report.status != ReportStatus.PENDING) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) else CardDefaults.cardColors()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            // Header: Type badge, Date, Status
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     color = when (report.targetType) {
@@ -238,9 +257,18 @@ fun ReportItem(
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            // Reported Target Card (clickable)
+            ReportedTargetCard(
+                report = report,
+                onClick = onTargetClick
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Report Reason
             Text(
                 text = "Reason: ${report.reason}",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold
             )
             
@@ -248,7 +276,8 @@ fun ReportItem(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = report.description,
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -256,17 +285,14 @@ fun ReportItem(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Reporter info
             Text(
-                text = "Reporter: ${report.reporterName}",
-                style = MaterialTheme.typography.labelMedium
-            )
-            Text(
-                text = "Author: ${report.authorId.take(8)}...", // Show some context
-                style = MaterialTheme.typography.labelSmall,
+                text = "Reported by: ${report.reporterName}",
+                style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             if (report.status == ReportStatus.PENDING) {
                 // ROW 1: Common Actions
@@ -353,6 +379,126 @@ fun ReportItem(
     }
 }
 
+@Composable
+fun ReportedTargetCard(
+    report: Report,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Icon/Avatar based on type
+            when (report.targetType) {
+                "USER" -> {
+                    Surface(
+                        modifier = Modifier.size(48.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.secondaryContainer
+                    ) {
+                        Icon(
+                            Icons.Default.Person,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .padding(12.dp)
+                                .size(24.dp),
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "User Profile",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "ID: ${report.targetId.take(12)}...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                "GROUP" -> {
+                    Surface(
+                        modifier = Modifier.size(48.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.tertiaryContainer
+                    ) {
+                        Icon(
+                            Icons.Default.Group,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .padding(12.dp)
+                                .size(24.dp),
+                            tint = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Group",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "ID: ${report.targetId.take(12)}...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                "POST" -> {
+                    Surface(
+                        modifier = Modifier.size(48.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Icon(
+                            Icons.Default.Article,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .padding(12.dp)
+                                .size(24.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Post",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "ID: ${report.targetId.take(12)}...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+            
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = "View details",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
 // Helper for Warning Color
 private val ColorScheme.warningColor: androidx.compose.ui.graphics.Color
     @Composable
@@ -370,7 +516,7 @@ fun ReportStatusBadge(status: ReportStatus) {
         color = color.copy(alpha = 0.1f),
         contentColor = color,
         shape = MaterialTheme.shapes.extraSmall,
-        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.2f))
+        border = BorderStroke(1.dp, color.copy(alpha = 0.2f))
     ) {
         Text(
             text = text,

@@ -35,6 +35,6 @@ data class Post(
 }
 
 enum class PostApprovalStatus {
-    APPROVED, PENDING, REJECTED
+    APPROVED, PENDING, REJECTED, HIDDEN
 }
 

@@ -103,20 +103,30 @@ class GroupReportsViewModel @Inject constructor(
         }
     }
     
-    // ⚠️ Hide Post - Temporarily hide
+    // ⚠️ Hide Post - Temporarily hide (using approvalStatus = HIDDEN)
     fun hidePost(postId: String, reportId: String) {
         viewModelScope.launch {
-            when (val result = groupRepository.updatePostApprovalStatus(postId, "REJECTED")) {
+            // First, find the report to get post info
+            val report = _state.value.reports.find { it.id == reportId }
+            
+            when (val result = groupRepository.hidePost(postId)) {
                 is Result.Success -> {
                     // Mark report as resolved
                     reportRepository.updateReportStatus(reportId, ReportStatus.RESOLVED)
+                    
+                    // Remove report from list
+                    val updatedReports = _state.value.reports.filter { it.id != reportId }
+                    
                     _state.value = _state.value.copy(
-                        reports = _state.value.reports.filter { it.id != reportId },
+                        reports = updatedReports,
                         actionMessage = "Post hidden"
                     )
-                    loadHiddenPosts() // Refresh hidden posts
+                    
+                    // Refresh hidden posts from server to get the newly hidden post
+                    loadHiddenPosts()
                 }
                 is Result.Error -> {
+                    Timber.e(result.exception, "Failed to hide post")
                     _state.value = _state.value.copy(actionMessage = "Failed to hide post")
                 }
                 else -> {}
@@ -124,10 +134,10 @@ class GroupReportsViewModel @Inject constructor(
         }
     }
     
-    // 🔄 Restore Post - Un-hide
+    // 🔄 Restore Post - Un-hide (using isHidden field like AdminRepository)
     fun restorePost(postId: String) {
         viewModelScope.launch {
-            when (val result = groupRepository.updatePostApprovalStatus(postId, "APPROVED")) {
+            when (val result = groupRepository.restorePost(postId)) {
                 is Result.Success -> {
                     _state.value = _state.value.copy(
                         hiddenPosts = _state.value.hiddenPosts.filter { it.id != postId },

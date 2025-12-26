@@ -864,6 +864,15 @@ fun NavGraph(
         composable(Screen.AdminReportManagement.route) {
             com.example.minisocialnetworkapplication.ui.admin.ReportManagementScreen(
                 onNavigateBack = { navController.popBackStack() },
+                onNavigateToProfile = { userId ->
+                    navController.navigate(Screen.Profile.createRoute(userId))
+                },
+                onNavigateToGroupDetail = { groupId ->
+                    navController.navigate(Screen.GroupDetail.createRoute(groupId))
+                },
+                onNavigateToPostDetail = { postId ->
+                    navController.navigate(Screen.PostDetail.createRoute(postId))
+                },
                 bottomBar = { AdminBottomNavBar(navController) }
             )
         }

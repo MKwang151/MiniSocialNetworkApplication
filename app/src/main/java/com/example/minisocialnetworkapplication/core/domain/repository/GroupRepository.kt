@@ -51,6 +51,8 @@ interface GroupRepository {
     // Report Moderation
     suspend fun getHiddenPostsForGroup(groupId: String): Result<List<com.example.minisocialnetworkapplication.core.domain.model.Post>>
     suspend fun updatePostApprovalStatus(postId: String, status: String): Result<Unit>
+    suspend fun hidePost(postId: String): Result<Unit>
+    suspend fun restorePost(postId: String): Result<Unit>
     suspend fun deletePost(postId: String): Result<Unit>
     
     // Group Settings
