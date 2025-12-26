@@ -167,11 +167,19 @@ exports.syncUserProfile = functions.firestore
     const previousValue = change.before.data();
     const userId = context.params.userId;
 
+    // Debug: Log all values being compared
+    console.log(`syncUserProfile triggered for user ${userId}`);
+    console.log(`Previous name: "${previousValue.name}", New name: "${newValue.name}"`);
+    console.log(`Previous avatar: "${previousValue.avatarUrl}", New avatar: "${newValue.avatarUrl}"`);
+
     // Only sync if name or avatarUrl changed
     const nameChanged = newValue.name !== previousValue.name;
     const avatarChanged = newValue.avatarUrl !== previousValue.avatarUrl;
 
+    console.log(`Changes detected: nameChanged=${nameChanged}, avatarChanged=${avatarChanged}`);
+
     if (!nameChanged && !avatarChanged) {
+      console.log("No name or avatar changes detected, skipping sync");
       return null;
     }
 

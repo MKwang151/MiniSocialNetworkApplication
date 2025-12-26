@@ -22,9 +22,9 @@ interface UserRepository {
 
     /**
      * Update user info in all posts and comments
-     * Called after profile update to sync author names
+     * Called after profile update to sync author names and avatars
      */
-    suspend fun updateUserInPostsAndComments(userId: String, newName: String): Result<Unit>
+    suspend fun updateUserInPostsAndComments(userId: String, newName: String, newAvatarUrl: String?): Result<Unit>
 
     /**
      * Upload user avatar to Storage and return download URL

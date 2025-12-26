@@ -84,14 +84,58 @@ class UserRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun updateUserInPostsAndComments(userId: String, newName: String): Result<Unit> {
-        // Profile sync is handled by Cloud Function "syncUserProfile"
-        // When user document is updated, the Cloud Function automatically:
-        // 1. Updates authorName and authorAvatarUrl in all posts by this user
-        // 2. Updates authorName and authorAvatarUrl in all comments by this user
-        // This ensures all users see the updated info without client-side batch updates
-        Timber.d("Profile sync for userId=$userId will be handled by Cloud Function 'syncUserProfile'")
-        return Result.Success(Unit)
+    override suspend fun updateUserInPostsAndComments(userId: String, newName: String, newAvatarUrl: String?): Result<Unit> {
+        return try {
+            Timber.d("Starting client-side profile sync for userId=$userId")
+            
+            val batch = firestore.batch()
+            var updateCount = 0
+            
+            // 1. Update all posts by this user
+            val postsSnapshot = firestore.collection(Constants.COLLECTION_POSTS)
+                .whereEqualTo(Constants.FIELD_AUTHOR_ID, userId)
+                .get()
+                .await()
+            
+            for (doc in postsSnapshot.documents) {
+                val updates = hashMapOf<String, Any?>(
+                    "authorName" to newName,
+                    "authorAvatarUrl" to newAvatarUrl
+                )
+                batch.update(doc.reference, updates)
+                updateCount++
+            }
+            Timber.d("Found ${postsSnapshot.documents.size} posts to update")
+            
+            // 2. Update all comments by this user (using collectionGroup query)
+            val commentsSnapshot = firestore.collectionGroup("comments")
+                .whereEqualTo(Constants.FIELD_AUTHOR_ID, userId)
+                .get()
+                .await()
+            
+            for (doc in commentsSnapshot.documents) {
+                val updates = hashMapOf<String, Any?>(
+                    "authorName" to newName,
+                    "authorAvatarUrl" to newAvatarUrl
+                )
+                batch.update(doc.reference, updates)
+                updateCount++
+            }
+            Timber.d("Found ${commentsSnapshot.documents.size} comments to update")
+            
+            // 3. Commit batch
+            if (updateCount > 0) {
+                batch.commit().await()
+                Timber.d("Successfully updated $updateCount documents (posts + comments)")
+            } else {
+                Timber.d("No posts or comments to update")
+            }
+            
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to update posts and comments for user $userId")
+            Result.Error(e)
+        }
     }
 
     override suspend fun uploadAvatar(userId: String, imageUri: Uri): Result<String> {

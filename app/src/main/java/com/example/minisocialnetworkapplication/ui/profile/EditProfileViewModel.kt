@@ -137,10 +137,11 @@ class EditProfileViewModel @Inject constructor(
                     is Result.Success -> {
                         Timber.d("Profile updated successfully")
 
-                        // Update user name in all posts and comments in Firestore
+                        // Update user name and avatar in all posts and comments in Firestore
                         val updateResult = userRepository.updateUserInPostsAndComments(
                             userId = userId,
-                            newName = updatedUser.name
+                            newName = updatedUser.name,
+                            newAvatarUrl = _avatarUrl.value
                         )
 
                         when (updateResult) {

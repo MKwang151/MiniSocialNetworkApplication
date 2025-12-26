@@ -191,6 +191,15 @@ class PostRemoteMediator(
                     // Clear only remote keys, not posts
                     // Posts will be updated with REPLACE strategy in insertAll
                     remoteKeysDao.clearAll()
+                    
+                    // IMPORTANT: Delete posts from private groups that user is not a member of
+                    // This fixes the issue where private group posts remain visible after user leaves group
+                    // or for posts that were cached when user was never a member
+                    val privateGroupsUserNotMemberOf = privateGroupIds.filter { !userGroupIds.contains(it) }
+                    if (privateGroupsUserNotMemberOf.isNotEmpty()) {
+                        Timber.d("Deleting cached posts from ${privateGroupsUserNotMemberOf.size} private groups user is not a member of")
+                        postDao.deletePostsByGroupIds(privateGroupsUserNotMemberOf.toList())
+                    }
                 }
 
                 // Create remote keys
