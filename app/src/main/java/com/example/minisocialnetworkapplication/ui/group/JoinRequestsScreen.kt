@@ -20,11 +20,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Divider
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,14 +46,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.minisocialnetworkapplication.core.domain.model.User
+
+// Modern color palette
+private val ColorAccent = Color(0xFF667EEA)
+private val ColorSuccess = Color(0xFF11998E)
+private val ColorError = Color(0xFFFF416C)
+private val GradientPrimary = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,13 +86,14 @@ fun JoinRequestsScreen(
                     title = {
                         Column {
                             Text(
-                                text = "Join requests",
+                                text = "Join Requests",
                                 style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 22.sp
                             )
                             Text(
-                                text = "Approve or decline requests",
-                                style = MaterialTheme.typography.bodySmall,
+                                text = "${requests.size} pending",
+                                style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -87,72 +104,44 @@ fun JoinRequestsScreen(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
                     )
                 )
-                Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             }
         }
     ) { padding ->
-        if (requests.isEmpty()) {
-            // Empty state IG-like
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(
-                        modifier = Modifier
-                            .size(88.dp)
-                            .clip(RoundedCornerShape(26.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Group,
-                            contentDescription = null,
-                            modifier = Modifier.size(36.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                        )
+                    )
+                )
+                .padding(padding)
+        ) {
+            if (requests.isEmpty()) {
+                ModernEmptyRequestsView()
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(
+                        items = requests,
+                        key = { it.uid }
+                    ) { user ->
+                        ModernJoinRequestItem(
+                            user = user,
+                            onAccept = { viewModel.acceptRequest(user.uid) },
+                            onDecline = { viewModel.declineRequest(user.uid) }
                         )
                     }
-
-                    Spacer(Modifier.height(14.dp))
-
-                    Text(
-                        text = "No pending requests",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-
-                    Spacer(Modifier.height(6.dp))
-
-                    Text(
-                        text = "When someone requests to join, it’ll show up here.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .padding(padding)
-                    .fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(
-                    items = requests,
-                    key = { it.uid }
-                ) { user ->
-                    JoinRequestItem(
-                        user = user,
-                        onAccept = { viewModel.acceptRequest(user.uid) },
-                        onDecline = { viewModel.declineRequest(user.uid) }
-                    )
                 }
             }
         }
@@ -160,51 +149,66 @@ fun JoinRequestsScreen(
 }
 
 @Composable
-fun JoinRequestItem(
+fun ModernJoinRequestItem(
     user: User,
     onAccept: () -> Unit,
     onDecline: () -> Unit
 ) {
-    Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.14f),
-        tonalElevation = 0.dp,
-        shadowElevation = 0.dp,
-        modifier = Modifier.fillMaxWidth()
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(4.dp, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
+                .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Avatar + ring nhẹ kiểu IG
-            Box(
+            // Avatar with gradient fallback
+            Surface(
                 modifier = Modifier
                     .size(54.dp)
-                    .clip(CircleShape)
-                    .border(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                        shape = CircleShape
-                    )
-                    .padding(2.dp)
-                    .clip(CircleShape),
-                contentAlignment = Alignment.Center
+                    .border(2.dp, ColorAccent.copy(alpha = 0.3f), CircleShape),
+                shape = CircleShape,
+                color = Color.Transparent
             ) {
-                AsyncImage(
-                    model = user.avatarUrl ?: "https://api.dicebear.com/7.x/initials/svg?seed=${user.name}",
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
+                if (!user.avatarUrl.isNullOrEmpty()) {
+                    AsyncImage(
+                        model = user.avatarUrl,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.linearGradient(GradientPrimary),
+                                CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = user.name.take(1).uppercase(),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
 
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(14.dp))
 
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = user.name,
                     style = MaterialTheme.typography.titleMedium,
@@ -214,7 +218,7 @@ fun JoinRequestItem(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "Requested to join",
+                    text = "Wants to join",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -222,34 +226,43 @@ fun JoinRequestItem(
 
             Spacer(Modifier.width(10.dp))
 
-            // Buttons IG-style: Decline (outlined), Accept (filled)
+            // Action buttons
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
                     onClick = onDecline,
-                    shape = RoundedCornerShape(999.dp),
+                    shape = RoundedCornerShape(12.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    modifier = Modifier.height(36.dp)
+                    modifier = Modifier.height(38.dp),
+                    border = ButtonDefaults.outlinedButtonBorder.copy(
+                        brush = Brush.linearGradient(listOf(ColorError.copy(alpha = 0.5f), ColorError.copy(alpha = 0.5f)))
+                    )
                 ) {
-                    Text(
-                        text = "Decline",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = ColorError
                     )
                 }
 
                 Button(
                     onClick = onAccept,
-                    shape = RoundedCornerShape(999.dp),
+                    shape = RoundedCornerShape(12.dp),
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                    modifier = Modifier.height(36.dp),
+                    modifier = Modifier.height(38.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
+                        containerColor = ColorSuccess
                     )
                 ) {
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
                     Text(
                         text = "Accept",
-                        style = MaterialTheme.typography.labelLarge,
+                        style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -257,3 +270,63 @@ fun JoinRequestItem(
         }
     }
 }
+
+@Composable
+private fun ModernEmptyRequestsView() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                ColorAccent.copy(alpha = 0.12f),
+                                Color(0xFF764BA2).copy(alpha = 0.12f)
+                            )
+                        ),
+                        RoundedCornerShape(28.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Group,
+                    contentDescription = null,
+                    modifier = Modifier.size(48.dp),
+                    tint = ColorAccent
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            Text(
+                "No pending requests",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(
+                "When someone requests to join,\nthey'll show up here",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                lineHeight = 22.sp
+            )
+        }
+    }
+}
+
+// Keep backward compatibility
+@Composable
+fun JoinRequestItem(
+    user: User,
+    onAccept: () -> Unit,
+    onDecline: () -> Unit
+) = ModernJoinRequestItem(user, onAccept, onDecline)
