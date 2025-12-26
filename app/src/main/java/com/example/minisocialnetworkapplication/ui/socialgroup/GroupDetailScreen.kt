@@ -1,5 +1,7 @@
 package com.example.minisocialnetworkapplication.ui.socialgroup
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -9,21 +11,22 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.background
-import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Report
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -47,18 +50,26 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.minisocialnetworkapplication.core.domain.model.Group
 import com.example.minisocialnetworkapplication.ui.components.PostCard
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import timber.log.Timber
+
+// Modern color palette
+private val GradientPrimary = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+private val ColorAccent = Color(0xFF667EEA)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -115,7 +126,11 @@ fun GroupDetailScreen(
                 title = { },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White
+                        )
                     }
                 },
                 actions = {
@@ -128,7 +143,7 @@ fun GroupDetailScreen(
                                 Icon(
                                     imageVector = Icons.Default.MoreVert,
                                     contentDescription = "More",
-                                    tint = Color.Black
+                                    tint = Color.White
                                 )
                             }
                             
@@ -145,7 +160,8 @@ fun GroupDetailScreen(
                                     leadingIcon = {
                                         Icon(
                                             imageVector = Icons.Default.Report,
-                                            contentDescription = null
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error
                                         )
                                     }
                                 )
@@ -167,9 +183,15 @@ fun GroupDetailScreen(
                             val group = state.group
                             onNavigateToComposePost(group.id)
                         },
-                        containerColor = MaterialTheme.colorScheme.primary
+                        containerColor = ColorAccent,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.shadow(8.dp, RoundedCornerShape(16.dp))
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = "Create Post")
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Create Post",
+                            tint = Color.White
+                        )
                     }
                 }
             }
@@ -177,13 +199,34 @@ fun GroupDetailScreen(
     ) { paddingValues ->
         when (val state = uiState) {
             is GroupDetailUiState.Loading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(36.dp),
+                        strokeWidth = 3.dp,
+                        color = ColorAccent
+                    )
                 }
             }
             is GroupDetailUiState.Error -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(text = state.message, color = MaterialTheme.colorScheme.error)
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "😕",
+                            style = MaterialTheme.typography.displayMedium
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = state.message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             }
             is GroupDetailUiState.Success -> {
@@ -194,7 +237,7 @@ fun GroupDetailScreen(
                     contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
                     item {
-                        GroupHeader(
+                        ModernGroupHeader(
                             group = state.group,
                             isMember = state.isMember,
                             userRole = state.userRole,
@@ -209,11 +252,11 @@ fun GroupDetailScreen(
                     if (state.group.status == Group.STATUS_BANNED) {
                         item {
                             Surface(
-                                color = MaterialTheme.colorScheme.errorContainer,
+                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(16.dp),
-                                shape = MaterialTheme.shapes.medium
+                                shape = RoundedCornerShape(16.dp)
                             ) {
                                 Row(
                                     modifier = Modifier.padding(16.dp),
@@ -228,7 +271,7 @@ fun GroupDetailScreen(
                                     Text(
                                         text = "This group has been banned for violating community standards.",
                                         style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                        color = MaterialTheme.colorScheme.error
                                     )
                                 }
                             }
@@ -237,13 +280,34 @@ fun GroupDetailScreen(
 
                     item {
                         Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Posts",
-                            style = MaterialTheme.typography.titleLarge,
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Posts",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Surface(
+                                color = ColorAccent.copy(alpha = 0.1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "${state.posts.size}",
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = ColorAccent,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
+                    
                     // Check if user can see posts
                     val isPrivateGroup = state.group.privacy == com.example.minisocialnetworkapplication.core.domain.model.GroupPrivacy.PRIVATE
                     val canSeePosts = !isPrivateGroup || state.isMember
@@ -258,18 +322,39 @@ fun GroupDetailScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Icon(
-                                        imageVector = Icons.Default.Lock,
-                                        contentDescription = "Private",
-                                        modifier = Modifier.size(48.dp),
-                                        tint = MaterialTheme.colorScheme.outline
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(80.dp)
+                                            .background(
+                                                Brush.linearGradient(
+                                                    colors = listOf(
+                                                        ColorAccent.copy(alpha = 0.15f),
+                                                        Color(0xFF764BA2).copy(alpha = 0.15f)
+                                                    )
+                                                ),
+                                                shape = RoundedCornerShape(24.dp)
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Lock,
+                                            contentDescription = "Private",
+                                            modifier = Modifier.size(36.dp),
+                                            tint = ColorAccent
+                                        )
+                                    }
                                     Spacer(modifier = Modifier.height(16.dp))
                                     Text(
-                                        text = "You need to join the group to see posts",
-                                        style = MaterialTheme.typography.bodyLarge,
+                                        text = "Private Group",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "Join this group to see posts",
+                                        style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                        textAlign = TextAlign.Center
                                     )
                                 }
                             }
@@ -282,7 +367,19 @@ fun GroupDetailScreen(
                                     .padding(32.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text("No posts yet.")
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = "📝",
+                                        style = MaterialTheme.typography.displayMedium
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Text(
+                                        text = "No posts yet",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     } else {
@@ -319,7 +416,7 @@ fun GroupDetailScreen(
     
     // Edit post dialog
     if (showEditPostDialog && postToEdit != null) {
-        EditPostDialog(
+        ModernEditPostDialog(
             initialText = postToEdit?.text ?: "",
             onConfirm = { newText ->
                 postToEdit?.let { post ->
@@ -337,7 +434,7 @@ fun GroupDetailScreen(
 }
 
 @Composable
-fun GroupHeader(
+fun ModernGroupHeader(
     group: com.example.minisocialnetworkapplication.core.domain.model.Group,
     isMember: Boolean,
     userRole: com.example.minisocialnetworkapplication.core.domain.model.GroupRole?,
@@ -348,87 +445,163 @@ fun GroupHeader(
     onJoinRequestsClick: () -> Unit = {}
 ) {
     Column {
-        // Cover Image = Group Avatar (200dp)
+        // Cover Image = Group Avatar (220dp)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp)
+                .height(220.dp)
         ) {
             AsyncImage(
-                model = group.avatarUrl ?: "https://ui-avatars.com/api/?name=${java.net.URLEncoder.encode(group.name, "UTF-8")}&background=6366f1&color=fff&size=400",
+                model = group.avatarUrl ?: "https://ui-avatars.com/api/?name=${java.net.URLEncoder.encode(group.name, "UTF-8")}&background=667EEA&color=fff&size=400",
                 contentDescription = "Group Avatar",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
+            // Gradient overlay
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.4f)
+                            ),
+                            startY = 100f
+                        )
+                    )
+            )
         }
         
-        // Group Info
-        Column(modifier = Modifier.padding(16.dp)) {
-            // Group Name
-            Text(
-                text = group.name, 
-                style = MaterialTheme.typography.headlineMedium
+        // Group Info Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .offset(y = (-24).dp)
+                .shadow(6.dp, RoundedCornerShape(20.dp)),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
             )
-            
-            // Members · Privacy
-            Text(
-                text = "${group.memberCount} members · ${group.privacy}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.Gray
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Description
-            Text(
-                text = group.description, 
-                style = MaterialTheme.typography.bodyLarge
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            if (isMember) {
-                androidx.compose.foundation.layout.Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
-                ) {
-                    val isAdminOrCreator = userRole == com.example.minisocialnetworkapplication.core.domain.model.GroupRole.ADMIN ||
-                                           userRole == com.example.minisocialnetworkapplication.core.domain.model.GroupRole.CREATOR
-                    
-                    if (isAdminOrCreator) {
-                        OutlinedButton(
-                            onClick = onManageClick,
-                            modifier = Modifier.weight(1f),
-                            enabled = group.status != Group.STATUS_BANNED
-                        ) {
-                            Text("Manage")
-                        }
-                        Button(
-                            onClick = onInviteClick,
-                            modifier = Modifier.weight(1f),
-                            enabled = group.status != Group.STATUS_BANNED
-                        ) {
-                            Text("Invite")
-                        }
-                    } else {
-                        OutlinedButton(
-                            onClick = onLeaveClick,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Joined")
-                        }
-                        Button(
-                            onClick = onInviteClick,
-                            modifier = Modifier.weight(1f),
-                            enabled = group.status != Group.STATUS_BANNED
-                        ) {
-                            Text("Invite")
-                        }
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                // Group Name
+                Text(
+                    text = group.name, 
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                Spacer(modifier = Modifier.height(6.dp))
+                
+                // Members · Privacy
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        color = ColorAccent.copy(alpha = 0.1f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = "${group.memberCount} members",
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = ColorAccent,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "· ${group.privacy}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Description
+                if (group.description.isNotBlank()) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = group.description,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(12.dp),
+                            lineHeight = 20.sp
+                        )
                     }
                 }
-            } else if (group.status != Group.STATUS_BANNED) {
-                Button(onClick = onJoinClick, modifier = Modifier.fillMaxWidth()) {
-                    Text("Join Group")
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                if (isMember) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        val isAdminOrCreator = userRole == com.example.minisocialnetworkapplication.core.domain.model.GroupRole.ADMIN ||
+                                               userRole == com.example.minisocialnetworkapplication.core.domain.model.GroupRole.CREATOR
+                        
+                        if (isAdminOrCreator) {
+                            OutlinedButton(
+                                onClick = onManageClick,
+                                modifier = Modifier.weight(1f),
+                                enabled = group.status != Group.STATUS_BANNED,
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Manage", fontWeight = FontWeight.SemiBold)
+                            }
+                            Button(
+                                onClick = onInviteClick,
+                                modifier = Modifier.weight(1f),
+                                enabled = group.status != Group.STATUS_BANNED,
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = ColorAccent
+                                )
+                            ) {
+                                Text("Invite", fontWeight = FontWeight.SemiBold)
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = onLeaveClick,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Joined ✓", fontWeight = FontWeight.SemiBold)
+                            }
+                            Button(
+                                onClick = onInviteClick,
+                                modifier = Modifier.weight(1f),
+                                enabled = group.status != Group.STATUS_BANNED,
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = ColorAccent
+                                )
+                            ) {
+                                Text("Invite", fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                } else if (group.status != Group.STATUS_BANNED) {
+                    Button(
+                        onClick = onJoinClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ColorAccent
+                        )
+                    ) {
+                        Text(
+                            "Join Group",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    }
                 }
             }
         }
@@ -436,7 +609,7 @@ fun GroupHeader(
 }
 
 @Composable
-private fun EditPostDialog(
+private fun ModernEditPostDialog(
     initialText: String,
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit
@@ -445,7 +618,12 @@ private fun EditPostDialog(
     
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit Post") },
+        title = {
+            Text(
+                "Edit Post",
+                fontWeight = FontWeight.Bold
+            )
+        },
         text = {
             androidx.compose.material3.OutlinedTextField(
                 value = text,
@@ -454,7 +632,8 @@ private fun EditPostDialog(
                     .fillMaxWidth()
                     .height(150.dp),
                 placeholder = { Text("Enter text...") },
-                maxLines = 5
+                maxLines = 5,
+                shape = RoundedCornerShape(14.dp)
             )
         },
         confirmButton = {
@@ -462,13 +641,40 @@ private fun EditPostDialog(
                 onClick = { onConfirm(text) },
                 enabled = text.isNotBlank()
             ) {
-                Text("Save")
+                Text(
+                    "Save",
+                    color = ColorAccent,
+                    fontWeight = FontWeight.Bold
+                )
             }
         },
         dismissButton = {
             androidx.compose.material3.TextButton(onClick = onDismiss) {
                 Text("Cancel")
             }
-        }
+        },
+        shape = RoundedCornerShape(20.dp)
     )
 }
+
+// Keep backward compatibility
+@Composable
+fun GroupHeader(
+    group: com.example.minisocialnetworkapplication.core.domain.model.Group,
+    isMember: Boolean,
+    userRole: com.example.minisocialnetworkapplication.core.domain.model.GroupRole?,
+    onJoinClick: () -> Unit,
+    onLeaveClick: () -> Unit,
+    onManageClick: () -> Unit,
+    onInviteClick: () -> Unit,
+    onJoinRequestsClick: () -> Unit = {}
+) = ModernGroupHeader(
+    group = group,
+    isMember = isMember,
+    userRole = userRole,
+    onJoinClick = onJoinClick,
+    onLeaveClick = onLeaveClick,
+    onManageClick = onManageClick,
+    onInviteClick = onInviteClick,
+    onJoinRequestsClick = onJoinRequestsClick
+)
