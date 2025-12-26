@@ -1,8 +1,10 @@
 package com.example.minisocialnetworkapplication.ui.socialgroup
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -10,15 +12,25 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.minisocialnetworkapplication.core.domain.model.Post
 import com.example.minisocialnetworkapplication.core.domain.model.Report
 import java.text.SimpleDateFormat
 import java.util.*
+
+// Modern color palette
+private val GradientPrimary = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+private val ColorAccent = Color(0xFF667EEA)
+private val ColorError = Color(0xFFE53935)
+private val ColorWarning = Color(0xFFFFA000)
+private val ColorSuccess = Color(0xFF11998E)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,57 +51,95 @@ fun GroupReportsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Reported Content") },
+                title = {
+                    Text(
+                        "Reported Content",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                )
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
-                .fillMaxSize()
                 .padding(paddingValues)
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                        )
+                    )
+                )
         ) {
-            // Tab Row
-            TabRow(selectedTabIndex = state.selectedTab) {
-                Tab(
-                    selected = state.selectedTab == 0,
-                    onClick = { viewModel.selectTab(0) },
-                    text = { Text("Reports (${state.reports.size})") },
-                    icon = { Icon(Icons.Default.Report, contentDescription = null) }
-                )
-                Tab(
-                    selected = state.selectedTab == 1,
-                    onClick = { viewModel.selectTab(1) },
-                    text = { Text("Hidden (${state.hiddenPosts.size})") },
-                    icon = { Icon(Icons.Default.VisibilityOff, contentDescription = null) }
-                )
-            }
-            
-            if (state.isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Modern Tab Row
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                 ) {
-                    CircularProgressIndicator()
+                    TabRow(
+                        selectedTabIndex = state.selectedTab,
+                        containerColor = Color.Transparent,
+                        indicator = {},
+                        divider = {}
+                    ) {
+                        ModernTab(
+                            selected = state.selectedTab == 0,
+                            onClick = { viewModel.selectTab(0) },
+                            icon = Icons.Default.Report,
+                            text = "Reports (${state.reports.size})",
+                            color = ColorError
+                        )
+                        ModernTab(
+                            selected = state.selectedTab == 1,
+                            onClick = { viewModel.selectTab(1) },
+                            icon = Icons.Default.VisibilityOff,
+                            text = "Hidden (${state.hiddenPosts.size})",
+                            color = ColorWarning
+                        )
+                    }
                 }
-            } else {
-                when (state.selectedTab) {
-                    0 -> ReportsTab(
-                        reports = state.reports,
-                        onDismiss = viewModel::dismissReport,
-                        onHidePost = viewModel::hidePost,
-                        onDeletePost = viewModel::deletePost,
-                        onKickMember = viewModel::kickMember
-                    )
-                    1 -> HiddenPostsTab(
-                        posts = state.hiddenPosts,
-                        onRestore = viewModel::restorePost
-                    )
+                
+                if (state.isLoading) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(36.dp),
+                            strokeWidth = 3.dp,
+                            color = ColorAccent
+                        )
+                    }
+                } else {
+                    when (state.selectedTab) {
+                        0 -> ModernReportsTab(
+                            reports = state.reports,
+                            onDismiss = viewModel::dismissReport,
+                            onHidePost = viewModel::hidePost,
+                            onDeletePost = viewModel::deletePost,
+                            onKickMember = viewModel::kickMember
+                        )
+                        1 -> ModernHiddenPostsTab(
+                            posts = state.hiddenPosts,
+                            onRestore = viewModel::restorePost
+                        )
+                    }
                 }
             }
         }
@@ -97,36 +147,65 @@ fun GroupReportsScreen(
 }
 
 @Composable
-private fun ReportsTab(
+private fun ModernTab(
+    selected: Boolean,
+    onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String,
+    color: Color
+) {
+    Tab(
+        selected = selected,
+        onClick = onClick,
+        modifier = Modifier.padding(4.dp)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp),
+            shape = RoundedCornerShape(12.dp),
+            color = if (selected) color.copy(alpha = 0.15f) else Color.Transparent
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                    tint = if (selected) color else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                    color = if (selected) color else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModernReportsTab(
     reports: List<Report>,
     onDismiss: (String) -> Unit,
     onHidePost: (String, String) -> Unit,
     onDeletePost: (String, String) -> Unit,
-    onKickMember: (String, String, String) -> Unit  // memberId, postId, reportId
+    onKickMember: (String, String, String) -> Unit
 ) {
     if (reports.isEmpty()) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    modifier = Modifier.size(64.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("No pending reports", style = MaterialTheme.typography.titleMedium)
-            }
-        }
+        ModernEmptyReportsState()
     } else {
         LazyColumn(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(reports, key = { it.id }) { report ->
-                ReportCard(
+                ModernReportCard(
                     report = report,
                     onDismiss = { onDismiss(report.id) },
                     onHidePost = { onHidePost(report.targetId, report.id) },
@@ -139,22 +218,67 @@ private fun ReportsTab(
 }
 
 @Composable
-private fun ReportCard(
+private fun ModernEmptyReportsState() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                modifier = Modifier
+                    .size(88.dp)
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                ColorSuccess.copy(alpha = 0.15f),
+                                ColorAccent.copy(alpha = 0.15f)
+                            )
+                        ),
+                        shape = RoundedCornerShape(26.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp),
+                    tint = ColorSuccess
+                )
+            }
+            Spacer(modifier = Modifier.height(20.dp))
+            Text(
+                "All Clear! 🎉",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                "No pending reports",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModernReportCard(
     report: Report,
     onDismiss: () -> Unit,
     onHidePost: () -> Unit,
     onDeletePost: () -> Unit,
     onKickMember: () -> Unit
 ) {
-    var showActionsMenu by remember { mutableStateOf(false) }
-    
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(4.dp, RoundedCornerShape(20.dp)),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
+        Column(modifier = Modifier.padding(18.dp)) {
             // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -162,81 +286,95 @@ private fun ReportCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Report,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        modifier = Modifier.size(32.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        color = ColorError.copy(alpha = 0.12f)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Default.Report,
+                                contentDescription = null,
+                                tint = ColorError,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        "Reported by ${report.reporterName}",
+                        "by ${report.reporterName}",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        formatDate(report.createdAt),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(14.dp))
+            
+            // Reason Badge
+            Surface(
+                color = ColorError.copy(alpha = 0.1f),
+                shape = RoundedCornerShape(10.dp)
+            ) {
                 Text(
-                    formatDate(report.createdAt),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = report.reason,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = ColorError
                 )
             }
             
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Reason
-            Text(
-                "Reason: ${report.reason}",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            
             if (report.description.isNotBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     report.description,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis
                 )
             }
             
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider()
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            Spacer(modifier = Modifier.height(14.dp))
             
-            // Actions
+            // Action Buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                // Dismiss
-                ActionButton(
+                ModernActionButton(
                     icon = Icons.Default.CheckCircle,
                     label = "Dismiss",
-                    color = MaterialTheme.colorScheme.primary,
+                    color = ColorSuccess,
                     onClick = onDismiss
                 )
-                
-                // Hide
-                ActionButton(
+                ModernActionButton(
                     icon = Icons.Default.VisibilityOff,
                     label = "Hide",
-                    color = Color(0xFFFFA000),
+                    color = ColorWarning,
                     onClick = onHidePost
                 )
-                
-                // Delete
-                ActionButton(
+                ModernActionButton(
                     icon = Icons.Default.Delete,
                     label = "Delete",
-                    color = MaterialTheme.colorScheme.error,
+                    color = ColorError,
                     onClick = onDeletePost
                 )
-                
-                // Kick
-                ActionButton(
+                ModernActionButton(
                     icon = Icons.Default.PersonRemove,
                     label = "Kick",
                     color = Color(0xFF9C27B0),
@@ -248,28 +386,40 @@ private fun ReportCard(
 }
 
 @Composable
-private fun ActionButton(
+private fun ModernActionButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     color: Color,
     onClick: () -> Unit
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        IconButton(onClick = onClick) {
-            Icon(icon, contentDescription = label, tint = color)
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Surface(
+            modifier = Modifier.size(44.dp),
+            shape = RoundedCornerShape(14.dp),
+            color = color.copy(alpha = 0.12f),
+            onClick = onClick
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    icon,
+                    contentDescription = label,
+                    tint = color,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
         }
+        Spacer(modifier = Modifier.height(6.dp))
         Text(
             label,
             style = MaterialTheme.typography.labelSmall,
-            color = color
+            color = color,
+            fontWeight = FontWeight.Medium
         )
     }
 }
 
 @Composable
-private fun HiddenPostsTab(
+private fun ModernHiddenPostsTab(
     posts: List<Post>,
     onRestore: (String) -> Unit
 ) {
@@ -279,14 +429,16 @@ private fun HiddenPostsTab(
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    Icons.Default.Visibility,
-                    contentDescription = null,
-                    modifier = Modifier.size(64.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                Text(
+                    text = "👀",
+                    style = MaterialTheme.typography.displayMedium
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("No hidden posts", style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    "No hidden posts",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     } else {
@@ -295,7 +447,7 @@ private fun HiddenPostsTab(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(posts, key = { it.id }) { post ->
-                HiddenPostCard(
+                ModernHiddenPostCard(
                     post = post,
                     onRestore = { onRestore(post.id) }
                 )
@@ -305,17 +457,20 @@ private fun HiddenPostsTab(
 }
 
 @Composable
-private fun HiddenPostCard(
+private fun ModernHiddenPostCard(
     post: Post,
     onRestore: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(4.dp, RoundedCornerShape(20.dp)),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
+        Column(modifier = Modifier.padding(18.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -327,27 +482,46 @@ private fun HiddenPostCard(
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         post.text,
                         style = MaterialTheme.typography.bodyMedium,
                         maxLines = 3,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (post.rejectionReason != null) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            "Hidden reason: ${post.rejectionReason}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Surface(
+                            color = ColorError.copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "Hidden: ${post.rejectionReason}",
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = ColorError
+                            )
+                        }
                     }
                 }
                 
-                FilledTonalButton(onClick = onRestore) {
-                    Icon(Icons.Default.Restore, contentDescription = null)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Restore")
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                Button(
+                    onClick = onRestore,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ColorSuccess
+                    )
+                ) {
+                    Icon(
+                        Icons.Default.Restore,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Restore", fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -358,3 +532,19 @@ private fun formatDate(timestamp: com.google.firebase.Timestamp): String {
     val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
     return sdf.format(timestamp.toDate())
 }
+
+// Keep backward compatibility
+@Composable
+private fun ReportsTab(
+    reports: List<Report>,
+    onDismiss: (String) -> Unit,
+    onHidePost: (String, String) -> Unit,
+    onDeletePost: (String, String) -> Unit,
+    onKickMember: (String, String, String) -> Unit
+) = ModernReportsTab(reports, onDismiss, onHidePost, onDeletePost, onKickMember)
+
+@Composable
+private fun HiddenPostsTab(
+    posts: List<Post>,
+    onRestore: (String) -> Unit
+) = ModernHiddenPostsTab(posts, onRestore)
