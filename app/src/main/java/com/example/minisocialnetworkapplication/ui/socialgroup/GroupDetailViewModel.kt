@@ -238,14 +238,19 @@ class GroupDetailViewModel @Inject constructor(
                 false
             }
             
+            Timber.d("joinGroup called, isPrivateGroup=$isPrivateGroup")
+            
             val result = groupRepository.joinGroup(groupId)
             if (result is Result.Success) {
+                Timber.d("joinGroup success, isPrivateGroup=$isPrivateGroup")
                 if (isPrivateGroup) {
                     // For private groups, join creates a request - show pending message
                     _successMessage.value = "Your join request has been submitted and is awaiting admin approval."
+                    Timber.d("Set successMessage for private group join request")
                 }
                 loadGroupDetails()
             } else if (result is Result.Error) {
+                Timber.e("joinGroup failed: ${result.message}")
                 _errorMessage.value = result.message ?: "Failed to join group"
             }
         }
