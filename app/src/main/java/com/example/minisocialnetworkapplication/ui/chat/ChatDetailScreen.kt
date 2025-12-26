@@ -92,6 +92,10 @@ import com.example.minisocialnetworkapplication.core.domain.model.MessageStatus
 import com.example.minisocialnetworkapplication.core.domain.model.MessageType
 import java.text.SimpleDateFormat
 import java.util.Locale
+import androidx.compose.material3.Surface
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.ui.text.font.FontWeight
+
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -275,13 +279,11 @@ fun ChatDetailScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                uiState.conversation?.id?.let { conversationId ->
-                                    onNavigateToSettings(conversationId)
-                                }
+                                uiState.conversation?.id?.let { onNavigateToSettings(it) }
                             }
                     ) {
-                        // Avatar with online indicator
-                        Box(modifier = Modifier.size(40.dp)) {
+                        // Avatar
+                        Box(modifier = Modifier.size(42.dp)) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -300,13 +302,13 @@ fun ChatDetailScreen(
                                     Icon(
                                         imageVector = Icons.Default.Person,
                                         contentDescription = null,
-                                        modifier = Modifier.size(20.dp),
+                                        modifier = Modifier.size(22.dp),
                                         tint = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
                                 }
                             }
-                            
-                            // Online indicator dot
+
+                            // Online dot (giữ nguyên logic)
                             if (uiState.otherUser?.isOnline == true) {
                                 Box(
                                     modifier = Modifier
@@ -321,24 +323,23 @@ fun ChatDetailScreen(
 
                         Spacer(modifier = Modifier.width(12.dp))
 
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = title,
                                 style = MaterialTheme.typography.titleMedium,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
+                                fontWeight = FontWeight.SemiBold
                             )
-                            
-                            // Status text: "Active now" or "Active Xm/h ago"
-                            val statusText = uiState.otherUser?.getStatusText() ?: ""
+
+                            val statusText = uiState.otherUser?.getStatusText().orEmpty()
                             if (statusText.isNotEmpty()) {
                                 Text(
                                     text = statusText,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = if (uiState.otherUser?.isOnline == true) 
-                                        Color(0xFF4CAF50) 
-                                    else 
-                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = if (uiState.otherUser?.isOnline == true)
+                                        Color(0xFF4CAF50)
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -350,7 +351,8 @@ fun ChatDetailScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }
@@ -1044,15 +1046,14 @@ private fun TypingIndicatorBubble(
 ) {
     val dotCount = 3
     val infiniteTransition = rememberInfiniteTransition(label = "typing")
-    
+
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(horizontal = 10.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.Bottom
     ) {
-        // Avatar
         Box(
             modifier = Modifier
                 .size(32.dp)
@@ -1071,55 +1072,41 @@ private fun TypingIndicatorBubble(
                 Icon(
                     Icons.Default.Person,
                     contentDescription = null,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.width(8.dp))
-        
-        // Typing bubble with animated dots
-        Box(
-            modifier = Modifier
-                .clip(
-                    RoundedCornerShape(
-                        topStart = 16.dp,
-                        topEnd = 16.dp,
-                        bottomStart = 4.dp,
-                        bottomEnd = 16.dp
-                    )
-                )
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+
+        Surface(
+            shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomEnd = 18.dp, bottomStart = 6.dp),
+            tonalElevation = 1.dp,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
         ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 repeat(dotCount) { index ->
                     val delay = index * 150
                     val alpha by infiniteTransition.animateFloat(
-                        initialValue = 0.3f,
+                        initialValue = 0.25f,
                         targetValue = 1f,
                         animationSpec = infiniteRepeatable(
-                            animation = tween(
-                                durationMillis = 600,
-                                delayMillis = delay,
-                                easing = FastOutSlowInEasing
-                            ),
+                            animation = tween(650, delayMillis = delay, easing = FastOutSlowInEasing),
                             repeatMode = RepeatMode.Reverse
                         ),
                         label = "dot$index"
                     )
-                    
+
                     Box(
                         modifier = Modifier
-                            .size(8.dp)
+                            .size(7.dp)
                             .clip(CircleShape)
-                            .background(
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)
-                            )
+                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha))
                     )
                 }
             }
@@ -1127,50 +1114,55 @@ private fun TypingIndicatorBubble(
     }
 }
 
+
 @Composable
 private fun ReplyPreview(
     message: Message,
     onDismiss: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+    Surface(
+        tonalElevation = 1.dp,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Box(
+        Row(
             modifier = Modifier
-                .width(4.dp)
-                .height(40.dp)
-                .background(MaterialTheme.colorScheme.primary)
-        )
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "Replying to ${message.senderName}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(42.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.primary)
             )
-            Text(
-                text = message.getDisplayText(),
-                style = MaterialTheme.typography.bodySmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
 
-        IconButton(onClick = onDismiss) {
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = "Cancel reply",
-                modifier = Modifier.size(20.dp)
-            )
+            Spacer(modifier = Modifier.width(10.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Replying to ${message.senderName}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = message.getDisplayText(),
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            IconButton(onClick = onDismiss) {
+                Icon(Icons.Default.Close, contentDescription = "Cancel reply")
+            }
         }
     }
 }
+
 
 @Composable
 private fun MessageInput(
@@ -1180,69 +1172,91 @@ private fun MessageInput(
     onAttachClick: () -> Unit,
     isSending: Boolean
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(8.dp),
-        verticalAlignment = Alignment.Bottom
+    Surface(
+        tonalElevation = 2.dp,
+        shadowElevation = 6.dp,
+        color = MaterialTheme.colorScheme.surface,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        // Attach button
-        IconButton(
-            onClick = onAttachClick,
-            enabled = !isSending
-        ) {
-            Icon(
-                imageVector = Icons.Default.AttachFile,
-                contentDescription = "Attach image",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        OutlinedTextField(
-            value = text,
-            onValueChange = onTextChange,
-            placeholder = { Text("Type a message...") },
+        Row(
             modifier = Modifier
-                .weight(1f),
-            shape = RoundedCornerShape(24.dp),
-            maxLines = 4
-        )
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        IconButton(
-            onClick = onSendClick,
-            enabled = text.isNotBlank() && !isSending,
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(
-                    if (text.isNotBlank() && !isSending)
-                        MaterialTheme.colorScheme.primary
-                    else
-                        MaterialTheme.colorScheme.surfaceVariant
-                )
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.Bottom
         ) {
-            if (isSending) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    strokeWidth = 2.dp
-                )
-            } else {
+            // Attach
+            IconButton(
+                onClick = onAttachClick,
+                enabled = !isSending,
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+            ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Send,
-                    contentDescription = "Send",
-                    tint = if (text.isNotBlank())
-                        MaterialTheme.colorScheme.onPrimary
-                    else
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                    imageVector = Icons.Default.AttachFile,
+                    contentDescription = "Attach image",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            // Input pill
+            OutlinedTextField(
+                value = text,
+                onValueChange = onTextChange,
+                placeholder = { Text("Message…") },
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 44.dp),
+                shape = RoundedCornerShape(999.dp),
+                maxLines = 4,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                )
+            )
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            // Send
+            IconButton(
+                onClick = onSendClick,
+                enabled = text.isNotBlank() && !isSending,
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (text.isNotBlank() && !isSending)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.surfaceVariant
+                    )
+            ) {
+                if (isSending) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(22.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Send,
+                        contentDescription = "Send",
+                        tint = if (text.isNotBlank())
+                            MaterialTheme.colorScheme.onPrimary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }
 }
+
 
 /**
  * Reaction bar popup with emoji selection
@@ -1254,15 +1268,17 @@ private fun ReactionBar(
     modifier: Modifier = Modifier
 ) {
     val emojis = listOf("❤️", "😂", "👍", "😮", "😢", "😡")
-    
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(24.dp))
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
-            .padding(8.dp)
+
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(999.dp),
+        tonalElevation = 2.dp,
+        shadowElevation = 8.dp,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             emojis.forEach { emoji ->
@@ -1270,21 +1286,19 @@ private fun ReactionBar(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
                         .clickable {
                             onReactionSelected(emoji)
                             onDismiss()
-                        }
-                        .padding(4.dp),
+                        },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = emoji,
-                        style = MaterialTheme.typography.titleLarge
-                    )
+                    Text(text = emoji, style = MaterialTheme.typography.titleLarge)
                 }
             }
         }
     }
 }
+
 
 
