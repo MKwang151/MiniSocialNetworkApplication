@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
+import androidx.paging.filter
 import androidx.paging.map
 import com.example.minisocialnetworkapplication.core.domain.model.Post
 import com.example.minisocialnetworkapplication.core.domain.usecase.post.GetFeedPagingUseCase
@@ -30,7 +31,8 @@ class FeedViewModel @Inject constructor(
     private val toggleLikeUseCase: ToggleLikeUseCase,
     private val postRepository: com.example.minisocialnetworkapplication.core.domain.repository.PostRepository,
     private val getCurrentUserUseCase: com.example.minisocialnetworkapplication.core.domain.usecase.auth.GetCurrentUserUseCase,
-    private val cacheSyncUtil: com.example.minisocialnetworkapplication.core.util.CacheSyncUtil
+    private val cacheSyncUtil: com.example.minisocialnetworkapplication.core.util.CacheSyncUtil,
+    private val groupRepository: com.example.minisocialnetworkapplication.core.domain.repository.GroupRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<FeedUiState>(FeedUiState.Idle)
@@ -38,6 +40,10 @@ class FeedViewModel @Inject constructor(
 
     // Optimistic like updates - track posts being liked
     private val _optimisticLikes = MutableStateFlow<Map<String, Post>>(emptyMap())
+    
+    // Track user's group memberships for filtering private group posts
+    private val _userGroupIds = MutableStateFlow<Set<String>>(emptySet())
+    private var currentUserId: String? = null
 
     val feedPosts: Flow<PagingData<Post>> = getFeedPagingUseCase()
         .cachedIn(viewModelScope)
@@ -46,9 +52,50 @@ class FeedViewModel @Inject constructor(
                 optimisticLikes[post.id] ?: post
             }
         }
+        .combine(_userGroupIds) { pagingData, userGroupIds ->
+            // Filter out posts that should not be shown
+            pagingData.filter { post ->
+                // Filter 1: Hide posts with PENDING or HIDDEN approval status
+                val isApproved = post.approvalStatus == com.example.minisocialnetworkapplication.core.domain.model.PostApprovalStatus.APPROVED
+                
+                // Filter 2: Hide explicitly hidden posts
+                val notHidden = !post.isHidden
+                
+                // Filter 3: For group posts, only show if user is member (for private groups)
+                // We can't check privacy here easily, so we trust the RemoteMediator to have filtered properly
+                // However, as an extra safety check: if post has groupId and user is not member, hide it
+                // (This handles edge cases where cache wasn't properly cleaned)
+                val groupAccessible = if (post.groupId != null) {
+                    userGroupIds.contains(post.groupId) || post.authorId == currentUserId
+                } else {
+                    true // Non-group posts are always visible
+                }
+                
+                isApproved && notHidden && groupAccessible
+            }
+        }
 
     init {
-        // Initialization logic
+        loadUserGroupMemberships()
+    }
+    
+    private fun loadUserGroupMemberships() {
+        viewModelScope.launch {
+            // Get current user ID using the sync method
+            val userId = getCurrentUserUseCase.getUserId()
+            if (userId != null) {
+                currentUserId = userId
+                Timber.d("Loaded current user ID: $currentUserId")
+                
+                // Get user's group memberships
+                groupRepository.getGroupsForUser(userId).collect { groups ->
+                    _userGroupIds.value = groups.map { it.id }.toSet()
+                    Timber.d("Loaded ${groups.size} group memberships for filtering")
+                }
+            } else {
+                Timber.w("Current user ID is null, cannot load group memberships")
+            }
+        }
     }
 
     fun syncCache() {

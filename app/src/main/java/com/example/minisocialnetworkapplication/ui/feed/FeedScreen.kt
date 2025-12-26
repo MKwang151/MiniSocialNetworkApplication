@@ -15,10 +15,12 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -45,9 +47,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
@@ -65,6 +70,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.graphics.Color
 
@@ -194,7 +200,8 @@ fun FeedScreen(
                         Text(
                             text = "Feed",
                             style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp
                         )
                     },
                     navigationIcon = {
@@ -210,10 +217,14 @@ fun FeedScreen(
                             BadgedBox(
                                 badge = {
                                     if (unreadNotificationCount > 0) {
-                                        Badge {
+                                        Badge(
+                                            containerColor = Color(0xFFFF416C)
+                                        ) {
                                             Text(
                                                 text = if (unreadNotificationCount > 99) "99+"
-                                                else unreadNotificationCount.toString()
+                                                else unreadNotificationCount.toString(),
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold
                                             )
                                         }
                                     }
@@ -227,7 +238,7 @@ fun FeedScreen(
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)
                     )
                 )
             },
@@ -235,31 +246,46 @@ fun FeedScreen(
             floatingActionButton = {
                 FloatingActionButton(
                     onClick = onNavigateToComposePost,
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.shadow(8.dp, RoundedCornerShape(16.dp)),
+                    containerColor = Color(0xFF667EEA),
+                    contentColor = Color.White,
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
-                        contentDescription = "Create post"
+                        contentDescription = "Create post",
+                        modifier = Modifier.size(26.dp)
                     )
                 }
             },
             snackbarHost = { SnackbarHost(snackbarHostState) }
         ) { paddingValues ->
-            FeedContent(
-                lazyPagingItems = lazyPagingItems,
-                viewModel = viewModel,
-                onNavigateToPostDetail = onNavigateToPostDetail,
-                onNavigateToProfile = onNavigateToProfile,
-                onNavigateToImageGallery = onNavigateToImageGallery,
-                shouldScrollToTop = shouldScrollToTop,
-                onScrolledToTop = { shouldScrollToTop = false },
-                onDeletePost = { postToDelete = it; showDeleteDialog = true },
-                onEditPost = { postToEdit = it; showEditDialog = true },
-                onReportPost = onNavigateToReportPost,
-                modifier = Modifier.padding(paddingValues)
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.surface,
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                            )
+                        )
+                    )
+            ) {
+                FeedContent(
+                    lazyPagingItems = lazyPagingItems,
+                    viewModel = viewModel,
+                    onNavigateToPostDetail = onNavigateToPostDetail,
+                    onNavigateToProfile = onNavigateToProfile,
+                    onNavigateToImageGallery = onNavigateToImageGallery,
+                    shouldScrollToTop = shouldScrollToTop,
+                    onScrolledToTop = { shouldScrollToTop = false },
+                    onDeletePost = { postToDelete = it; showDeleteDialog = true },
+                    onEditPost = { postToEdit = it; showEditDialog = true },
+                    onReportPost = onNavigateToReportPost,
+                    modifier = Modifier.padding(paddingValues)
+                )
+            }
         }
     }
 
@@ -379,19 +405,20 @@ fun FeedContent(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(16.dp),
+                                    .padding(20.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(32.dp),
-                                    strokeWidth = 3.dp
+                                    strokeWidth = 3.dp,
+                                    color = Color(0xFF667EEA)
                                 )
                             }
                         }
                     }
                     is LoadState.Error -> {
                         item {
-                            ErrorItem(
+                            ModernErrorItem(
                                 message = "Failed to load more posts",
                                 onRetryClick = { lazyPagingItems.retry() }
                             )
@@ -406,12 +433,12 @@ fun FeedContent(
         if (lazyPagingItems.loadState.refresh is LoadState.NotLoading &&
             lazyPagingItems.itemCount == 0
         ) {
-            EmptyFeedView()
+            ModernEmptyFeedView()
         }
 
         // Handle refresh error
         if (lazyPagingItems.loadState.refresh is LoadState.Error) {
-            ErrorFullScreen(
+            ModernErrorFullScreen(
                 message = "Failed to load feed",
                 onRetryClick = { lazyPagingItems.refresh() }
             )
@@ -420,7 +447,7 @@ fun FeedContent(
 }
 
 @Composable
-fun EmptyFeedView() {
+fun ModernEmptyFeedView() {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -431,12 +458,17 @@ fun EmptyFeedView() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Instagram-like empty state icon
+            // Modern empty state with gradient icon background
             Box(
                 modifier = Modifier
-                    .size(96.dp)
+                    .size(100.dp)
                     .background(
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f),
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF667EEA).copy(alpha = 0.15f),
+                                Color(0xFF764BA2).copy(alpha = 0.15f)
+                            )
+                        ),
                         shape = RoundedCornerShape(28.dp)
                     ),
                 contentAlignment = Alignment.Center
@@ -444,17 +476,17 @@ fun EmptyFeedView() {
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = null,
-                    modifier = Modifier.size(40.dp),
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                    modifier = Modifier.size(44.dp),
+                    tint = Color(0xFF667EEA)
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             Text(
                 text = "No posts yet",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
 
@@ -465,7 +497,7 @@ fun EmptyFeedView() {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
-                lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.4
+                lineHeight = 22.sp
             )
         }
     }
@@ -473,7 +505,7 @@ fun EmptyFeedView() {
 
 
 @Composable
-fun ErrorFullScreen(
+fun ModernErrorFullScreen(
     message: String,
     onRetryClick: () -> Unit
 ) {
@@ -487,13 +519,13 @@ fun ErrorFullScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Error emoji icon
+            // Error emoji icon with styled background
             Box(
                 modifier = Modifier
-                    .size(84.dp)
+                    .size(88.dp)
                     .background(
                         MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f),
-                        shape = RoundedCornerShape(24.dp)
+                        shape = RoundedCornerShape(26.dp)
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -503,12 +535,12 @@ fun ErrorFullScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             Text(
                 text = "Oops!",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -520,13 +552,22 @@ fun ErrorFullScreen(
                 textAlign = TextAlign.Center
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             Button(
                 onClick = onRetryClick,
-                modifier = Modifier.height(48.dp),
-                shape = RoundedCornerShape(14.dp)
+                modifier = Modifier.height(50.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF667EEA)
+                )
             ) {
+                Icon(
+                    Icons.Default.Refresh,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
                 Text(
                     "Retry",
                     style = MaterialTheme.typography.labelLarge,
@@ -539,7 +580,7 @@ fun ErrorFullScreen(
 
 
 @Composable
-fun ErrorItem(
+fun ModernErrorItem(
     message: String,
     onRetryClick: () -> Unit
 ) {
@@ -553,12 +594,18 @@ fun ErrorItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier
+                .fillMaxWidth()
                 .background(
-                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.12f),
+                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f),
                     RoundedCornerShape(16.dp)
                 )
                 .padding(horizontal = 16.dp, vertical = 14.dp)
         ) {
+            Text(
+                text = "⚠️",
+                style = MaterialTheme.typography.titleMedium
+            )
+            
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodyMedium,
@@ -568,15 +615,32 @@ fun ErrorItem(
 
             TextButton(
                 onClick = onRetryClick,
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = Color(0xFF667EEA)
+                )
             ) {
                 Text(
                     "Retry",
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
     }
 }
 
+// Keep backward compatibility
+@Composable
+fun EmptyFeedView() = ModernEmptyFeedView()
 
+@Composable
+fun ErrorFullScreen(
+    message: String,
+    onRetryClick: () -> Unit
+) = ModernErrorFullScreen(message, onRetryClick)
+
+@Composable
+fun ErrorItem(
+    message: String,
+    onRetryClick: () -> Unit
+) = ModernErrorItem(message, onRetryClick)
