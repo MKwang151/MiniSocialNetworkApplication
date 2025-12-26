@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -27,22 +29,26 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -53,9 +59,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
@@ -65,6 +76,9 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+// Modern color palette
+private val GradientPrimary = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,21 +94,21 @@ fun ComposePostScreen(
     // Camera URI state
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
     
-    // Snackbar state (declared early because used in multiple LaunchedEffects)
+    // Snackbar state
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Handle success and pending approval states
     LaunchedEffect(uiState) {
         when (uiState) {
             is ComposePostUiState.Success -> {
-                onNavigateBack(true) // Post was created
+                onNavigateBack(true)
             }
             is ComposePostUiState.PendingApproval -> {
                 snackbarHostState.showSnackbar(
                     message = "Your post has been submitted and is awaiting admin approval.",
                     duration = SnackbarDuration.Long
                 )
-                onNavigateBack(true) // Post was created (pending)
+                onNavigateBack(true)
             }
             else -> {}
         }
@@ -108,7 +122,6 @@ fun ComposePostScreen(
     ) { uris ->
         if (uris.isNotEmpty()) {
             Timber.d("Selected ${uris.size} images from gallery")
-            // Filter to respect max count based on already selected images
             val availableSlots = Constants.MAX_IMAGE_COUNT - selectedImages.size
             val urisToAdd = if (uris.size > availableSlots) {
                 Timber.w("Too many images selected, taking first $availableSlots")
@@ -143,7 +156,6 @@ fun ComposePostScreen(
     ) { isGranted ->
         if (isGranted) {
             Timber.d("Camera permission granted")
-            // Create URI and launch camera
             cameraImageUri = createImageUri(context)
             cameraImageUri?.let { uri ->
                 cameraLauncher.launch(uri)
@@ -168,7 +180,15 @@ fun ComposePostScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Create Post") },
+                title = { 
+                    Column {
+                        Text(
+                            "Create Post",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = { onNavigateBack(false) }) {
                         Icon(
@@ -182,7 +202,8 @@ fun ComposePostScreen(
                         onClick = { viewModel.createPost() },
                         enabled = uiState !is ComposePostUiState.Uploading &&
                                 (postText.isNotBlank() || selectedImages.isNotEmpty()),
-                        modifier = Modifier.padding(end = 8.dp)
+                        modifier = Modifier.padding(end = 8.dp),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         if (uiState is ComposePostUiState.Uploading) {
                             CircularProgressIndicator(
@@ -191,156 +212,237 @@ fun ComposePostScreen(
                                 strokeWidth = 2.dp
                             )
                         } else {
-                            Text("Post")
+                            Icon(
+                                Icons.Default.Send,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Post", fontWeight = FontWeight.SemiBold)
                         }
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                )
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp)
-        ) {
-            // Text input
-            OutlinedTextField(
-                value = postText,
-                onValueChange = { viewModel.updatePostText(it) },
-                placeholder = { Text("What's on your mind?") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 150.dp),
-                maxLines = 10,
-                supportingText = {
-                    Text(
-                        text = "${postText.length}/${Constants.MAX_POST_TEXT_LENGTH}",
-                        style = MaterialTheme.typography.bodySmall
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                        )
                     )
-                },
-                isError = postText.length > Constants.MAX_POST_TEXT_LENGTH
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Image picker and camera buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                )
+                .padding(paddingValues)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp)
             ) {
-                // Gallery button
-                OutlinedButton(
-                    onClick = {
-                        if (selectedImages.size < Constants.MAX_IMAGE_COUNT) {
-                            imagePickerLauncher.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                // Modern Text Input Card
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(4.dp, RoundedCornerShape(16.dp)),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(4.dp)) {
+                        TextField(
+                            value = postText,
+                            onValueChange = { viewModel.updatePostText(it) },
+                            placeholder = { 
+                                Text(
+                                    "What's on your mind?",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                ) 
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 150.dp),
+                            maxLines = 10,
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent
+                            )
+                        )
+                        
+                        // Character count
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            val isOverLimit = postText.length > Constants.MAX_POST_TEXT_LENGTH
+                            Text(
+                                text = "${postText.length}/${Constants.MAX_POST_TEXT_LENGTH}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (isOverLimit) 
+                                    MaterialTheme.colorScheme.error 
+                                else 
+                                    MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                    },
-                    enabled = selectedImages.size < Constants.MAX_IMAGE_COUNT,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Image,
-                        contentDescription = "Gallery"
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Gallery")
-                }
-
-                // Camera button
-                OutlinedButton(
-                    onClick = {
-                        if (selectedImages.size < Constants.MAX_IMAGE_COUNT) {
-                            // Check camera permission
-                            if (context.checkSelfPermission(android.Manifest.permission.CAMERA) ==
-                                android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                                // Permission already granted, launch camera
-                                cameraImageUri = createImageUri(context)
-                                cameraImageUri?.let { uri ->
-                                    cameraLauncher.launch(uri)
-                                }
-                            } else {
-                                // Request permission
-                                cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
-                            }
-                        }
-                    },
-                    enabled = selectedImages.size < Constants.MAX_IMAGE_COUNT,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CameraAlt,
-                        contentDescription = "Camera"
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Camera")
-                }
-            }
-
-            // Photo count indicator
-            if (selectedImages.isNotEmpty()) {
-                Text(
-                    text = "Photos: ${selectedImages.size}/${Constants.MAX_IMAGE_COUNT}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Selected images preview
-            if (selectedImages.isNotEmpty()) {
-                Text(
-                    text = "Selected Images:",
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(selectedImages.size) { index ->
-                        val uri = selectedImages[index]
-                        SelectedImageItem(
-                            uri = uri,
-                            onRemove = { viewModel.removeImage(uri) }
-                        )
                     }
                 }
-            }
 
-            // Uploading progress
-            if (uiState is ComposePostUiState.Uploading) {
-                val uploadingState = uiState as ComposePostUiState.Uploading
-                Spacer(modifier = Modifier.height(24.dp))
-                Card(
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Media buttons
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Row(
+                    // Gallery button
+                    FilledTonalButton(
+                        onClick = {
+                            if (selectedImages.size < Constants.MAX_IMAGE_COUNT) {
+                                imagePickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            }
+                        },
+                        enabled = selectedImages.size < Constants.MAX_IMAGE_COUNT,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = Color(0xFF667EEA).copy(alpha = 0.1f)
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Image,
+                            contentDescription = "Gallery",
+                            tint = Color(0xFF667EEA)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Gallery", color = Color(0xFF667EEA), fontWeight = FontWeight.Medium)
+                    }
+
+                    // Camera button
+                    FilledTonalButton(
+                        onClick = {
+                            if (selectedImages.size < Constants.MAX_IMAGE_COUNT) {
+                                if (context.checkSelfPermission(android.Manifest.permission.CAMERA) ==
+                                    android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                    cameraImageUri = createImageUri(context)
+                                    cameraImageUri?.let { uri ->
+                                        cameraLauncher.launch(uri)
+                                    }
+                                } else {
+                                    cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                                }
+                            }
+                        },
+                        enabled = selectedImages.size < Constants.MAX_IMAGE_COUNT,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = Color(0xFF11998E).copy(alpha = 0.1f)
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = "Camera",
+                            tint = Color(0xFF11998E)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Camera", color = Color(0xFF11998E), fontWeight = FontWeight.Medium)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Selected images preview
+                if (selectedImages.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Selected Photos",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "${selectedImages.size}/${Constants.MAX_IMAGE_COUNT}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                items(selectedImages.size) { index ->
+                                    val uri = selectedImages[index]
+                                    ModernSelectedImageItem(
+                                        uri = uri,
+                                        onRemove = { viewModel.removeImage(uri) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Uploading progress
+                if (uiState is ComposePostUiState.Uploading) {
+                    val uploadingState = uiState as ComposePostUiState.Uploading
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
+                            .shadow(4.dp, RoundedCornerShape(16.dp)),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFF667EEA).copy(alpha = 0.1f)
+                        )
                     ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = uploadingState.message,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(28.dp),
+                                strokeWidth = 3.dp,
+                                color = Color(0xFF667EEA)
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text(
+                                text = uploadingState.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF667EEA)
+                            )
+                        }
                     }
                 }
             }
@@ -349,19 +451,26 @@ fun ComposePostScreen(
 }
 
 @Composable
-fun SelectedImageItem(
+fun ModernSelectedImageItem(
     uri: Uri,
     onRemove: () -> Unit
 ) {
     Box(
-        modifier = Modifier.size(120.dp)
+        modifier = Modifier
+            .size(110.dp)
+            .shadow(4.dp, RoundedCornerShape(14.dp))
     ) {
         AsyncImage(
             model = uri,
             contentDescription = "Selected image",
             modifier = Modifier
                 .fillMaxSize()
-                .clip(RoundedCornerShape(8.dp)),
+                .clip(RoundedCornerShape(14.dp))
+                .border(
+                    1.dp,
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                    RoundedCornerShape(14.dp)
+                ),
             contentScale = ContentScale.Crop
         )
 
@@ -371,17 +480,17 @@ fun SelectedImageItem(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(4.dp)
-                .size(28.dp)
+                .size(26.dp)
                 .background(
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
-                    shape = RoundedCornerShape(14.dp)
+                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.9f),
+                    shape = CircleShape
                 )
         ) {
             Icon(
                 imageVector = Icons.Default.Close,
                 contentDescription = "Remove image",
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(16.dp)
+                tint = Color.White,
+                modifier = Modifier.size(14.dp)
             )
         }
     }
@@ -392,17 +501,14 @@ fun SelectedImageItem(
  */
 private fun createImageUri(context: Context): Uri? {
     return try {
-        // Create camera directory if it doesn't exist
         val cameraDir = File(context.cacheDir, "camera")
         if (!cameraDir.exists()) {
             cameraDir.mkdirs()
         }
 
-        // Create unique file name
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
         val imageFile = File(cameraDir, "IMG_${timeStamp}.jpg")
 
-        // Get URI using FileProvider
         FileProvider.getUriForFile(
             context,
             "${context.packageName}.fileprovider",
@@ -413,4 +519,3 @@ private fun createImageUri(context: Context): Uri? {
         null
     }
 }
-

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -26,8 +27,10 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -38,11 +41,15 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -54,8 +61,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.minisocialnetworkapplication.core.domain.model.Comment
 import com.example.minisocialnetworkapplication.core.domain.model.Post
@@ -90,7 +102,15 @@ fun PostDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Post Detail") },
+                title = { 
+                    Column {
+                        Text(
+                            "Post Detail",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
@@ -98,53 +118,69 @@ fun PostDetailScreen(
                             contentDescription = "Back"
                         )
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                )
             )
         }
     ) { paddingValues ->
-        when (val state = uiState) {
-            is PostDetailUiState.Loading -> {
-                LoadingView(modifier = Modifier.padding(paddingValues))
-            }
-            is PostDetailUiState.Success -> {
-                PostDetailContent(
-                    post = state.post,
-                    comments = state.comments,
-                    commentText = commentText,
-                    isAddingComment = isAddingComment,
-                    replyToComment = replyToComment,
-                    onCommentTextChange = viewModel::updateCommentText,
-                    onSendComment = viewModel::addComment,
-                    onLikeClicked = viewModel::toggleLike,
-                    onAuthorClicked = onNavigateToProfile,
-                    onImageClicked = onNavigateToImageGallery,
-                    onEditPost = { text ->
-                        editPostText = text
-                        showEditPostDialog = true
-                    },
-                    onDeletePost = { post ->
-                        showDeleteDialog = true
-                    },
-                    onDeleteComment = { comment ->
-                        viewModel.deleteComment(comment.id)
-                    },
-                    onEditComment = { comment, newText ->
-                        viewModel.updateComment(comment.id, newText)
-                    },
-                    onReplyClick = viewModel::setReplyToComment,
-                    onClearReply = viewModel::clearReply,
-                    onReactionClick = { comment, emoji ->
-                        viewModel.toggleCommentReaction(comment.id, emoji)
-                    },
-                    modifier = Modifier.padding(paddingValues)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                        )
+                    )
                 )
-            }
-            is PostDetailUiState.Error -> {
-                ErrorView(
-                    message = state.message,
-                    onRetryClick = viewModel::refresh,
-                    modifier = Modifier.padding(paddingValues)
-                )
+        ) {
+            when (val state = uiState) {
+                is PostDetailUiState.Loading -> {
+                    ModernLoadingView(modifier = Modifier.padding(paddingValues))
+                }
+                is PostDetailUiState.Success -> {
+                    PostDetailContent(
+                        post = state.post,
+                        comments = state.comments,
+                        commentText = commentText,
+                        isAddingComment = isAddingComment,
+                        replyToComment = replyToComment,
+                        onCommentTextChange = viewModel::updateCommentText,
+                        onSendComment = viewModel::addComment,
+                        onLikeClicked = viewModel::toggleLike,
+                        onAuthorClicked = onNavigateToProfile,
+                        onImageClicked = onNavigateToImageGallery,
+                        onEditPost = { text ->
+                            editPostText = text
+                            showEditPostDialog = true
+                        },
+                        onDeletePost = { post ->
+                            showDeleteDialog = true
+                        },
+                        onDeleteComment = { comment ->
+                            viewModel.deleteComment(comment.id)
+                        },
+                        onEditComment = { comment, newText ->
+                            viewModel.updateComment(comment.id, newText)
+                        },
+                        onReplyClick = viewModel::setReplyToComment,
+                        onClearReply = viewModel::clearReply,
+                        onReactionClick = { comment, emoji ->
+                            viewModel.toggleCommentReaction(comment.id, emoji)
+                        },
+                        modifier = Modifier.padding(paddingValues)
+                    )
+                }
+                is PostDetailUiState.Error -> {
+                    ModernErrorView(
+                        message = state.message,
+                        onRetryClick = viewModel::refresh,
+                        modifier = Modifier.padding(paddingValues)
+                    )
+                }
             }
         }
     }
@@ -155,7 +191,6 @@ fun PostDetailScreen(
             onConfirm = {
                 viewModel.deletePost()
                 showDeleteDialog = false
-                // Navigation will happen automatically when deletion succeeds (via LaunchedEffect)
             },
             onDismiss = {
                 showDeleteDialog = false
@@ -165,7 +200,7 @@ fun PostDetailScreen(
 
     // Edit post dialog
     if (showEditPostDialog) {
-        EditTextDialog(
+        ModernEditTextDialog(
             title = "Edit Post",
             initialText = editPostText,
             onConfirm = { newText ->
@@ -214,7 +249,8 @@ fun PostDetailContent(
     if (selectedComment != null) {
         ModalBottomSheet(
             onDismissRequest = { selectedComment = null },
-            sheetState = sheetState
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             Column(
                 modifier = Modifier
@@ -239,7 +275,7 @@ fun PostDetailContent(
                                     selectedComment?.let { comment ->
                                         onReactionClick(comment, emoji)
                                     }
-                                    selectedComment = null // Close sheet after reacting
+                                    selectedComment = null
                                 }
                                 .padding(8.dp)
                         )
@@ -317,21 +353,40 @@ fun PostDetailContent(
                     onImageClicked = onImageClicked,
                     onEditClicked = { onEditPost(post.text) },
                     onDeleteClicked = {
-                        // Set flag to show delete dialog in PostDetailScreen
                         onDeletePost(post)
                     },
                     isOptimisticallyLiked = post.likedByMe,
-                    showMenuButton = true  // Show menu button in PostDetailScreen
+                    showMenuButton = true
                 )
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                 // Comments header
-                Text(
-                    text = "Comments (${comments.size})",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Comments",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = "${comments.size}",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
 
             // Comments
@@ -343,12 +398,25 @@ fun PostDetailContent(
                             .padding(32.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "No comments yet.\nBe the first to comment!",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "💬",
+                                style = MaterialTheme.typography.displayMedium
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "No comments yet",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Be the first to comment!",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
             } else {
@@ -377,16 +445,14 @@ fun PostDetailContent(
         }
 
         // Comment input at bottom
-        CommentInputBar(
+        ModernCommentInputBar(
             text = commentText,
             onTextChange = onCommentTextChange,
             onSendClick = onSendComment,
             isLoading = isAddingComment,
             replyToComment = replyToComment,
             onClearReply = onClearReply,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp)
+            modifier = Modifier.fillMaxWidth()
         )
     }
 
@@ -409,7 +475,7 @@ fun PostDetailContent(
 
     // Edit comment dialog
     if (showEditCommentDialog && commentToEdit != null) {
-        EditTextDialog(
+        ModernEditTextDialog(
             title = "Edit Comment",
             initialText = commentToEdit?.text ?: "",
             onConfirm = { newText ->
@@ -434,16 +500,15 @@ fun CommentItem(
     onAuthorClicked: (String) -> Unit,
     onDeleteClicked: (Comment) -> Unit = {},
     onEditClicked: (Comment) -> Unit = {},
-    onReplyClicked: (Comment) -> Unit, // New callback for reaction bar reply button
-    onReactionClicked: (Comment, String) -> Unit, // New callback for reaction bar emoji
-    onLongClick: (Comment) -> Unit, // New callback to open bottom sheet
+    onReplyClicked: (Comment) -> Unit,
+    onReactionClicked: (Comment, String) -> Unit,
+    onLongClick: (Comment) -> Unit,
     postAuthorId: String = "",
     modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
 
-    // Check if user can delete: comment owner OR post owner
     val canDelete = currentUserId != null &&
         (comment.authorId == currentUserId || postAuthorId == currentUserId)
 
@@ -451,18 +516,18 @@ fun CommentItem(
         modifier = modifier
             .fillMaxWidth()
             .combinedClickable(
-                onClick = {}, // Handle regular click if needed, or leave empty
+                onClick = {},
                 onLongClick = { onLongClick(comment) }
             )
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp, vertical = 10.dp)
     ) {
-        // Avatar - use actual image or fallback to initial
+        // Avatar with gradient fallback
         Surface(
             modifier = Modifier
-                .size(40.dp)
-                .clip(MaterialTheme.shapes.small)
+                .size(42.dp)
+                .clip(CircleShape)
                 .clickable { onAuthorClicked(comment.authorId) },
-            shape = MaterialTheme.shapes.small,
+            shape = CircleShape,
             color = MaterialTheme.colorScheme.primaryContainer
         ) {
             if (!comment.authorAvatarUrl.isNullOrEmpty()) {
@@ -473,11 +538,21 @@ fun CommentItem(
                     contentScale = androidx.compose.ui.layout.ContentScale.Crop
                 )
             } else {
-                Box(contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
                         text = comment.authorName.take(1).uppercase(),
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -491,7 +566,8 @@ fun CommentItem(
                 Text(
                     text = comment.authorName,
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.clickable { onAuthorClicked(comment.authorId) }
                 )
                 
@@ -510,9 +586,9 @@ fun CommentItem(
             // Reply indicator
             if (comment.replyToAuthorName != null) {
                 Text(
-                    text = "Replying to ${comment.replyToAuthorName}",
+                    text = "↳ Replying to ${comment.replyToAuthorName}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(vertical = 2.dp)
                 )
             }
@@ -528,7 +604,7 @@ fun CommentItem(
             
             // Reactions display
             if (comment.reactions.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 com.example.minisocialnetworkapplication.ui.common.ReactionDisplay(
                     reactions = comment.reactions,
                     currentUserId = currentUserId,
@@ -537,15 +613,15 @@ fun CommentItem(
             }
         }
 
-        // Menu button (only show if user can delete)
-        // Kept for backward compatibility, but actions also in bottom sheet
+        // Menu button
         if (canDelete) {
             Box {
                 IconButton(onClick = { showMenu = true }) {
                     Icon(
                         imageVector = Icons.Default.MoreVert,
                         contentDescription = "More options",
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -553,7 +629,6 @@ fun CommentItem(
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false }
                 ) {
-                    // Show Edit only for comment owner
                     if (comment.authorId == currentUserId) {
                         DropdownMenuItem(
                             text = { Text("Edit Comment") },
@@ -570,7 +645,6 @@ fun CommentItem(
                         )
                     }
 
-                    // Show Delete for comment owner OR post owner
                     DropdownMenuItem(
                         text = {
                             Text(
@@ -597,7 +671,7 @@ fun CommentItem(
 }
 
 @Composable
-fun CommentInputBar(
+fun ModernCommentInputBar(
     text: String,
     onTextChange: (String) -> Unit,
     onSendClick: () -> Unit,
@@ -607,8 +681,10 @@ fun CommentInputBar(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = modifier.fillMaxWidth(),
-        tonalElevation = 3.dp
+        modifier = modifier,
+        tonalElevation = 4.dp,
+        shadowElevation = 8.dp,
+        color = MaterialTheme.colorScheme.surface
     ) {
         Column {
             // Reply indicator
@@ -616,24 +692,34 @@ fun CommentInputBar(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Replying to ${replyToComment.authorName}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "↳",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "Replying to ${replyToComment.authorName}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                     IconButton(
                         onClick = onClearReply,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(28.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Cancel reply",
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -641,43 +727,69 @@ fun CommentInputBar(
 
             Row(
                 modifier = Modifier
-                    .padding(8.dp)
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
                     .fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedTextField(
-                    value = text,
-                    onValueChange = onTextChange,
+                // Modern text field
+                Surface(
                     modifier = Modifier.weight(1f),
-                    placeholder = { 
-                        Text(if (replyToComment != null) "Write a reply..." else "Write a comment...") 
-                    },
-                    enabled = !isLoading,
-                    maxLines = 3,
-                    shape = MaterialTheme.shapes.medium
-                )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                IconButton(
-                    onClick = onSendClick,
-                    enabled = text.isNotBlank() && !isLoading
+                    shape = RoundedCornerShape(24.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                 ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
+                    TextField(
+                        value = text,
+                        onValueChange = onTextChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { 
+                            Text(
+                                if (replyToComment != null) "Write a reply..." else "Write a comment...",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            ) 
+                        },
+                        enabled = !isLoading,
+                        maxLines = 3,
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent
                         )
-                    } else {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Send",
-                            tint = if (text.isNotBlank()) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            }
-                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                // Send button
+                Surface(
+                    modifier = Modifier.size(48.dp),
+                    shape = CircleShape,
+                    color = if (text.isNotBlank() && !isLoading) 
+                        MaterialTheme.colorScheme.primary 
+                    else 
+                        MaterialTheme.colorScheme.surfaceVariant
+                ) {
+                    IconButton(
+                        onClick = onSendClick,
+                        enabled = text.isNotBlank() && !isLoading
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Send,
+                                contentDescription = "Send",
+                                modifier = Modifier.size(22.dp),
+                                tint = if (text.isNotBlank()) 
+                                    MaterialTheme.colorScheme.onPrimary 
+                                else 
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
@@ -686,17 +798,28 @@ fun CommentInputBar(
 }
 
 @Composable
-fun LoadingView(modifier: Modifier = Modifier) {
+fun ModernLoadingView(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        CircularProgressIndicator()
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(48.dp),
+                strokeWidth = 3.dp
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                "Loading post...",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
 @Composable
-fun ErrorView(
+fun ModernErrorView(
     message: String,
     onRetryClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -709,22 +832,59 @@ fun ErrorView(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.padding(32.dp)
         ) {
+            // Error emoji
+            Box(
+                modifier = Modifier
+                    .size(84.dp)
+                    .background(
+                        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(24.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "😕",
+                    style = MaterialTheme.typography.displayMedium
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Text(
+                text = "Oops!",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             Text(
                 text = message,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = onRetryClick) {
-                Text("Retry")
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = onRetryClick,
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Icon(
+                    Icons.Default.Refresh,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("Retry", fontWeight = FontWeight.SemiBold)
             }
         }
     }
 }
 
 @Composable
-fun EditTextDialog(
+fun ModernEditTextDialog(
     title: String,
     initialText: String,
     onConfirm: (String) -> Unit,
@@ -734,7 +894,12 @@ fun EditTextDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = { 
+            Text(
+                title, 
+                fontWeight = FontWeight.Bold
+            ) 
+        },
         text = {
             OutlinedTextField(
                 value = text,
@@ -743,15 +908,17 @@ fun EditTextDialog(
                     .fillMaxWidth()
                     .height(150.dp),
                 placeholder = { Text("Enter text...") },
-                maxLines = 5
+                maxLines = 5,
+                shape = RoundedCornerShape(12.dp)
             )
         },
         confirmButton = {
-            TextButton(
+            Button(
                 onClick = { onConfirm(text) },
-                enabled = text.isNotBlank()
+                enabled = text.isNotBlank(),
+                shape = RoundedCornerShape(10.dp)
             ) {
-                Text("Save")
+                Text("Save", fontWeight = FontWeight.SemiBold)
             }
         },
         dismissButton = {
@@ -761,3 +928,22 @@ fun EditTextDialog(
         }
     )
 }
+
+// Keep these for backward compatibility
+@Composable
+fun LoadingView(modifier: Modifier = Modifier) = ModernLoadingView(modifier)
+
+@Composable
+fun ErrorView(
+    message: String,
+    onRetryClick: () -> Unit,
+    modifier: Modifier = Modifier
+) = ModernErrorView(message, onRetryClick, modifier)
+
+@Composable
+fun EditTextDialog(
+    title: String,
+    initialText: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) = ModernEditTextDialog(title, initialText, onConfirm, onDismiss)
