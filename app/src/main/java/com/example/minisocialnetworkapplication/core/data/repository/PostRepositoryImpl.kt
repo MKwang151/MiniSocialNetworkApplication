@@ -32,7 +32,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -579,6 +581,80 @@ class PostRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             Timber.e(e, "Failed to get post")
             Result.Error(e)
+        }
+    }
+
+    override fun getPostFlow(postId: String): Flow<Post?> = callbackFlow {
+        val userId = auth.currentUser?.uid
+        
+        val listenerRegistration = firestore.collection(Constants.COLLECTION_POSTS)
+            .document(postId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Timber.e(error, "Error listening to post $postId")
+                    trySend(null)
+                    return@addSnapshotListener
+                }
+
+                if (snapshot == null || !snapshot.exists()) {
+                    trySend(null)
+                    return@addSnapshotListener
+                }
+
+                try {
+                    val authorId = snapshot.getString(Constants.FIELD_AUTHOR_ID) ?: ""
+                    val authorName = snapshot.getString("authorName") ?: ""
+                    val authorAvatarUrl = snapshot.getString("authorAvatarUrl")
+                    val text = snapshot.getString("text") ?: ""
+                    @Suppress("UNCHECKED_CAST")
+                    val mediaUrls = snapshot.get("mediaUrls") as? List<String> ?: emptyList()
+                    val likeCount = snapshot.getLong(Constants.FIELD_LIKE_COUNT)?.toInt() ?: 0
+                    val commentCount = snapshot.getLong(Constants.FIELD_COMMENT_COUNT)?.toInt() ?: 0
+                    val createdAt = snapshot.getTimestamp(Constants.FIELD_CREATED_AT) ?: com.google.firebase.Timestamp.now()
+
+                    // Group fields
+                    val groupId = snapshot.getString("groupId")
+                    val groupName = snapshot.getString("groupName")
+                    val groupAvatarUrl = snapshot.getString("groupAvatarUrl")
+                    val approvalStatusStr = snapshot.getString("approvalStatus") ?: "APPROVED"
+                    val approvalStatus = try {
+                        com.example.minisocialnetworkapplication.core.domain.model.PostApprovalStatus.valueOf(approvalStatusStr)
+                    } catch (e: Exception) {
+                        com.example.minisocialnetworkapplication.core.domain.model.PostApprovalStatus.APPROVED
+                    }
+                    val isHidden = snapshot.getBoolean("isHidden") ?: false
+
+                    // Check like status synchronously for now (can be optimized)
+                    val likedByMe = false // Will be updated in ViewModel
+
+                    val post = Post(
+                        id = postId,
+                        authorId = authorId,
+                        authorName = authorName,
+                        authorAvatarUrl = authorAvatarUrl,
+                        text = text,
+                        mediaUrls = mediaUrls,
+                        likeCount = likeCount,
+                        commentCount = commentCount,
+                        likedByMe = likedByMe,
+                        createdAt = createdAt,
+                        groupId = groupId,
+                        groupName = groupName,
+                        groupAvatarUrl = groupAvatarUrl,
+                        approvalStatus = approvalStatus,
+                        isHidden = isHidden
+                    )
+
+                    Timber.d("Post $postId updated: commentCount=$commentCount, likeCount=$likeCount")
+                    trySend(post)
+                } catch (e: Exception) {
+                    Timber.e(e, "Error parsing post $postId")
+                    trySend(null)
+                }
+            }
+
+        awaitClose {
+            listenerRegistration.remove()
         }
     }
 

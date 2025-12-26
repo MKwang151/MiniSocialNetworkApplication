@@ -46,6 +46,9 @@ interface PostDao {
     @Query("UPDATE posts SET commentCount = :commentCount WHERE id = :postId")
     suspend fun updateCommentCount(postId: String, commentCount: Int)
 
+    @Query("UPDATE posts SET approvalStatus = :status WHERE id = :postId")
+    suspend fun updateApprovalStatus(postId: String, status: String)
+
     @Query("DELETE FROM posts")
     suspend fun clearAll()
 

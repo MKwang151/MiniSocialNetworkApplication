@@ -95,10 +95,19 @@ fun FeedScreen(
     var showEditDialog by remember { mutableStateOf(false) }
     var postToEdit by remember { mutableStateOf<Post?>(null) }
 
-    // Auto refresh when screen appears
-    LaunchedEffect(Unit) {
-        viewModel.syncCache()
-        lazyPagingItems.refresh()
+    // Auto refresh when screen appears/resumes (handles navigation back)
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                viewModel.syncCache()
+                lazyPagingItems.refresh()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     // Redirect admins to dashboard

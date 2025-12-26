@@ -34,6 +34,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -73,6 +74,7 @@ fun GroupDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    val successMessage by viewModel.successMessage.collectAsState()
     
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -83,6 +85,19 @@ fun GroupDetailScreen(
             scope.launch {
                 snackbarHostState.showSnackbar(it)
                 viewModel.clearError()
+            }
+        }
+    }
+    
+    // Show success messages (e.g., join request submitted)
+    LaunchedEffect(successMessage) {
+        successMessage?.let {
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    message = it,
+                    duration = SnackbarDuration.Long
+                )
+                viewModel.clearSuccessMessage()
             }
         }
     }

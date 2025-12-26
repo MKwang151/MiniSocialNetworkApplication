@@ -79,11 +79,24 @@ fun ComposePostScreen(
 
     // Camera URI state
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
+    
+    // Snackbar state (declared early because used in multiple LaunchedEffects)
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    // Handle success state
+    // Handle success and pending approval states
     LaunchedEffect(uiState) {
-        if (uiState is ComposePostUiState.Success) {
-            onNavigateBack(true) // Post was created
+        when (uiState) {
+            is ComposePostUiState.Success -> {
+                onNavigateBack(true) // Post was created
+            }
+            is ComposePostUiState.PendingApproval -> {
+                snackbarHostState.showSnackbar(
+                    message = "Your post has been submitted and is awaiting admin approval.",
+                    duration = SnackbarDuration.Long
+                )
+                onNavigateBack(true) // Post was created (pending)
+            }
+            else -> {}
         }
     }
 
@@ -142,7 +155,6 @@ fun ComposePostScreen(
     }
 
     // Show error snackbar
-    val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(uiState) {
         if (uiState is ComposePostUiState.Error) {
             snackbarHostState.showSnackbar(

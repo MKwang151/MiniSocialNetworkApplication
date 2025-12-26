@@ -51,6 +51,10 @@ class GroupDetailViewModel @Inject constructor(
     // Error message for snackbar
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+    
+    // Success message for snackbar (e.g., join request submitted)
+    private val _successMessage = MutableStateFlow<String?>(null)
+    val successMessage: StateFlow<String?> = _successMessage.asStateFlow()
 
     private var currentUserId: String? = null
 
@@ -60,6 +64,10 @@ class GroupDetailViewModel @Inject constructor(
 
     fun clearError() {
         _errorMessage.value = null
+    }
+    
+    fun clearSuccessMessage() {
+        _successMessage.value = null
     }
 
     // ========== Post Actions ==========
@@ -222,8 +230,20 @@ class GroupDetailViewModel @Inject constructor(
 
     fun joinGroup() {
         viewModelScope.launch {
+            // Get current group state to check if it's private
+            val currentState = _uiState.value
+            val isPrivateGroup = if (currentState is GroupDetailUiState.Success) {
+                currentState.group.privacy == com.example.minisocialnetworkapplication.core.domain.model.GroupPrivacy.PRIVATE
+            } else {
+                false
+            }
+            
             val result = groupRepository.joinGroup(groupId)
             if (result is Result.Success) {
+                if (isPrivateGroup) {
+                    // For private groups, join creates a request - show pending message
+                    _successMessage.value = "Your join request has been submitted and is awaiting admin approval."
+                }
                 loadGroupDetails()
             } else if (result is Result.Error) {
                 _errorMessage.value = result.message ?: "Failed to join group"
@@ -254,10 +274,13 @@ class GroupDetailViewModel @Inject constructor(
         }
     }
 
-    fun leaveGroup(onSuccess: () -> Unit) {
+    fun leaveGroup(onSuccess: () -> Unit = {}) {
         viewModelScope.launch {
             val result = groupRepository.leaveGroup(groupId)
             if (result is Result.Success) {
+                Timber.d("Left group $groupId successfully, reloading UI")
+                // Reload group details to update UI to non-member state
+                loadGroupDetails()
                 onSuccess()
             } else if (result is Result.Error) {
                 _errorMessage.value = result.message ?: "Failed to leave group"

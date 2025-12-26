@@ -22,6 +22,8 @@ sealed interface ComposePostUiState {
     data object Idle : ComposePostUiState
     data class Uploading(val message: String = "Preparing images...") : ComposePostUiState
     data object Success : ComposePostUiState
+    // New state for posts pending approval
+    data object PendingApproval : ComposePostUiState
     data class Error(val message: String) : ComposePostUiState
 }
 
@@ -157,8 +159,13 @@ class ComposePostViewModel @Inject constructor(
 
                 when (result) {
                     is Result.Success -> {
-                        Timber.d("Post created successfully")
-                        _uiState.value = ComposePostUiState.Success
+                        Timber.d("Post created successfully, requiresApproval=${_requiresApproval.value}")
+                        // Show different state based on whether approval is required
+                        _uiState.value = if (_requiresApproval.value) {
+                            ComposePostUiState.PendingApproval
+                        } else {
+                            ComposePostUiState.Success
+                        }
                         clearPost()
                     }
                     is Result.Error -> {

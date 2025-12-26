@@ -85,9 +85,12 @@ class UserRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateUserInPostsAndComments(userId: String, newName: String): Result<Unit> {
-        // Redundant: Now handled by Firebase Cloud Function (syncUserProfile)
-        // for better reliability and performance.
-        Timber.d("Profile sync for userId=$userId will be handled by Cloud Functions")
+        // Profile sync is handled by Cloud Function "syncUserProfile"
+        // When user document is updated, the Cloud Function automatically:
+        // 1. Updates authorName and authorAvatarUrl in all posts by this user
+        // 2. Updates authorName and authorAvatarUrl in all comments by this user
+        // This ensures all users see the updated info without client-side batch updates
+        Timber.d("Profile sync for userId=$userId will be handled by Cloud Function 'syncUserProfile'")
         return Result.Success(Unit)
     }
 

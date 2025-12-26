@@ -68,29 +68,35 @@ class PostDetailViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 _uiState.value = PostDetailUiState.Loading
+                var hasLoadedLikeStatus = false
 
-                // Load post
-                when (val postResult = postRepository.getPost(postId)) {
-                    is Result.Success -> {
-                        currentPost = postResult.data
-
-                        // Listen to comments
-                        getCommentsUseCase(postId).collect { comments ->
-                            currentPost?.let { post ->
-                                _uiState.value = PostDetailUiState.Success(
-                                    post = post,
-                                    comments = comments
-                                )
-                            }
+                // Use combine to listen to both post and comments in realtime
+                kotlinx.coroutines.flow.combine(
+                    postRepository.getPostFlow(postId),
+                    getCommentsUseCase(postId)
+                ) { post, comments ->
+                    Pair(post, comments)
+                }.collect { (post, comments) ->
+                    if (post != null) {
+                        // Fetch likedByMe on first load
+                        val likedByMe = if (!hasLoadedLikeStatus) {
+                            hasLoadedLikeStatus = true
+                            postRepository.isPostLikedByCurrentUser(postId)
+                        } else {
+                            // Preserve likedByMe state from currentPost
+                            currentPost?.likedByMe ?: false
                         }
-                    }
-                    is Result.Error -> {
-                        _uiState.value = PostDetailUiState.Error(
-                            postResult.exception?.message ?: "Failed to load post"
+                        
+                        val updatedPost = post.copy(likedByMe = likedByMe)
+                        currentPost = updatedPost
+                        
+                        _uiState.value = PostDetailUiState.Success(
+                            post = updatedPost,
+                            comments = comments
                         )
-                    }
-                    is Result.Loading -> {
-                        // Already in loading state
+                    } else if (currentPost == null) {
+                        // Only show error if we never had a post
+                        _uiState.value = PostDetailUiState.Error("Post not found")
                     }
                 }
             } catch (e: Exception) {
@@ -125,25 +131,8 @@ class PostDetailViewModel @Inject constructor(
                 when (result) {
                     is Result.Success -> {
                         _commentText.value = ""
-                        Timber.d("Comment added successfully")
-
-                        // Reload post to get updated comment count
-                        when (val postResult = postRepository.getPost(postId)) {
-                            is Result.Success -> {
-                                currentPost = postResult.data
-                                val currentState = _uiState.value
-                                if (currentState is PostDetailUiState.Success) {
-                                    _uiState.value = currentState.copy(post = postResult.data)
-                                    Timber.d("Post comment count updated in UI")
-                                }
-                            }
-                            is Result.Error -> {
-                                Timber.w("Failed to reload post after adding comment")
-                            }
-                            is Result.Loading -> {
-                                // Ignore
-                            }
-                        }
+                        Timber.d("Comment added successfully - commentCount will update via realtime listener")
+                        // No need to manually reload post - getPostFlow handles realtime updates
                     }
                     is Result.Error -> {
                         Timber.e("Failed to add comment: ${result.exception?.message}")

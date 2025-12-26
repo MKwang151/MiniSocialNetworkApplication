@@ -24,7 +24,8 @@ import javax.inject.Inject
 class GroupRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val auth: FirebaseAuth,
-    private val storage: FirebaseStorage
+    private val storage: FirebaseStorage,
+    private val database: com.example.minisocialnetworkapplication.core.data.local.AppDatabase
 ) : GroupRepository {
 
     override suspend fun createGroup(name: String, description: String, privacy: GroupPrivacy, avatarUri: Uri?): Result<String> {
@@ -111,6 +112,10 @@ class GroupRepositoryImpl @Inject constructor(
             return@callbackFlow
         }
         
+        // Track active group listeners for cleanup
+        val groupListeners = mutableListOf<com.google.firebase.firestore.ListenerRegistration>()
+        var currentGroupIds = emptyList<String>()
+        
         val listener = firestore.collectionGroup("members")
             .whereEqualTo("userId", userId)
             .addSnapshotListener { snapshot, error ->
@@ -132,28 +137,63 @@ class GroupRepositoryImpl @Inject constructor(
 
                 if (snapshot != null) {
                     val groupIds = snapshot.documents.map { it.reference.parent.parent?.id }.filterNotNull()
-                    if (groupIds.isEmpty()) {
-                        trySend(emptyList())
-                    } else {
-                         firestore.collection("groups")
-                            .whereIn(com.google.firebase.firestore.FieldPath.documentId(), groupIds.take(10)) 
-                            .get()
-                            .addOnSuccessListener { groupSnapshot ->
-                                val groups = groupSnapshot.toObjects(Group::class.java)
-                                // Only filter out banned groups if it's NOT the user's own groups list 
-                                // (Actually getGroupsForUser is usually for the user themselves, so they should see the ban)
-                                // Let's keep it visible but they won't be able to interact.
-                                trySend(groups)
-                            }
-                            .addOnFailureListener { e ->
-                                Timber.e(e, "Error fetching groups details")
-                                trySend(emptyList())
-                            }
+                    
+                    // Only re-setup listeners if group membership changed
+                    if (groupIds.sorted() != currentGroupIds.sorted()) {
+                        currentGroupIds = groupIds
+                        
+                        // Remove old group listeners
+                        groupListeners.forEach { it.remove() }
+                        groupListeners.clear()
+                        
+                        if (groupIds.isEmpty()) {
+                            trySend(emptyList())
+                            return@addSnapshotListener
+                        }
+                        
+                        // Create snapshot listener for groups
+                        val allGroupsMap = java.util.concurrent.ConcurrentHashMap<String, Group>()
+                        
+                        groupIds.chunked(10).forEach { chunk ->
+                            val groupListener = firestore.collection("groups")
+                                .whereIn(com.google.firebase.firestore.FieldPath.documentId(), chunk)
+                                .addSnapshotListener { groupSnapshot, groupError ->
+                                    if (groupError != null) {
+                                        Timber.e(groupError, "Error listening to groups")
+                                        return@addSnapshotListener
+                                    }
+                                    
+                                    // Update groups from this chunk
+                                    groupSnapshot?.documents?.forEach { doc ->
+                                        val group = doc.toObject(Group::class.java)
+                                        if (group != null) {
+                                            allGroupsMap[doc.id] = group
+                                        }
+                                    }
+                                    
+                                    // Remove deleted groups
+                                    groupSnapshot?.documentChanges?.forEach { change ->
+                                        if (change.type == com.google.firebase.firestore.DocumentChange.Type.REMOVED) {
+                                            allGroupsMap.remove(change.document.id)
+                                        }
+                                    }
+                                    
+                                    // Send updated groups list
+                                    val groups = allGroupsMap.values.toList()
+                                    if (!isClosedForSend) {
+                                        trySend(groups)
+                                    }
+                                }
+                            groupListeners.add(groupListener)
+                        }
                     }
                 }
             }
         
-        awaitClose { listener.remove() }
+        awaitClose { 
+            listener.remove()
+            groupListeners.forEach { it.remove() }
+        }
     }
 
     override fun getAllGroups(): Flow<List<Group>> = callbackFlow {
@@ -372,6 +412,10 @@ class GroupRepositoryImpl @Inject constructor(
             return@callbackFlow
         }
         
+        // Track active group listeners for cleanup
+        val groupListeners = mutableListOf<com.google.firebase.firestore.ListenerRegistration>()
+        var currentGroupIds = emptyList<String>()
+        
         try {
             // Query for both ADMIN and CREATOR roles
             val memberListener = firestore.collectionGroup("members")
@@ -390,32 +434,61 @@ class GroupRepositoryImpl @Inject constructor(
                     
                     val groupIds = memberSnapshot?.documents?.mapNotNull { it.getString("groupId") } ?: emptyList()
                     
-                    if (groupIds.isEmpty()) {
-                        trySend(emptyList())
-                        return@addSnapshotListener
-                    }
-                    
-                    launch(Dispatchers.IO) {
-                        try {
-                            val groups = mutableListOf<Group>()
-                            groupIds.chunked(10).forEach { chunk ->
-                                val groupsSnapshot = firestore.collection("groups")
-                                    .whereIn(com.google.firebase.firestore.FieldPath.documentId(), chunk)
-                                    .get().await()
-                                groups.addAll(groupsSnapshot.toObjects(Group::class.java))
-                            }
-                            if (!isClosedForSend) {
-                                trySend(groups)
-                            }
-                        } catch (e: Exception) {
-                            Timber.e(e, "Error fetching admin groups details")
-                            if (!isClosedForSend) {
-                                trySend(emptyList())
-                            }
+                    // Only re-setup listeners if admin group membership changed
+                    if (groupIds.sorted() != currentGroupIds.sorted()) {
+                        currentGroupIds = groupIds
+                        
+                        // Remove old group listeners
+                        groupListeners.forEach { it.remove() }
+                        groupListeners.clear()
+                        
+                        if (groupIds.isEmpty()) {
+                            trySend(emptyList())
+                            return@addSnapshotListener
+                        }
+                        
+                        // Create snapshot listener for admin groups
+                        val allGroupsMap = java.util.concurrent.ConcurrentHashMap<String, Group>()
+                        
+                        groupIds.chunked(10).forEach { chunk ->
+                            val groupListener = firestore.collection("groups")
+                                .whereIn(com.google.firebase.firestore.FieldPath.documentId(), chunk)
+                                .addSnapshotListener { groupSnapshot, groupError ->
+                                    if (groupError != null) {
+                                        Timber.e(groupError, "Error listening to admin groups")
+                                        return@addSnapshotListener
+                                    }
+                                    
+                                    // Update groups from this chunk
+                                    groupSnapshot?.documents?.forEach { doc ->
+                                        val group = doc.toObject(Group::class.java)
+                                        if (group != null) {
+                                            allGroupsMap[doc.id] = group
+                                        }
+                                    }
+                                    
+                                    // Remove deleted groups
+                                    groupSnapshot?.documentChanges?.forEach { change ->
+                                        if (change.type == com.google.firebase.firestore.DocumentChange.Type.REMOVED) {
+                                            allGroupsMap.remove(change.document.id)
+                                        }
+                                    }
+                                    
+                                    // Send updated groups list
+                                    val groups = allGroupsMap.values.toList()
+                                    if (!isClosedForSend) {
+                                        trySend(groups)
+                                    }
+                                }
+                            groupListeners.add(groupListener)
                         }
                     }
                 }
-            awaitClose { memberListener.remove() }
+            
+            awaitClose { 
+                memberListener.remove()
+                groupListeners.forEach { it.remove() }
+            }
         } catch (e: Exception) {
             Timber.e(e, "Error in getGroupsWhereUserIsAdmin")
             trySend(emptyList())
@@ -430,6 +503,10 @@ class GroupRepositoryImpl @Inject constructor(
             close()
             return@callbackFlow
         }
+        
+        // Track active post listeners for cleanup
+        val postListeners = mutableListOf<com.google.firebase.firestore.ListenerRegistration>()
+        var currentGroupIds = emptyList<String>()
         
         try {
             val memberListener = firestore.collectionGroup("members")
@@ -447,36 +524,65 @@ class GroupRepositoryImpl @Inject constructor(
                     
                     val groupIds = memberSnapshot?.documents?.mapNotNull { it.getString("groupId") } ?: emptyList()
                     
-                    if (groupIds.isEmpty()) {
-                        trySend(emptyList())
-                        return@addSnapshotListener
-                    }
-                    
-                    launch(Dispatchers.IO) {
-                        try {
-                            val posts = mutableListOf<com.example.minisocialnetworkapplication.core.domain.model.Post>()
-                            groupIds.chunked(10).forEach { chunk ->
-                                val postsSnapshot = firestore.collection("posts")
-                                    .whereIn("groupId", chunk)
-                                    .whereEqualTo("approvalStatus", "APPROVED")
-                                    .orderBy("createdAt", Query.Direction.DESCENDING)
-                                    .get().await()
-                                postsSnapshot.documents.mapNotNull { doc ->
-                                    doc.toObject(com.example.minisocialnetworkapplication.core.domain.model.Post::class.java)?.copy(id = doc.id)
-                                }.also { posts.addAll(it) }
-                            }
-                            if (!isClosedForSend) {
-                                trySend(posts.sortedByDescending { it.createdAt })
-                            }
-                        } catch (e: Exception) {
-                            Timber.e(e, "Error fetching posts from user groups")
-                            if (!isClosedForSend) {
-                                trySend(emptyList())
-                            }
+                    // Only re-setup listeners if group membership changed
+                    if (groupIds.sorted() != currentGroupIds.sorted()) {
+                        currentGroupIds = groupIds
+                        
+                        // Remove old post listeners
+                        postListeners.forEach { it.remove() }
+                        postListeners.clear()
+                        
+                        if (groupIds.isEmpty()) {
+                            trySend(emptyList())
+                            return@addSnapshotListener
+                        }
+                        
+                        // Create snapshot listener for posts from these groups
+                        // Use chunked approach for whereIn limit of 10
+                        val allPostsMap = java.util.concurrent.ConcurrentHashMap<String, com.example.minisocialnetworkapplication.core.domain.model.Post>()
+                        
+                        groupIds.chunked(10).forEach { chunk ->
+                            val postListener = firestore.collection("posts")
+                                .whereIn("groupId", chunk)
+                                .whereEqualTo("approvalStatus", "APPROVED")
+                                .orderBy("createdAt", Query.Direction.DESCENDING)
+                                .addSnapshotListener { postsSnapshot, postError ->
+                                    if (postError != null) {
+                                        Timber.e(postError, "Error listening to group posts")
+                                        return@addSnapshotListener
+                                    }
+                                    
+                                    // Update posts from this chunk
+                                    postsSnapshot?.documents?.forEach { doc ->
+                                        val post = doc.toObject(com.example.minisocialnetworkapplication.core.domain.model.Post::class.java)?.copy(id = doc.id)
+                                        if (post != null) {
+                                            allPostsMap[doc.id] = post
+                                        }
+                                    }
+                                    
+                                    // Remove deleted posts
+                                    postsSnapshot?.documentChanges?.forEach { change ->
+                                        if (change.type == com.google.firebase.firestore.DocumentChange.Type.REMOVED) {
+                                            allPostsMap.remove(change.document.id)
+                                        }
+                                    }
+                                    
+                                    // Send updated posts list
+                                    val sortedPosts = allPostsMap.values.toList()
+                                        .sortedByDescending { it.createdAt }
+                                    if (!isClosedForSend) {
+                                        trySend(sortedPosts)
+                                    }
+                                }
+                            postListeners.add(postListener)
                         }
                     }
                 }
-            awaitClose { memberListener.remove() }
+            
+            awaitClose { 
+                memberListener.remove()
+                postListeners.forEach { it.remove() }
+            }
         } catch (e: Exception) {
             Timber.e(e, "Error in getAllPostsFromUserGroups")
             trySend(emptyList())
@@ -906,6 +1012,14 @@ class GroupRepositoryImpl @Inject constructor(
                 .update("approvalStatus", "HIDDEN")
                 .await()
             
+            // Update Room cache to immediately hide from Feed
+            try {
+                database.postDao().updateApprovalStatus(postId, "HIDDEN")
+                Timber.d("Updated Room cache for hidden post $postId")
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to update Room cache for hidden post, will sync later")
+            }
+            
             Timber.d("Hidden post $postId")
             Result.Success(Unit)
         } catch (e: Exception) {
@@ -919,6 +1033,14 @@ class GroupRepositoryImpl @Inject constructor(
             firestore.collection("posts").document(postId)
                 .update("approvalStatus", "APPROVED")
                 .await()
+            
+            // Update Room cache to immediately show in Feed
+            try {
+                database.postDao().updateApprovalStatus(postId, "APPROVED")
+                Timber.d("Updated Room cache for restored post $postId")
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to update Room cache for restored post, will sync later")
+            }
             
             Timber.d("Restored post $postId")
             Result.Success(Unit)

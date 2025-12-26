@@ -39,6 +39,12 @@ interface PostRepository {
     suspend fun getPost(postId: String): Result<Post>
 
     /**
+     * Get a single post by ID as a realtime Flow
+     * Use this when you need to observe changes to a post (e.g., commentCount updates)
+     */
+    fun getPostFlow(postId: String): Flow<Post?>
+
+    /**
      * Delete a post
      */
     suspend fun deletePost(postId: String): Result<Unit>
