@@ -102,7 +102,8 @@ fun ConversationListScreen(
         
         ModalBottomSheet(
             onDismissRequest = { selectedConversation = null },
-            sheetState = sheetState
+            sheetState = sheetState,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
         ) {
             Column(
                 modifier = Modifier
@@ -180,7 +181,8 @@ fun ConversationListScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onNavigateToNewChat,
-                containerColor = MaterialTheme.colorScheme.primary
+                containerColor = MaterialTheme.colorScheme.primary,
+                shape = RoundedCornerShape(16.dp)
             ) {
                 Icon(Icons.Default.Edit, contentDescription = "New Chat")
             }
@@ -204,10 +206,10 @@ fun ConversationListScreen(
                 shape = RoundedCornerShape(999.dp),
                 singleLine = true,
                 colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f),
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                    focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                 )
             )
 
@@ -312,7 +314,7 @@ private fun ConversationItem(
 
     // UI-only: pinned background nhẹ
     val containerColor =
-        if (conversation.isPinned) MaterialTheme.colorScheme.primary.copy(alpha = 0.06f)
+        if (conversation.isPinned) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.08f)
         else MaterialTheme.colorScheme.surface
 
     androidx.compose.material3.Surface(
@@ -451,7 +453,8 @@ private fun ConversationItem(
                                 text = if (conversation.unreadCount > 99) "99+"
                                 else conversation.unreadCount.toString(),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimary
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
@@ -464,8 +467,8 @@ private fun ConversationItem(
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = 84.dp) // canh với avatar
-            .height(1.dp)
-            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.08f))
+            .height(0.5.dp)
+            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
     )
 }
 

@@ -192,7 +192,8 @@ fun ChatDetailScreen(
         
         ModalBottomSheet(
             onDismissRequest = { selectedMessage = null },
-            sheetState = sheetState
+            sheetState = sheetState,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
         ) {
             Column(
                 modifier = Modifier
@@ -351,7 +352,7 @@ fun ChatDetailScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
                     titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
@@ -377,7 +378,7 @@ fun ChatDetailScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                        .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f))
                 ) {
                     // Header row - always visible
                     Row(
@@ -409,7 +410,8 @@ fun ChatDetailScreen(
                             Text(
                                 text = if (pinnedMessages.size > 1) "${pinnedMessages.size} pinned messages" else "Pinned message",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                fontWeight = FontWeight.SemiBold
                             )
                             if (!isPinnedBarExpanded && pinnedMessages.isNotEmpty()) {
                                 Text(
@@ -526,7 +528,7 @@ fun ChatDetailScreen(
                             modifier = Modifier.fillMaxSize(),
                             state = listState,
                             reverseLayout = true, // Newest messages at bottom
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
                             contentPadding = androidx.compose.foundation.layout.PaddingValues(
                                 bottom = if (uiState.typingUsers.isNotEmpty()) 56.dp else 0.dp
                             )
@@ -763,7 +765,7 @@ private fun MessageBubble(
     val bubbleColor = if (isOutgoing) {
         MaterialTheme.colorScheme.primary
     } else {
-        MaterialTheme.colorScheme.surfaceVariant
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f)
     }
 
     val textColor = if (isOutgoing) {
@@ -774,7 +776,7 @@ private fun MessageBubble(
     
     // Highlight background for scroll-to-pinned
     val highlightColor = if (isHighlighted) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
     } else {
         Color.Transparent
     }
@@ -783,7 +785,7 @@ private fun MessageBubble(
         modifier = Modifier
             .fillMaxWidth()
             .background(highlightColor)
-            .padding(horizontal = 8.dp, vertical = 2.dp),
+            .padding(horizontal = 10.dp, vertical = 2.dp),
         horizontalArrangement = if (isOutgoing) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.Bottom
     ) {
@@ -838,8 +840,8 @@ private fun MessageBubble(
                     modifier = Modifier
                         .widthIn(max = 280.dp)
                         .padding(bottom = 4.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
                         .clickable { onReplyMessageClick(reply.id) }
                         .padding(8.dp)
                 ) {
@@ -847,7 +849,8 @@ private fun MessageBubble(
                         Text(
                             text = reply.senderName,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
                         )
                         Text(
                             text = reply.content,
@@ -869,7 +872,7 @@ private fun MessageBubble(
                     Box(
                         modifier = Modifier
                             .widthIn(max = 280.dp)
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(18.dp))
                             .combinedClickable(
                                 onClick = { },
                                 onLongClick = onLongClick
@@ -889,10 +892,10 @@ private fun MessageBubble(
                             Box(
                                 modifier = Modifier
                                     .align(Alignment.BottomEnd)
-                                    .padding(6.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Color.Black.copy(alpha = 0.5f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    .padding(8.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color.Black.copy(alpha = 0.55f))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically
@@ -908,7 +911,8 @@ private fun MessageBubble(
                                         text = SimpleDateFormat("HH:mm", Locale.getDefault())
                                             .format(message.timestamp.toDate()),
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = Color.White
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Medium
                                     )
                                     if (isOutgoing) {
                                         Spacer(modifier = Modifier.width(4.dp))
@@ -937,10 +941,10 @@ private fun MessageBubble(
                     .widthIn(max = 280.dp)
                     .clip(
                         RoundedCornerShape(
-                            topStart = 16.dp,
-                            topEnd = 16.dp,
-                            bottomStart = if (isOutgoing) 16.dp else 4.dp,
-                            bottomEnd = if (isOutgoing) 4.dp else 16.dp
+                            topStart = 20.dp,
+                            topEnd = 20.dp,
+                            bottomStart = if (isOutgoing) 20.dp else 6.dp,
+                            bottomEnd = if (isOutgoing) 6.dp else 20.dp
                         )
                     )
                     .background(bubbleColor)
@@ -948,7 +952,7 @@ private fun MessageBubble(
                         onClick = { },
                         onLongClick = onLongClick
                     )
-                    .padding(12.dp)
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
                 Column {
                     when (message.type) {
@@ -956,13 +960,15 @@ private fun MessageBubble(
                             Text(
                                 text = if (message.isRevoked) message.content else message.content,
                                 color = textColor,
-                                fontStyle = if (message.isRevoked) FontStyle.Italic else FontStyle.Normal
+                                fontStyle = if (message.isRevoked) FontStyle.Italic else FontStyle.Normal,
+                                style = MaterialTheme.typography.bodyMedium
                             )
                         }
                         else -> {
                             Text(
                                 text = message.getDisplayText(),
-                                color = textColor
+                                color = textColor,
+                                style = MaterialTheme.typography.bodyMedium
                             )
                         }
                     }
@@ -1050,7 +1056,7 @@ private fun TypingIndicatorBubble(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.Bottom
     ) {
@@ -1081,19 +1087,19 @@ private fun TypingIndicatorBubble(
         Spacer(modifier = Modifier.width(8.dp))
 
         Surface(
-            shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomEnd = 18.dp, bottomStart = 6.dp),
-            tonalElevation = 1.dp,
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomEnd = 20.dp, bottomStart = 6.dp),
+            tonalElevation = 0.dp,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(5.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 repeat(dotCount) { index ->
                     val delay = index * 150
                     val alpha by infiniteTransition.animateFloat(
-                        initialValue = 0.25f,
+                        initialValue = 0.3f,
                         targetValue = 1f,
                         animationSpec = infiniteRepeatable(
                             animation = tween(650, delayMillis = delay, easing = FastOutSlowInEasing),
@@ -1145,7 +1151,8 @@ private fun ReplyPreview(
                 Text(
                     text = "Replying to ${message.senderName}",
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
                 )
                 Text(
                     text = message.getDisplayText(),
@@ -1173,15 +1180,15 @@ private fun MessageInput(
     isSending: Boolean
 ) {
     Surface(
-        tonalElevation = 2.dp,
-        shadowElevation = 6.dp,
+        tonalElevation = 3.dp,
+        shadowElevation = 8.dp,
         color = MaterialTheme.colorScheme.surface,
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 10.dp),
+                .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.Bottom
         ) {
             // Attach
@@ -1189,14 +1196,14 @@ private fun MessageInput(
                 onClick = onAttachClick,
                 enabled = !isSending,
                 modifier = Modifier
-                    .size(42.dp)
+                    .size(44.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f))
             ) {
                 Icon(
                     imageVector = Icons.Default.AttachFile,
                     contentDescription = "Attach image",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
 
@@ -1209,14 +1216,14 @@ private fun MessageInput(
                 placeholder = { Text("Message…") },
                 modifier = Modifier
                     .weight(1f)
-                    .heightIn(min = 44.dp),
-                shape = RoundedCornerShape(999.dp),
-                maxLines = 4,
+                    .heightIn(min = 46.dp),
+                shape = RoundedCornerShape(24.dp),
+                maxLines = 5,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                 )
             )
 
@@ -1227,13 +1234,13 @@ private fun MessageInput(
                 onClick = onSendClick,
                 enabled = text.isNotBlank() && !isSending,
                 modifier = Modifier
-                    .size(46.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
                     .background(
                         if (text.isNotBlank() && !isSending)
                             MaterialTheme.colorScheme.primary
                         else
-                            MaterialTheme.colorScheme.surfaceVariant
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                     )
             ) {
                 if (isSending) {
@@ -1272,21 +1279,21 @@ private fun ReactionBar(
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(999.dp),
-        tonalElevation = 2.dp,
-        shadowElevation = 8.dp,
+        tonalElevation = 3.dp,
+        shadowElevation = 12.dp,
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             emojis.forEach { emoji ->
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(42.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f))
                         .clickable {
                             onReactionSelected(emoji)
                             onDismiss()
