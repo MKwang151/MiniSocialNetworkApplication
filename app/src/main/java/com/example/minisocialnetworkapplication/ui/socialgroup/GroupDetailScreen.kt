@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -125,12 +126,20 @@ fun GroupDetailScreen(
             TopAppBar(
                 title = { },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
+                    Surface(
+                        modifier = Modifier
+                            .padding(4.dp)
+                            .size(40.dp),
+                        shape = CircleShape,
+                        color = Color.Black.copy(alpha = 0.4f)
+                    ) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = Color.White
+                            )
+                        }
                     }
                 },
                 actions = {
@@ -139,12 +148,20 @@ fun GroupDetailScreen(
                         var showMenu by remember { androidx.compose.runtime.mutableStateOf(false) }
                         
                         Box {
-                            IconButton(onClick = { showMenu = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.MoreVert,
-                                    contentDescription = "More",
-                                    tint = Color.White
-                                )
+                            Surface(
+                                modifier = Modifier
+                                    .padding(4.dp)
+                                    .size(40.dp),
+                                shape = CircleShape,
+                                color = Color.Black.copy(alpha = 0.4f)
+                            ) {
+                                IconButton(onClick = { showMenu = true }) {
+                                    Icon(
+                                        imageVector = Icons.Default.MoreVert,
+                                        contentDescription = "More",
+                                        tint = Color.White
+                                    )
+                                }
                             }
                             
                             androidx.compose.material3.DropdownMenu(
