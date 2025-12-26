@@ -55,8 +55,6 @@ import androidx.compose.ui.unit.sp
 import com.example.minisocialnetworkapplication.core.domain.model.Group
 
 // Modern color palette
-// Modern color palette
-// Modern color palette
 private val GradientPrimary = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
 private val ColorAccent = Color(0xFF667EEA)
 private val ColorError = Color(0xFFE53935)
@@ -242,25 +240,19 @@ fun GroupManagementScreen(
                                 .shadow(4.dp, RoundedCornerShape(20.dp)),
                             shape = RoundedCornerShape(20.dp),
                             colors = CardDefaults.cardColors(
-                                containerColor = ColorError.copy(alpha = 0.08f)
+                                containerColor = MaterialTheme.colorScheme.surface
                             )
                         ) {
                             if (isCreator) {
-                                ModernManagementMenuItem(
-                                    icon = Icons.Default.Delete,
+                                ModernDangerMenuItem(
                                     title = "Delete Group",
                                     subtitle = "Permanently delete this group",
-                                    iconTint = ColorError,
-                                    titleColor = ColorError,
                                     onClick = onDeleteGroup
                                 )
                             } else {
-                                ModernManagementMenuItem(
-                                    icon = Icons.Default.Delete,
+                                ModernDangerMenuItem(
                                     title = "Leave Group",
                                     subtitle = "You will no longer be an admin",
-                                    iconTint = ColorError,
-                                    titleColor = ColorError,
                                     onClick = onLeaveGroup
                                 )
                             }
@@ -403,7 +395,60 @@ fun ModernManagementMenuItem(
         )
     }
 }
-// est ssdsds
+
+@Composable
+fun ModernDangerMenuItem(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(20.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Icon box with soft red background
+        Surface(
+            modifier = Modifier.size(44.dp),
+            shape = RoundedCornerShape(14.dp),
+            color = ColorError.copy(alpha = 0.1f)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = ColorError,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.width(16.dp))
+        
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = ColorError
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = ColorError.copy(alpha = 0.5f)
+        )
+    }
+}
+
 // Keep backward compatibility
 @Composable
 fun PostApprovalToggle(
