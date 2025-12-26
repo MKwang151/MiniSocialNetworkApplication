@@ -55,10 +55,11 @@ import androidx.compose.ui.unit.sp
 import com.example.minisocialnetworkapplication.core.domain.model.Group
 
 // Modern color palette
+// Modern color palette
+// Modern color palette
 private val GradientPrimary = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
 private val ColorAccent = Color(0xFF667EEA)
 private val ColorError = Color(0xFFE53935)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupManagementScreen(
@@ -402,7 +403,7 @@ fun ModernManagementMenuItem(
         )
     }
 }
-
+// est ssdsds
 // Keep backward compatibility
 @Composable
 fun PostApprovalToggle(
