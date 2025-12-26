@@ -1,5 +1,7 @@
 package com.example.minisocialnetworkapplication.ui.socialgroup
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,14 +17,21 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -31,21 +40,27 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.foundation.clickable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import coil.compose.AsyncImage
 import com.example.minisocialnetworkapplication.core.domain.model.Group
 import com.example.minisocialnetworkapplication.core.domain.model.Post
 import com.example.minisocialnetworkapplication.ui.auth.AuthViewModel
 import com.example.minisocialnetworkapplication.ui.components.BottomNavBar
 import com.example.minisocialnetworkapplication.ui.components.PostCard
-import coil.compose.AsyncImage
-import androidx.compose.ui.layout.ContentScale
+
+// Modern color palette
+private val GradientPrimary = listOf(Color(0xFF667EEA), Color(0xFF764BA2))
+private val ColorAccent = Color(0xFF667EEA)
 
 @Composable
 fun SocialGroupScreen(
@@ -61,6 +76,7 @@ fun SocialGroupScreen(
     val uiState by viewModel.uiState.collectAsState()
     var selectedFilter by remember { mutableIntStateOf(0) }
     val filters = listOf("Your Groups", "Posts", "Discover", "Manage")
+    val filterEmojis = listOf("👥", "📝", "🔍", "⚙️")
 
     Scaffold(
         bottomBar = {
@@ -72,71 +88,135 @@ fun SocialGroupScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onNavigateToCreateGroup,
-                containerColor = MaterialTheme.colorScheme.primary
+                containerColor = ColorAccent,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.shadow(8.dp, RoundedCornerShape(16.dp))
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Create Group")
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = "Create Group",
+                    tint = Color.White
+                )
             }
         }
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .padding(paddingValues)
                 .fillMaxSize()
-        ) {
-            // Header with title
-            Text(
-                text = "Group",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black,
-                modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
-            )
-            
-            // Filter chips
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                items(filters.size) { index ->
-                    FilterChip(
-                        selected = selectedFilter == index,
-                        onClick = { selectedFilter = index },
-                        label = { Text(filters[index]) }
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                        )
                     )
+                )
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Header with title
+                Text(
+                    text = "Groups",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 4.dp)
+                )
+                Text(
+                    text = "Connect with your communities",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 20.dp, bottom = 12.dp)
+                )
+                
+                // Modern Filter chips
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(filters.size) { index ->
+                        FilterChip(
+                            selected = selectedFilter == index,
+                            onClick = { selectedFilter = index },
+                            label = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(filterEmojis[index])
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        filters[index],
+                                        fontWeight = if (selectedFilter == index) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            },
+                            shape = RoundedCornerShape(999.dp),
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = ColorAccent,
+                                selectedLabelColor = Color.White
+                            )
+                        )
+                    }
                 }
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
+                
+                Spacer(modifier = Modifier.height(8.dp))
 
-            when (val state = uiState) {
-                is SocialGroupUiState.Loading -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+                when (val state = uiState) {
+                    is SocialGroupUiState.Loading -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(36.dp),
+                                strokeWidth = 3.dp,
+                                color = ColorAccent
+                            )
+                        }
                     }
-                }
-                is SocialGroupUiState.Error -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(text = state.message, color = MaterialTheme.colorScheme.error)
+                    is SocialGroupUiState.Error -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = "😕",
+                                    style = MaterialTheme.typography.displayMedium
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = state.message,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
                     }
-                }
-                is SocialGroupUiState.Success -> {
-                    when (selectedFilter) {
-                        0 -> GroupList(groups = state.myGroups, onGroupClick = onNavigateToGroupDetail)
-                        1 -> PostsList(
-                            posts = state.allPosts, 
-                            onGroupClick = onNavigateToGroupDetail,
-                            onPostClick = onNavigateToPostDetail,
-                            onAuthorClick = onNavigateToProfile,
-                            onImageClick = onNavigateToImageGallery,
-                            onLikeClick = { post -> viewModel.toggleLike(post) }
-                        )
-                        2 -> DiscoverGroupList(
-                            groups = state.discoverGroups, 
-                            onGroupClick = onNavigateToGroupDetail,
-                            onJoinClick = { groupId -> viewModel.joinGroup(groupId) }
-                        )
-                        3 -> GroupList(groups = state.managedGroups, onGroupClick = onNavigateToGroupDetail)
+                    is SocialGroupUiState.Success -> {
+                        when (selectedFilter) {
+                            0 -> ModernGroupList(
+                                groups = state.myGroups,
+                                onGroupClick = onNavigateToGroupDetail,
+                                emptyMessage = "You haven't joined any groups yet"
+                            )
+                            1 -> ModernPostsList(
+                                posts = state.allPosts, 
+                                onGroupClick = onNavigateToGroupDetail,
+                                onPostClick = onNavigateToPostDetail,
+                                onAuthorClick = onNavigateToProfile,
+                                onImageClick = onNavigateToImageGallery,
+                                onLikeClick = { post -> viewModel.toggleLike(post) }
+                            )
+                            2 -> ModernDiscoverGroupList(
+                                groups = state.discoverGroups, 
+                                onGroupClick = onNavigateToGroupDetail,
+                                onJoinClick = { groupId -> viewModel.joinGroup(groupId) }
+                            )
+                            3 -> ModernGroupList(
+                                groups = state.managedGroups,
+                                onGroupClick = onNavigateToGroupDetail,
+                                emptyMessage = "You don't manage any groups"
+                            )
+                        }
                     }
                 }
             }
@@ -145,7 +225,7 @@ fun SocialGroupScreen(
 }
 
 @Composable
-fun PostsList(
+fun ModernPostsList(
     posts: List<Post>,
     onGroupClick: (String) -> Unit,
     onPostClick: (String) -> Unit = {},
@@ -154,9 +234,11 @@ fun PostsList(
     onLikeClick: (Post) -> Unit = {}
 ) {
     if (posts.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(text = "No posts found")
-        }
+        ModernEmptyGroupState(
+            emoji = "📝",
+            title = "No Posts Yet",
+            message = "Posts from your groups will appear here"
+        )
     } else {
         LazyColumn(
             contentPadding = PaddingValues(vertical = 8.dp),
@@ -181,90 +263,285 @@ fun PostsList(
 }
 
 @Composable
-fun GroupList(
+fun ModernGroupList(
     groups: List<Group>,
-    onGroupClick: (String) -> Unit
+    onGroupClick: (String) -> Unit,
+    emptyMessage: String = "No groups found"
 ) {
     if (groups.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(text = "No groups found")
-        }
+        ModernEmptyGroupState(
+            emoji = "👥",
+            title = "No Groups",
+            message = emptyMessage
+        )
     } else {
         LazyColumn(
             contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.fillMaxSize()
         ) {
             items(groups) { group ->
-                androidx.compose.material3.ListItem(
-                    headlineContent = { Text(group.name) },
-                    supportingContent = { Text("${group.memberCount} members") },
-                    leadingContent = {
-                        androidx.compose.material3.Surface(
-                            shape = androidx.compose.foundation.shape.CircleShape,
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                            modifier = Modifier.size(40.dp)
-                        ) {
-                            AsyncImage(
-                                model = group.avatarUrl ?: "https://ui-avatars.com/api/?name=${java.net.URLEncoder.encode(group.name, "UTF-8")}&background=6366f1&color=fff",
-                                contentDescription = "Group Avatar",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                    },
-                    modifier = Modifier.clickable { onGroupClick(group.id) }
+                ModernGroupListItem(
+                    group = group,
+                    onClick = { onGroupClick(group.id) }
                 )
-                androidx.compose.material3.HorizontalDivider()
             }
         }
     }
 }
 
 @Composable
-fun DiscoverGroupList(
+private fun ModernGroupListItem(
+    group: Group,
+    onClick: () -> Unit,
+    trailing: @Composable (() -> Unit)? = null
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 2.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Avatar with gradient fallback
+            Surface(
+                modifier = Modifier.size(52.dp),
+                shape = CircleShape
+            ) {
+                if (group.avatarUrl != null) {
+                    AsyncImage(
+                        model = group.avatarUrl,
+                        contentDescription = "Group Avatar",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.linearGradient(GradientPrimary),
+                                CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = group.name.take(1).uppercase(),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.width(14.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = group.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        color = ColorAccent.copy(alpha = 0.1f),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = "${group.memberCount} members",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = ColorAccent
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "• ${group.privacy}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            
+            trailing?.invoke()
+        }
+    }
+}
+
+@Composable
+fun ModernDiscoverGroupList(
     groups: List<Group>,
     onGroupClick: (String) -> Unit,
     onJoinClick: (String) -> Unit
 ) {
     if (groups.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(text = "No new groups to discover")
-        }
+        ModernEmptyGroupState(
+            emoji = "🔍",
+            title = "No New Groups",
+            message = "No new groups to discover right now"
+        )
     } else {
         LazyColumn(
             contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.fillMaxSize()
         ) {
             items(groups) { group ->
-                androidx.compose.material3.ListItem(
-                    headlineContent = { Text(group.name) },
-                    supportingContent = { Text("${group.memberCount} members") },
-                    leadingContent = {
-                        androidx.compose.material3.Surface(
-                            shape = androidx.compose.foundation.shape.CircleShape,
-                            color = MaterialTheme.colorScheme.secondaryContainer,
-                            modifier = Modifier.size(40.dp)
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onGroupClick(group.id) },
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    shadowElevation = 2.dp
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Avatar with gradient fallback
+                        Surface(
+                            modifier = Modifier.size(52.dp),
+                            shape = CircleShape
                         ) {
-                            AsyncImage(
-                                model = group.avatarUrl ?: "https://ui-avatars.com/api/?name=${java.net.URLEncoder.encode(group.name, "UTF-8")}&background=6366f1&color=fff",
-                                contentDescription = "Group Avatar",
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
+                            if (group.avatarUrl != null) {
+                                AsyncImage(
+                                    model = group.avatarUrl,
+                                    contentDescription = "Group Avatar",
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(CircleShape),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            Brush.linearGradient(GradientPrimary),
+                                            CircleShape
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = group.name.take(1).uppercase(),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.width(14.dp))
+                        
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = group.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "${group.memberCount} members",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                    },
-                    trailingContent = {
-                        androidx.compose.material3.Button(
+                        
+                        Button(
                             onClick = { onJoinClick(group.id) },
-                            modifier = Modifier.height(36.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ColorAccent
+                            )
                         ) {
-                            Text("Join")
+                            Text("Join", fontWeight = FontWeight.SemiBold)
                         }
-                    },
-                    modifier = Modifier.clickable { onGroupClick(group.id) }
-                )
-                androidx.compose.material3.HorizontalDivider()
+                    }
+                }
             }
         }
     }
 }
+
+@Composable
+private fun ModernEmptyGroupState(
+    emoji: String,
+    title: String,
+    message: String
+) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                modifier = Modifier
+                    .size(88.dp)
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                ColorAccent.copy(alpha = 0.15f),
+                                Color(0xFF764BA2).copy(alpha = 0.15f)
+                            )
+                        ),
+                        shape = RoundedCornerShape(26.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = emoji,
+                    style = MaterialTheme.typography.displaySmall
+                )
+            }
+            Spacer(modifier = Modifier.height(20.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+// Keep backward compatibility
+@Composable
+fun PostsList(
+    posts: List<Post>,
+    onGroupClick: (String) -> Unit,
+    onPostClick: (String) -> Unit = {},
+    onAuthorClick: (String) -> Unit = {},
+    onImageClick: (String, Int) -> Unit = { _, _ -> },
+    onLikeClick: (Post) -> Unit = {}
+) = ModernPostsList(posts, onGroupClick, onPostClick, onAuthorClick, onImageClick, onLikeClick)
+
+@Composable
+fun GroupList(
+    groups: List<Group>,
+    onGroupClick: (String) -> Unit
+) = ModernGroupList(groups, onGroupClick)
+
+@Composable
+fun DiscoverGroupList(
+    groups: List<Group>,
+    onGroupClick: (String) -> Unit,
+    onJoinClick: (String) -> Unit
+) = ModernDiscoverGroupList(groups, onGroupClick, onJoinClick)
