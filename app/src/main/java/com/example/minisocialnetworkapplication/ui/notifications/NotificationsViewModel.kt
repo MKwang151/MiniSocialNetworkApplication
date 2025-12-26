@@ -108,4 +108,8 @@ class NotificationsViewModel @Inject constructor(
             }
         }
     }
+
+    fun refresh() {
+        loadNotifications()
+    }
 }
