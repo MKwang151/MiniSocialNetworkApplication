@@ -27,10 +27,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 /**
- * Instagram-like reaction display with smooth animations
- * Shows reactions as beautiful pill chips below messages/comments
+ * Compact reaction display - small pills below messages
  */
 @Composable
 fun ReactionDisplay(
@@ -42,19 +42,17 @@ fun ReactionDisplay(
     if (reactions.isEmpty()) return
 
     Row(
-        modifier = modifier.padding(top = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = modifier.padding(top = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         reactions.forEach { (emoji, userIds) ->
             val hasMyReaction = currentUserId != null && userIds.contains(currentUserId)
-            val shape = RoundedCornerShape(999.dp) // Perfect pill shape
+            val shape = RoundedCornerShape(999.dp)
 
-            // Track press state for animation
             val interactionSource = remember { MutableInteractionSource() }
             val pressed by interactionSource.collectIsPressedAsState()
 
-            // Smooth color transitions
             val containerColor by animateColorAsState(
                 targetValue = if (hasMyReaction)
                     MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f)
@@ -73,14 +71,12 @@ fun ReactionDisplay(
                 label = "reactionBorder"
             )
 
-            // Instagram-like subtle elevation
             val elevation by animateDpAsState(
-                targetValue = if (hasMyReaction) 4.dp else 0.5.dp,
+                targetValue = if (hasMyReaction) 2.dp else 0.dp,
                 animationSpec = spring(stiffness = 500f, dampingRatio = 0.85f),
                 label = "reactionElevation"
             )
 
-            // Bouncy scale on press
             val scale by animateFloatAsState(
                 targetValue = if (pressed) 0.92f else 1f,
                 animationSpec = spring(stiffness = 700f, dampingRatio = 0.7f),
@@ -99,63 +95,40 @@ fun ReactionDisplay(
                     }
                     .clip(shape)
                     .border(
-                        width = if (hasMyReaction) 1.5.dp else 1.dp,
+                        width = if (hasMyReaction) 1.dp else 0.5.dp,
                         color = borderColor,
                         shape = shape
                     )
                     .clickable(
                         interactionSource = interactionSource,
-                        indication = null // Custom animation via scale
+                        indication = null
                     ) { onReactionClick(emoji) }
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
-                    // Emoji
+                    // Emoji - smaller
                     Text(
                         text = emoji,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = if (hasMyReaction) FontWeight.Medium else FontWeight.Normal
-                        )
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 12.sp
                     )
 
-                    // Count badge (if more than 0)
-                    if (userIds.isNotEmpty()) {
-                        val countBg by animateColorAsState(
-                            targetValue = if (hasMyReaction)
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
-                            else
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                            animationSpec = tween(220),
-                            label = "countBg"
-                        )
-
-                        val countColor by animateColorAsState(
-                            targetValue = if (hasMyReaction)
+                    // Count - only show if > 1
+                    if (userIds.size > 1) {
+                        Text(
+                            text = userIds.size.toString(),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = if (hasMyReaction) FontWeight.SemiBold else FontWeight.Medium,
+                                fontSize = 10.sp
+                            ),
+                            color = if (hasMyReaction)
                                 MaterialTheme.colorScheme.primary
                             else
-                                MaterialTheme.colorScheme.onSurfaceVariant,
-                            animationSpec = tween(220),
-                            label = "countColor"
+                                MaterialTheme.colorScheme.onSurfaceVariant
                         )
-
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(999.dp))
-                                .background(countBg)
-                                .padding(horizontal = 7.dp, vertical = 2.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = userIds.size.toString(),
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = if (hasMyReaction) FontWeight.SemiBold else FontWeight.Medium
-                                ),
-                                color = countColor
-                            )
-                        }
                     }
                 }
             }
