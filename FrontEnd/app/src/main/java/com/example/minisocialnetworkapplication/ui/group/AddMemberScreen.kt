@@ -12,6 +12,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
+import com.example.minisocialnetworkapplication.ui.components.ModernSnackbarHost
+import com.example.minisocialnetworkapplication.ui.components.ToastType
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +50,7 @@ fun AddMemberScreen(
     val isLoading by viewModel.isLoading.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
+    var currentToastType by remember { mutableStateOf(ToastType.INFO) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(conversationId) {
@@ -55,7 +58,7 @@ fun AddMemberScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { ModernSnackbarHost(snackbarHostState, type = currentToastType) },
         topBar = {
             TopAppBar(
                 title = {
@@ -85,7 +88,10 @@ fun AddMemberScreen(
                             viewModel.addMembers(
                                 onSuccess = { navController.popBackStack() },
                                 onError = { msg ->
-                                    scope.launch { snackbarHostState.showSnackbar(msg) }
+                                    scope.launch { 
+                                        currentToastType = ToastType.ERROR
+                                        snackbarHostState.showSnackbar(msg) 
+                                    }
                                 }
                             )
                         },
