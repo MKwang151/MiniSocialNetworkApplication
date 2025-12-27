@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -21,15 +22,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 
+// Modern color palette - synced with ProfileScreen
+private val ColorLike = Color(0xFFFF416C)
+
 /**
  * Animated Like Button with heart bounce effect
+ * Uses ColorLike from ProfileScreen design language
  */
 @Composable
 fun AnimatedLikeButton(
     isLiked: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    tint: Color = Color.Red
+    tint: Color = ColorLike
 ) {
     // Animation state for bounce effect
     var animate by remember { mutableStateOf(false) }
@@ -70,7 +75,7 @@ fun AnimatedLikeButton(
             Icon(
                 imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                 contentDescription = if (isLiked) "Unlike" else "Like",
-                tint = if (isLiked) tint else Color.Gray,
+                tint = if (isLiked) tint else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.graphicsLayer {
                     scaleX = scale
                     scaleY = scale
@@ -83,12 +88,13 @@ fun AnimatedLikeButton(
 
 /**
  * Animated Like Icon (without button wrapper)
+ * Uses ColorLike from ProfileScreen design language
  */
 @Composable
 fun AnimatedLikeIcon(
     isLiked: Boolean,
     modifier: Modifier = Modifier,
-    tint: Color = Color.Red
+    tint: Color = ColorLike
 ) {
     val scale by animateFloatAsState(
         targetValue = if (isLiked) 1.2f else 1f,
@@ -102,7 +108,7 @@ fun AnimatedLikeIcon(
     Icon(
         imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
         contentDescription = if (isLiked) "Liked" else "Not liked",
-        tint = if (isLiked) tint else Color.Gray,
+        tint = if (isLiked) tint else MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = modifier.graphicsLayer {
             scaleX = scale
             scaleY = scale
