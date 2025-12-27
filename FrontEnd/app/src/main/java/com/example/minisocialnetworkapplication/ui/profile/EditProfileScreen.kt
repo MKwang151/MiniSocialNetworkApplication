@@ -42,8 +42,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Surface
+import com.example.minisocialnetworkapplication.ui.components.ModernToast
+import com.example.minisocialnetworkapplication.ui.components.ToastType
+import com.example.minisocialnetworkapplication.ui.components.rememberModernToastState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -88,6 +90,7 @@ fun EditProfileScreen(
     )
 
     var showSuccessDialog by remember { mutableStateOf(false) }
+    val toastState = rememberModernToastState()
 
     // Handle success state
     LaunchedEffect(uiState) {
@@ -376,18 +379,25 @@ fun EditProfileScreen(
         }
     }
 
-    // Error snackbar
+    // Error toast
     if (uiState is EditProfileUiState.Error) {
         LaunchedEffect(uiState) {
-            kotlinx.coroutines.delay(3000)
+            toastState.show(
+                message = (uiState as EditProfileUiState.Error).message,
+                type = ToastType.ERROR
+            )
             viewModel.clearError()
         }
-
-        Snackbar(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text((uiState as EditProfileUiState.Error).message)
-        }
+    }
+    
+    // Modern Toast Host - place at an overlay position
+    Box(modifier = androidx.compose.ui.Modifier.fillMaxSize()) {
+        ModernToast(
+            state = toastState,
+            modifier = androidx.compose.ui.Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 80.dp)
+        )
     }
 
     // Success dialog
