@@ -11,15 +11,22 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.minisocialnetworkapplication.ui.navigation.Screen
+
+// Modern color palette - synced with ProfileScreen
+private val ColorAccent = Color(0xFF667EEA)
 
 @Composable
 fun AdminBottomNavBar(
@@ -34,7 +41,9 @@ fun AdminBottomNavBar(
     )
 
     NavigationBar(
-        modifier = Modifier.height(80.dp),
+        modifier = Modifier
+            .height(80.dp)
+            .shadow(8.dp),
         containerColor = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface
     ) {
@@ -42,8 +51,10 @@ fun AdminBottomNavBar(
         val currentRoute = navBackStackEntry?.destination?.route
 
         items.forEach { item ->
+            val isSelected = currentRoute == item.route
+            
             NavigationBarItem(
-                selected = currentRoute == item.route,
+                selected = isSelected,
                 onClick = {
                     if (currentRoute != item.route) {
                         navController.navigate(item.route) {
@@ -56,11 +67,27 @@ fun AdminBottomNavBar(
                     }
                 },
                 icon = {
-                    Icon(item.icon, contentDescription = item.label)
+                    Icon(
+                        imageVector = item.icon,
+                        contentDescription = item.label,
+                        tint = if (isSelected) ColorAccent else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 },
                 label = {
-                    Text(text = item.label, style = MaterialTheme.typography.labelSmall)
-                }
+                    Text(
+                        text = item.label,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isSelected) ColorAccent else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = ColorAccent,
+                    selectedTextColor = ColorAccent,
+                    indicatorColor = ColorAccent.copy(alpha = 0.1f),
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             )
         }
     }
