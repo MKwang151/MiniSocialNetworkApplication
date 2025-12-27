@@ -21,23 +21,29 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
+// Modern color palette - synced with ProfileScreen
+private val ColorAccent = Color(0xFF667EEA)
+
 /**
  * Shimmer effect modifier for loading states
+ * Uses modern color palette synced with ProfileScreen
  */
 fun Modifier.shimmerEffect(): Modifier = composed {
     val shimmerColors = listOf(
-        Color.LightGray.copy(alpha = 0.6f),
-        Color.LightGray.copy(alpha = 0.2f),
-        Color.LightGray.copy(alpha = 0.6f)
+        ColorAccent.copy(alpha = 0.1f),
+        ColorAccent.copy(alpha = 0.05f),
+        ColorAccent.copy(alpha = 0.1f)
     )
 
     val transition = rememberInfiniteTransition(label = "shimmer")
@@ -65,6 +71,7 @@ fun Modifier.shimmerEffect(): Modifier = composed {
 
 /**
  * Shimmer placeholder for PostCard loading
+ * Uses modern Card styling synced with ProfileScreen
  */
 @Composable
 fun PostCardShimmer(
@@ -73,7 +80,12 @@ fun PostCardShimmer(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .shadow(4.dp, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
@@ -89,9 +101,9 @@ fun PostCardShimmer(
                 // Avatar
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(44.dp)
                         .shimmerEffect()
-                        .background(Color.LightGray, CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
                 )
 
                 Spacer(modifier = Modifier.width(12.dp))
@@ -103,10 +115,10 @@ fun PostCardShimmer(
                             .width(120.dp)
                             .height(16.dp)
                             .shimmerEffect()
-                            .background(Color.LightGray, RoundedCornerShape(4.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     // Timestamp
                     Box(
@@ -114,12 +126,12 @@ fun PostCardShimmer(
                             .width(80.dp)
                             .height(12.dp)
                             .shimmerEffect()
-                            .background(Color.LightGray, RoundedCornerShape(4.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Post text
             Box(
@@ -127,7 +139,7 @@ fun PostCardShimmer(
                     .fillMaxWidth()
                     .height(16.dp)
                     .shimmerEffect()
-                    .background(Color.LightGray, RoundedCornerShape(4.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -137,10 +149,10 @@ fun PostCardShimmer(
                     .fillMaxWidth(0.7f)
                     .height(16.dp)
                     .shimmerEffect()
-                    .background(Color.LightGray, RoundedCornerShape(4.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Image placeholder
             Box(
@@ -148,10 +160,10 @@ fun PostCardShimmer(
                     .fillMaxWidth()
                     .height(200.dp)
                     .shimmerEffect()
-                    .background(Color.LightGray, RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp))
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Action buttons row
             Row(
@@ -161,19 +173,19 @@ fun PostCardShimmer(
                 // Like button
                 Box(
                     modifier = Modifier
-                        .width(60.dp)
-                        .height(20.dp)
+                        .width(70.dp)
+                        .height(24.dp)
                         .shimmerEffect()
-                        .background(Color.LightGray, RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
                 )
 
                 // Comment button
                 Box(
                     modifier = Modifier
-                        .width(60.dp)
-                        .height(20.dp)
+                        .width(70.dp)
+                        .height(24.dp)
                         .shimmerEffect()
-                        .background(Color.LightGray, RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
                 )
             }
         }
@@ -197,7 +209,7 @@ fun CommentItemShimmer(
             modifier = Modifier
                 .size(40.dp)
                 .shimmerEffect()
-                .background(Color.LightGray, CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
         )
 
         Spacer(modifier = Modifier.width(12.dp))
@@ -209,7 +221,7 @@ fun CommentItemShimmer(
                     .width(100.dp)
                     .height(14.dp)
                     .shimmerEffect()
-                    .background(Color.LightGray, RoundedCornerShape(4.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -220,7 +232,7 @@ fun CommentItemShimmer(
                     .fillMaxWidth()
                     .height(14.dp)
                     .shimmerEffect()
-                    .background(Color.LightGray, RoundedCornerShape(4.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -230,7 +242,7 @@ fun CommentItemShimmer(
                     .fillMaxWidth(0.8f)
                     .height(14.dp)
                     .shimmerEffect()
-                    .background(Color.LightGray, RoundedCornerShape(4.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -241,7 +253,7 @@ fun CommentItemShimmer(
                     .width(70.dp)
                     .height(10.dp)
                     .shimmerEffect()
-                    .background(Color.LightGray, RoundedCornerShape(4.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))
             )
         }
     }
@@ -249,57 +261,104 @@ fun CommentItemShimmer(
 
 /**
  * Shimmer placeholder for Profile header
+ * Uses modern Card styling synced with ProfileScreen
  */
 @Composable
 fun ProfileHeaderShimmer(
     modifier: Modifier = Modifier
 ) {
-    Column(
+    Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .padding(16.dp)
+            .shadow(6.dp, RoundedCornerShape(20.dp)),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
-        // Avatar
-        Box(
+        Column(
             modifier = Modifier
-                .size(80.dp)
-                .shimmerEffect()
-                .background(Color.LightGray, CircleShape)
-        )
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Avatar
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .shimmerEffect()
+                    .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+            )
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-        // Name
-        Box(
-            modifier = Modifier
-                .width(150.dp)
-                .height(24.dp)
-                .shimmerEffect()
-                .background(Color.LightGray, RoundedCornerShape(4.dp))
-        )
+            // Name
+            Box(
+                modifier = Modifier
+                    .width(150.dp)
+                    .height(24.dp)
+                    .shimmerEffect()
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+            )
 
-        Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-        // Email
-        Box(
-            modifier = Modifier
-                .width(200.dp)
-                .height(16.dp)
-                .shimmerEffect()
-                .background(Color.LightGray, RoundedCornerShape(4.dp))
-        )
+            // Email
+            Box(
+                modifier = Modifier
+                    .width(200.dp)
+                    .height(16.dp)
+                    .shimmerEffect()
+                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
+            )
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-        // Post count
-        Box(
-            modifier = Modifier
-                .width(100.dp)
-                .height(16.dp)
-                .shimmerEffect()
-                .background(Color.LightGray, RoundedCornerShape(4.dp))
-        )
+            // Stats row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                // Posts stat
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier = Modifier
+                            .width(40.dp)
+                            .height(24.dp)
+                            .shimmerEffect()
+                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .width(50.dp)
+                            .height(12.dp)
+                            .shimmerEffect()
+                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))
+                    )
+                }
+                
+                // Friends stat
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(
+                        modifier = Modifier
+                            .width(40.dp)
+                            .height(24.dp)
+                            .shimmerEffect()
+                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .width(50.dp)
+                            .height(12.dp)
+                            .shimmerEffect()
+                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(4.dp))
+                    )
+                }
+            }
+        }
     }
 }
 
