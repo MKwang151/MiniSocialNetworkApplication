@@ -9,6 +9,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.example.minisocialnetworkapplication.ui.components.ModernSnackbarHost
+import com.example.minisocialnetworkapplication.ui.components.ToastType
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,7 +70,7 @@ fun GroupReportsScreen(
                 )
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { ModernSnackbarHost(snackbarHostState, type = ToastType.SUCCESS) }
     ) { paddingValues ->
         Box(
             modifier = Modifier

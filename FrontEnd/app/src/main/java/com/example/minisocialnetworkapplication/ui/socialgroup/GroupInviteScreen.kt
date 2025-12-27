@@ -13,6 +13,8 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
+import com.example.minisocialnetworkapplication.ui.components.ModernSnackbarHost
+import com.example.minisocialnetworkapplication.ui.components.ToastType
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,10 +49,11 @@ fun GroupInviteScreen(
     val isSending by viewModel.isSending.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
+    var currentToastType by remember { mutableStateOf(ToastType.INFO) }
     val scope = rememberCoroutineScope()
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { ModernSnackbarHost(snackbarHostState, type = currentToastType) },
         topBar = {
             TopAppBar(
                 title = {
@@ -71,12 +74,14 @@ fun GroupInviteScreen(
                             viewModel.sendInvitations(
                                 onSuccess = {
                                     scope.launch {
+                                        currentToastType = ToastType.SUCCESS
                                         snackbarHostState.showSnackbar("Invitations sent successfully!")
                                     }
                                     onNavigateBack()
                                 },
                                 onError = { msg ->
                                     scope.launch {
+                                        currentToastType = ToastType.ERROR
                                         snackbarHostState.showSnackbar(msg)
                                     }
                                 }

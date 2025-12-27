@@ -30,8 +30,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import com.example.minisocialnetworkapplication.ui.components.ModernSnackbarHost
+import com.example.minisocialnetworkapplication.ui.components.ToastType
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -40,7 +41,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -67,6 +70,7 @@ fun ReportScreen(
     val description by viewModel.description.collectAsState()
     val targetType by viewModel.targetTypeState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    var currentToastType by remember { mutableStateOf(ToastType.INFO) }
 
     val targetLabel = when (targetType) {
         "POST" -> "Post"
@@ -79,10 +83,12 @@ fun ReportScreen(
     LaunchedEffect(uiState) {
         when (uiState) {
             is ReportUiState.Success -> {
+                currentToastType = ToastType.SUCCESS
                 snackbarHostState.showSnackbar("Report submitted successfully!")
                 onNavigateBack()
             }
             is ReportUiState.Error -> {
+                currentToastType = ToastType.ERROR
                 snackbarHostState.showSnackbar((uiState as ReportUiState.Error).message)
                 viewModel.clearError()
             }
@@ -91,7 +97,7 @@ fun ReportScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { ModernSnackbarHost(snackbarHostState, type = currentToastType) },
         topBar = {
             TopAppBar(
                 title = {

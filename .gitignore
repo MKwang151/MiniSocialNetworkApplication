@@ -12,7 +12,7 @@ local.properties
 .kotlin/
 
 # Duplicate/old app folder at root (project uses FrontEnd/app)
-app/
+/app/
 
 # Android Studio Navigation editor temp files
 .navigation/

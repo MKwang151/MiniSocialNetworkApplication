@@ -41,9 +41,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import com.example.minisocialnetworkapplication.ui.components.ModernSnackbarHost
+import com.example.minisocialnetworkapplication.ui.components.ToastType
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -96,6 +96,7 @@ fun ComposePostScreen(
     
     // Snackbar state
     val snackbarHostState = remember { SnackbarHostState() }
+    var currentToastType by remember { mutableStateOf(ToastType.INFO) }
 
     // Handle success and pending approval states
     LaunchedEffect(uiState) {
@@ -104,9 +105,9 @@ fun ComposePostScreen(
                 onNavigateBack(true)
             }
             is ComposePostUiState.PendingApproval -> {
+                currentToastType = ToastType.SUCCESS
                 snackbarHostState.showSnackbar(
-                    message = "Your post has been submitted and is awaiting admin approval.",
-                    duration = SnackbarDuration.Long
+                    message = "Your post has been submitted and is awaiting admin approval."
                 )
                 onNavigateBack(true)
             }
@@ -169,9 +170,9 @@ fun ComposePostScreen(
     // Show error snackbar
     LaunchedEffect(uiState) {
         if (uiState is ComposePostUiState.Error) {
+            currentToastType = ToastType.ERROR
             snackbarHostState.showSnackbar(
-                message = (uiState as ComposePostUiState.Error).message,
-                duration = SnackbarDuration.Short
+                message = (uiState as ComposePostUiState.Error).message
             )
             viewModel.clearError()
         }
@@ -227,7 +228,7 @@ fun ComposePostScreen(
                 )
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { ModernSnackbarHost(snackbarHostState, type = currentToastType) }
     ) { paddingValues ->
         Box(
             modifier = Modifier

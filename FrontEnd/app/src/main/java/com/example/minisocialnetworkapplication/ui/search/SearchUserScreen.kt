@@ -27,9 +27,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import com.example.minisocialnetworkapplication.ui.components.ModernSnackbarHost
+import com.example.minisocialnetworkapplication.ui.components.ToastType
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -76,15 +76,17 @@ fun SearchUserScreen(
     val searchResult by viewModel.searchResults.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
+    var currentToastType by remember { mutableStateOf(ToastType.INFO) }
+    
     LaunchedEffect(uiState) {
         when (uiState) {
             is SearchUiState.Idle -> {
                 viewModel.search(query)
             }
             is SearchUiState.Error -> {
+                currentToastType = ToastType.ERROR
                 snackbarHostState.showSnackbar(
-                    message = (uiState as SearchUiState.Error).message,
-                    duration = SnackbarDuration.Short
+                    message = (uiState as SearchUiState.Error).message
                 )
                 viewModel.clearError()
             }
@@ -92,7 +94,7 @@ fun SearchUserScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { ModernSnackbarHost(snackbarHostState, type = currentToastType) },
         topBar = {
             TopAppBar(
                 title = {

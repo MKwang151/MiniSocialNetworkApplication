@@ -36,9 +36,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarDuration
+import com.example.minisocialnetworkapplication.ui.components.ModernSnackbarHost
+import com.example.minisocialnetworkapplication.ui.components.ToastType
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -92,6 +92,7 @@ fun GroupDetailScreen(
     
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    var currentToastType by remember { mutableStateOf(ToastType.INFO) }
     
     // Edit post dialog state
     var showEditPostDialog by remember { mutableStateOf(false) }
@@ -101,6 +102,7 @@ fun GroupDetailScreen(
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
             scope.launch {
+                currentToastType = ToastType.ERROR
                 snackbarHostState.showSnackbar(it)
                 viewModel.clearError()
             }
@@ -111,17 +113,15 @@ fun GroupDetailScreen(
     LaunchedEffect(successMessage) {
         successMessage?.let {
             scope.launch {
-                snackbarHostState.showSnackbar(
-                    message = it,
-                    duration = SnackbarDuration.Long
-                )
+                currentToastType = ToastType.SUCCESS
+                snackbarHostState.showSnackbar(it)
                 viewModel.clearSuccessMessage()
             }
         }
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { ModernSnackbarHost(snackbarHostState, type = currentToastType) },
         topBar = {
             TopAppBar(
                 title = { },
