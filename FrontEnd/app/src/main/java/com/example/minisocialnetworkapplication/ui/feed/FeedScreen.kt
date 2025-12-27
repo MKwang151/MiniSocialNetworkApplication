@@ -28,9 +28,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import com.example.minisocialnetworkapplication.ui.components.ModernSnackbarHost
+import com.example.minisocialnetworkapplication.ui.components.ToastType
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -163,11 +163,13 @@ fun FeedScreen(
 
     // Show error snackbar
     val snackbarHostState = remember { SnackbarHostState() }
+    var currentToastType by remember { mutableStateOf(ToastType.INFO) }
+    
     LaunchedEffect(uiState) {
         if (uiState is FeedUiState.Error) {
+            currentToastType = ToastType.ERROR
             snackbarHostState.showSnackbar(
-                message = (uiState as FeedUiState.Error).message,
-                duration = SnackbarDuration.Short
+                message = (uiState as FeedUiState.Error).message
             )
             viewModel.clearError()
         }
@@ -258,7 +260,7 @@ fun FeedScreen(
                     )
                 }
             },
-            snackbarHost = { SnackbarHost(snackbarHostState) }
+            snackbarHost = { ModernSnackbarHost(snackbarHostState, type = currentToastType) }
         ) { paddingValues ->
             Box(
                 modifier = Modifier
