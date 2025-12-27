@@ -108,6 +108,10 @@ dependencies {
     // Zoomable Image
     implementation("net.engawapg.lib:zoomable:1.6.1")
 
+    // ExoPlayer (Media3) for better video streaming
+    implementation("androidx.media3:media3-exoplayer:1.2.1")
+    implementation("androidx.media3:media3-ui:1.2.1")
+
     // DataStore
     implementation(libs.androidx.datastore.preferences)
 

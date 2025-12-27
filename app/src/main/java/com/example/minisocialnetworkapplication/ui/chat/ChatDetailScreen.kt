@@ -137,6 +137,27 @@ fun ChatDetailScreen(
         }
     }
 
+    // Video picker launcher
+    val videoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        uri?.let {
+            viewModel.sendMediaMessage(listOf(it), MessageType.VIDEO)
+        }
+    }
+
+    // Audio picker launcher (using GetContent for audio files)
+    val audioPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            viewModel.sendMediaMessage(listOf(it), MessageType.AUDIO)
+        }
+    }
+
+    // State for attachment bottom sheet
+    var showAttachmentSheet by remember { mutableStateOf(false) }
+
     // Scroll to specific message if requested
     // We use a flag to track if we are in "search result mode" to prevent auto-scrolling to bottom
     var focusingOnSearchResult by remember { mutableStateOf(false) }
@@ -664,12 +685,70 @@ fun ChatDetailScreen(
                     messageText = ""
                 },
                 onAttachClick = {
-                    imagePickerLauncher.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                    )
+                    showAttachmentSheet = true
                 },
                 isSending = uiState.isSending
             )
+        }
+    }
+
+    // Attachment options bottom sheet
+    if (showAttachmentSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showAttachmentSheet = false },
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Text(
+                    text = "Đính kèm",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                // Image option
+                AttachmentOption(
+                    icon = "📷",
+                    title = "Hình ảnh",
+                    subtitle = "Chọn tối đa 10 ảnh",
+                    onClick = {
+                        showAttachmentSheet = false
+                        imagePickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    }
+                )
+
+                // Video option
+                AttachmentOption(
+                    icon = "🎥",
+                    title = "Video",
+                    subtitle = "Chọn 1 video",
+                    onClick = {
+                        showAttachmentSheet = false
+                        videoPickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
+                        )
+                    }
+                )
+
+                // Audio option
+                AttachmentOption(
+                    icon = "🎵",
+                    title = "Âm thanh",
+                    subtitle = "Chọn file âm thanh (MP3, WAV...)",
+                    onClick = {
+                        showAttachmentSheet = false
+                        audioPickerLauncher.launch("audio/*")
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+            }
         }
     }
 }
@@ -980,6 +1059,452 @@ private fun MessageBubble(
                     )
                 }
             }
+            } else if (message.type == MessageType.VIDEO && !message.isRevoked) {
+                // Video message - in-app video player with ExoPlayer
+                val videoUrl = message.mediaUrls.firstOrNull()
+                val context = androidx.compose.ui.platform.LocalContext.current
+                var isPlaying by remember { mutableStateOf(false) }
+                var exoPlayerRef by remember { mutableStateOf<androidx.media3.exoplayer.ExoPlayer?>(null) }
+                
+                if (videoUrl != null) {
+                    Box(
+                        modifier = Modifier
+                            .widthIn(max = 280.dp)
+                            .heightIn(min = 150.dp, max = 250.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Color.Black)
+                            .combinedClickable(
+                                onClick = {
+                                    if (isPlaying) {
+                                        // Pause video
+                                        exoPlayerRef?.pause()
+                                        isPlaying = false
+                                    } else {
+                                        // Start video
+                                        isPlaying = true
+                                    }
+                                },
+                                onLongClick = onLongClick
+                            )
+                    ) {
+                        // Track if video is still loading/buffering
+                        var isLoading by remember { mutableStateOf(true) }
+                        
+                        if (isPlaying) {
+                            // ExoPlayer for faster video streaming
+                            val exoPlayer = remember {
+                                androidx.media3.exoplayer.ExoPlayer.Builder(context).build().apply {
+                                    val mediaItem = androidx.media3.common.MediaItem.fromUri(videoUrl)
+                                    setMediaItem(mediaItem)
+                                    repeatMode = androidx.media3.common.Player.REPEAT_MODE_OFF
+                                    prepare()
+                                    playWhenReady = true
+                                }.also { exoPlayerRef = it }
+                            }
+                            
+                            // Listen for playback state changes
+                            DisposableEffect(exoPlayer) {
+                                val listener = object : androidx.media3.common.Player.Listener {
+                                    override fun onPlaybackStateChanged(playbackState: Int) {
+                                        when (playbackState) {
+                                            androidx.media3.common.Player.STATE_READY -> {
+                                                isLoading = false
+                                            }
+                                            androidx.media3.common.Player.STATE_ENDED -> {
+                                                isPlaying = false
+                                                exoPlayer.seekTo(0)
+                                            }
+                                            androidx.media3.common.Player.STATE_BUFFERING -> {
+                                                isLoading = true
+                                            }
+                                        }
+                                    }
+                                    
+                                    override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                                        timber.log.Timber.e(error, "ExoPlayer error")
+                                        isPlaying = false
+                                        isLoading = false
+                                    }
+                                }
+                                exoPlayer.addListener(listener)
+                                
+                                onDispose {
+                                    exoPlayer.removeListener(listener)
+                                    exoPlayer.release()
+                                }
+                            }
+                            
+                            androidx.compose.ui.viewinterop.AndroidView(
+                                factory = { ctx ->
+                                    androidx.media3.ui.PlayerView(ctx).apply {
+                                        player = exoPlayer
+                                        useController = false  // Hide default controls
+                                    }
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            
+                            // Loading indicator while buffering
+                            if (isLoading) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(Color.Black.copy(alpha = 0.5f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        CircularProgressIndicator(
+                                            color = Color.White,
+                                            strokeWidth = 3.dp,
+                                            modifier = Modifier.size(36.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = "Đang tải...",
+                                            color = Color.White,
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
+                                    }
+                                }
+                            } else {
+                                // Pause overlay (tap to pause) - only show when not loading
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.Center)
+                                        .size(50.dp)
+                                        .background(Color.Black.copy(alpha = 0.4f), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(text = "⏸️", fontSize = 24.sp)
+                                }
+                            }
+                        } else {
+                            // Video thumbnail placeholder
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        Brush.linearGradient(
+                                            colors = listOf(
+                                                Color(0xFF2C3E50),
+                                                Color(0xFF34495E)
+                                            )
+                                        )
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    // Play button
+                                    Box(
+                                        modifier = Modifier
+                                            .size(60.dp)
+                                            .background(Color.White.copy(alpha = 0.9f), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "▶️",
+                                            fontSize = 28.sp
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Nhấn để phát video",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = Color.White.copy(alpha = 0.8f)
+                                    )
+                                }
+                            }
+                        }
+                        
+                        // Duration badge (if available)
+                        message.duration?.let { durationSec ->
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(8.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.Black.copy(alpha = 0.7f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                val minutes = durationSec / 60
+                                val seconds = durationSec % 60
+                                Text(
+                                    text = String.format("%d:%02d", minutes, seconds),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                        
+                        // Video icon badge at top-left
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(8.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.9f))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = if (isPlaying) "🎥 Đang phát" else "🎥 Video",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        
+                        // Timestamp overlay
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(8.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.Black.copy(alpha = 0.55f))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = SimpleDateFormat("HH:mm", Locale.getDefault())
+                                        .format(message.timestamp.toDate()),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White
+                                )
+                                if (isOutgoing) {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    MessageStatusIcon(status = message.status, color = Color.White)
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if (message.type == MessageType.AUDIO && !message.isRevoked) {
+                // Audio message - show audio player UI with functional playback
+                val audioUrl = message.mediaUrls.firstOrNull()
+                var isPlaying by remember { mutableStateOf(false) }
+                val context = androidx.compose.ui.platform.LocalContext.current
+                
+                // MediaPlayer reference for audio playback
+                val mediaPlayer = remember {
+                    android.media.MediaPlayer().apply {
+                        setOnCompletionListener {
+                            isPlaying = false
+                        }
+                    }
+                }
+                
+                // Clean up MediaPlayer when composable leaves
+                androidx.compose.runtime.DisposableEffect(Unit) {
+                    onDispose {
+                        mediaPlayer.release()
+                    }
+                }
+                
+                Box(
+                    modifier = Modifier
+                        .widthIn(max = 260.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(bubbleColor)
+                        .combinedClickable(
+                            onClick = {
+                                if (audioUrl != null) {
+                                    try {
+                                        if (isPlaying) {
+                                            mediaPlayer.pause()
+                                            isPlaying = false
+                                        } else {
+                                            // Reset and prepare for streaming audio
+                                            mediaPlayer.reset()
+                                            mediaPlayer.setDataSource(audioUrl)
+                                            mediaPlayer.setOnPreparedListener { mp ->
+                                                mp.start()
+                                                isPlaying = true
+                                            }
+                                            mediaPlayer.setOnErrorListener { _, what, extra ->
+                                                timber.log.Timber.e("Audio error: what=$what, extra=$extra")
+                                                isPlaying = false
+                                                true
+                                            }
+                                            // Use async prepare for network URLs
+                                            mediaPlayer.prepareAsync()
+                                        }
+                                    } catch (e: Exception) {
+                                        timber.log.Timber.e(e, "Audio playback error")
+                                        isPlaying = false
+                                    }
+                                }
+                            },
+                            onLongClick = onLongClick
+                        )
+                        .padding(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Play/Pause button
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(
+                                    if (isOutgoing) Color.White.copy(alpha = 0.25f) 
+                                    else MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (isPlaying) "⏸️" else "▶️",
+                                fontSize = 20.sp
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.width(12.dp))
+                        
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (isPlaying) "Đang phát..." else "🎵 Tin nhắn thoại",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = textColor,
+                                fontWeight = FontWeight.Medium
+                            )
+                            
+                            // Audio progress bar (visual only - pulsing wave)
+                            if (isPlaying) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Animated wave bars
+                                    repeat(20) { index ->
+                                        val infiniteTransition = rememberInfiniteTransition(label = "wave$index")
+                                        val height by infiniteTransition.animateFloat(
+                                            initialValue = 4f,
+                                            targetValue = 12f,
+                                            animationSpec = infiniteRepeatable(
+                                                animation = tween(
+                                                    durationMillis = 300 + (index % 5) * 50,
+                                                    easing = FastOutSlowInEasing
+                                                ),
+                                                repeatMode = RepeatMode.Reverse
+                                            ),
+                                            label = "height$index"
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(height.dp)
+                                                .clip(RoundedCornerShape(2.dp))
+                                                .background(
+                                                    if (isOutgoing) Color.White.copy(alpha = 0.8f) 
+                                                    else MaterialTheme.colorScheme.primary
+                                                )
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                            }
+                            
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                message.duration?.let { durationSec ->
+                                    val minutes = durationSec / 60
+                                    val seconds = durationSec % 60
+                                    Text(
+                                        text = String.format("%d:%02d", minutes, seconds),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = textColor.copy(alpha = 0.7f)
+                                    )
+                                    Text(
+                                        text = " • ",
+                                        color = textColor.copy(alpha = 0.5f)
+                                    )
+                                }
+                                Text(
+                                    text = SimpleDateFormat("HH:mm", Locale.getDefault())
+                                        .format(message.timestamp.toDate()),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = textColor.copy(alpha = 0.7f)
+                                )
+                                if (isOutgoing) {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    MessageStatusIcon(status = message.status, color = textColor)
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if (message.type == MessageType.FILE && !message.isRevoked) {
+                // File message - show file info with download option
+                Box(
+                    modifier = Modifier
+                        .widthIn(max = 260.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(bubbleColor)
+                        .combinedClickable(
+                            onClick = { /* Open file */ },
+                            onLongClick = onLongClick
+                        )
+                        .padding(12.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // File icon
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(
+                                    if (isOutgoing) Color.White.copy(alpha = 0.2f) 
+                                    else MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                                    RoundedCornerShape(10.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("📎", fontSize = 20.sp)
+                        }
+                        
+                        Spacer(modifier = Modifier.width(12.dp))
+                        
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = message.fileName ?: "Tập tin đính kèm",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = textColor,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                message.fileSize?.let { size ->
+                                    val sizeText = when {
+                                        size < 1024 -> "$size B"
+                                        size < 1024 * 1024 -> "${size / 1024} KB"
+                                        else -> String.format("%.1f MB", size / (1024.0 * 1024.0))
+                                    }
+                                    Text(
+                                        text = sizeText,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = textColor.copy(alpha = 0.7f)
+                                    )
+                                    Text(
+                                        text = " • ",
+                                        color = textColor.copy(alpha = 0.5f)
+                                    )
+                                }
+                                Text(
+                                    text = SimpleDateFormat("HH:mm", Locale.getDefault())
+                                        .format(message.timestamp.toDate()),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = textColor.copy(alpha = 0.7f)
+                                )
+                                if (isOutgoing) {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    MessageStatusIcon(status = message.status, color = textColor)
+                                }
+                            }
+                        }
+                    }
+                }
         } else {
             // Text and other message types - with bubble
             Box(
@@ -1354,4 +1879,48 @@ private fun ReactionBar(
 }
 
 
-
+/**
+ * Attachment option row for bottom sheet
+ */
+@Composable
+private fun AttachmentOption(
+    icon: String,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .background(
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                    RoundedCornerShape(12.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(text = icon, fontSize = 24.sp)
+        }
+        
+        Spacer(modifier = Modifier.width(16.dp))
+        
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}

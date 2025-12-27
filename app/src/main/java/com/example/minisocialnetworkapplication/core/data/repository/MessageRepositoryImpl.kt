@@ -288,8 +288,35 @@ class MessageRepositoryImpl @Inject constructor(
             // Upload media files
             val mediaUrls = mutableListOf<String>()
             for (uri in mediaUris) {
-                val fileName = "${UUID.randomUUID()}.jpg"
+                // Get proper file extension based on message type and URI
+                val extension = when (type) {
+                    MessageType.IMAGE -> "jpg"
+                    MessageType.VIDEO -> {
+                        // Try to get extension from URI, fallback to mp4
+                        getFileExtension(uri) ?: "mp4"
+                    }
+                    MessageType.AUDIO -> {
+                        // Try to get extension from URI, fallback to mp3
+                        getFileExtension(uri) ?: "mp3"
+                    }
+                    MessageType.FILE -> {
+                        // Get original extension from URI
+                        getFileExtension(uri) ?: "bin"
+                    }
+                    else -> "bin"
+                }
+                
+                val fileName = "${UUID.randomUUID()}.$extension"
                 val ref = storage.reference.child("chat_media/$conversationId/$localId/$fileName")
+
+                // Get proper MIME type for the file
+                val mimeType = when (type) {
+                    MessageType.IMAGE -> "image/jpeg"
+                    MessageType.VIDEO -> getMimeType(uri) ?: "video/mp4"
+                    MessageType.AUDIO -> getMimeType(uri) ?: "audio/mpeg"
+                    MessageType.FILE -> getMimeType(uri) ?: "application/octet-stream"
+                    else -> "application/octet-stream"
+                }
 
                 // Use ImageCompressor for images
                 if (type == MessageType.IMAGE) {
@@ -300,7 +327,26 @@ class MessageRepositoryImpl @Inject constructor(
                         ref.putFile(uri).await()
                     }
                 } else {
-                    ref.putFile(uri).await()
+                    // For video, audio, file - use InputStream for reliable upload
+                    // This properly handles content URIs from pickers
+                    val metadata = com.google.firebase.storage.StorageMetadata.Builder()
+                        .setContentType(mimeType)
+                        .build()
+                    
+                    val inputStream = context.contentResolver.openInputStream(uri)
+                    if (inputStream != null) {
+                        try {
+                            timber.log.Timber.d("Uploading $type file: $fileName with MIME: $mimeType")
+                            ref.putStream(inputStream, metadata).await()
+                            timber.log.Timber.d("Upload completed for: $fileName")
+                        } finally {
+                            inputStream.close()
+                        }
+                    } else {
+                        // Fallback to putFile if InputStream fails
+                        timber.log.Timber.w("InputStream null, falling back to putFile for $uri")
+                        ref.putFile(uri, metadata).await()
+                    }
                 }
 
                 val downloadUrl = ref.downloadUrl.await().toString()
@@ -774,6 +820,46 @@ class MessageRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             timber.log.Timber.e(e, "UNPIN: Failed to unpin message - ${e.message}")
             Result.Error(e)
+        }
+    }
+
+    /**
+     * Get file extension from URI
+     */
+    private fun getFileExtension(uri: Uri): String? {
+        return try {
+            // Try to get from MIME type first
+            val mimeType = context.contentResolver.getType(uri)
+            val extension = android.webkit.MimeTypeMap.getSingleton()
+                .getExtensionFromMimeType(mimeType)
+            
+            if (extension != null) {
+                return extension
+            }
+            
+            // Fallback: try to extract from URI path
+            val path = uri.path ?: return null
+            val lastDot = path.lastIndexOf('.')
+            if (lastDot != -1 && lastDot < path.length - 1) {
+                path.substring(lastDot + 1).lowercase()
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            timber.log.Timber.e(e, "Error getting file extension")
+            null
+        }
+    }
+
+    /**
+     * Get MIME type from URI
+     */
+    private fun getMimeType(uri: Uri): String? {
+        return try {
+            context.contentResolver.getType(uri)
+        } catch (e: Exception) {
+            timber.log.Timber.e(e, "Error getting MIME type")
+            null
         }
     }
 }
