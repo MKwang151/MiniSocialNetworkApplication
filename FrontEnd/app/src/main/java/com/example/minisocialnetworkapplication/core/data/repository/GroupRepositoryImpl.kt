@@ -728,7 +728,7 @@ class GroupRepositoryImpl @Inject constructor(
             val groupName = groupDoc.getString("name") ?: ""
             
             val userDoc = firestore.collection("users").document(currentUser.uid).get().await()
-            val userName = userDoc.getString("displayName") ?: currentUser.displayName ?: ""
+            val userName = userDoc.getString("name") ?: currentUser.displayName ?: ""
             val userAvatarUrl = userDoc.getString("avatarUrl")
             
             val existingRequest = firestore.collection("join_requests")

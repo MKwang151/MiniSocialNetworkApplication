@@ -46,7 +46,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         // Priority 1: Data-only message (used for flattening)
         // Priority 2: Notification message
-        val title = message.notification?.title ?: message.data["title"] ?: "Mini Social"
+        val title = message.notification?.title ?: message.data["title"] ?: "SoMe"
         val body = message.notification?.body ?: message.data["message"] ?: ""
         
         showNotification(
@@ -94,7 +94,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         val notification = NotificationCompat.Builder(this, Constants.NOTIFICATION_CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(body)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.logo_app)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .setPriority(NotificationCompat.PRIORITY_HIGH)

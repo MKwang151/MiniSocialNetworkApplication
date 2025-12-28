@@ -1,6 +1,7 @@
 package com.example.minisocialnetworkapplication.ui.socialgroup
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -38,6 +39,7 @@ private val ColorSuccess = Color(0xFF11998E)
 @Composable
 fun GroupReportsScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToPostDetail: (String) -> Unit = {},
     viewModel: GroupReportsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -135,11 +137,13 @@ fun GroupReportsScreen(
                             onDismiss = viewModel::dismissReport,
                             onHidePost = viewModel::hidePost,
                             onDeletePost = viewModel::deletePost,
-                            onKickMember = viewModel::kickMember
+                            onKickMember = viewModel::kickMember,
+                            onReportClick = { postId -> onNavigateToPostDetail(postId) }
                         )
                         1 -> ModernHiddenPostsTab(
                             posts = state.hiddenPosts,
-                            onRestore = viewModel::restorePost
+                            onRestore = viewModel::restorePost,
+                            onPostClick = { postId -> onNavigateToPostDetail(postId) }
                         )
                     }
                 }
@@ -197,7 +201,8 @@ private fun ModernReportsTab(
     onDismiss: (String) -> Unit,
     onHidePost: (String, String) -> Unit,
     onDeletePost: (String, String) -> Unit,
-    onKickMember: (String, String, String) -> Unit
+    onKickMember: (String, String, String) -> Unit,
+    onReportClick: (String) -> Unit = {}
 ) {
     if (reports.isEmpty()) {
         ModernEmptyReportsState()
@@ -212,7 +217,8 @@ private fun ModernReportsTab(
                     onDismiss = { onDismiss(report.id) },
                     onHidePost = { onHidePost(report.targetId, report.id) },
                     onDeletePost = { onDeletePost(report.targetId, report.id) },
-                    onKickMember = { onKickMember(report.authorId, report.targetId, report.id) }
+                    onKickMember = { onKickMember(report.authorId, report.targetId, report.id) },
+                    onCardClick = { onReportClick(report.targetId) }
                 )
             }
         }
@@ -269,12 +275,14 @@ private fun ModernReportCard(
     onDismiss: () -> Unit,
     onHidePost: () -> Unit,
     onDeletePost: () -> Unit,
-    onKickMember: () -> Unit
+    onKickMember: () -> Unit,
+    onCardClick: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(4.dp, RoundedCornerShape(20.dp)),
+            .shadow(4.dp, RoundedCornerShape(20.dp))
+            .clickable { onCardClick() },
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
@@ -423,7 +431,8 @@ private fun ModernActionButton(
 @Composable
 private fun ModernHiddenPostsTab(
     posts: List<Post>,
-    onRestore: (String) -> Unit
+    onRestore: (String) -> Unit,
+    onPostClick: (String) -> Unit = {}
 ) {
     if (posts.isEmpty()) {
         Box(
@@ -451,7 +460,8 @@ private fun ModernHiddenPostsTab(
             items(posts, key = { it.id }) { post ->
                 ModernHiddenPostCard(
                     post = post,
-                    onRestore = { onRestore(post.id) }
+                    onRestore = { onRestore(post.id) },
+                    onCardClick = { onPostClick(post.id) }
                 )
             }
         }
@@ -461,12 +471,14 @@ private fun ModernHiddenPostsTab(
 @Composable
 private fun ModernHiddenPostCard(
     post: Post,
-    onRestore: () -> Unit
+    onRestore: () -> Unit,
+    onCardClick: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(4.dp, RoundedCornerShape(20.dp)),
+            .shadow(4.dp, RoundedCornerShape(20.dp))
+            .clickable { onCardClick() },
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface

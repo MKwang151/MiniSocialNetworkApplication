@@ -1,6 +1,7 @@
 package com.example.minisocialnetworkapplication.ui.socialgroup
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -68,6 +69,7 @@ private val ColorSuccess = Color(0xFF11998E)
 @Composable
 fun JoinRequestsScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToProfile: (String) -> Unit = {},
     viewModel: JoinRequestsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -162,7 +164,8 @@ fun JoinRequestsScreen(
                                 ModernJoinRequestItem(
                                     request = request,
                                     onApprove = { viewModel.approveRequest(request.id) },
-                                    onReject = { viewModel.rejectRequest(request.id) }
+                                    onReject = { viewModel.rejectRequest(request.id) },
+                                    onAvatarClick = { onNavigateToProfile(request.userId) }
                                 )
                             }
                         }
@@ -221,7 +224,8 @@ private fun ModernEmptyRequestsState() {
 fun ModernJoinRequestItem(
     request: JoinRequest,
     onApprove: () -> Unit,
-    onReject: () -> Unit
+    onReject: () -> Unit,
+    onAvatarClick: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier
@@ -238,9 +242,11 @@ fun ModernJoinRequestItem(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // User avatar with gradient fallback
+            // User avatar with gradient fallback - clickable to navigate to profile
             Surface(
-                modifier = Modifier.size(52.dp),
+                modifier = Modifier
+                    .size(52.dp)
+                    .clickable { onAvatarClick() },
                 shape = CircleShape
             ) {
                 if (request.userAvatarUrl != null) {
@@ -279,7 +285,8 @@ fun ModernJoinRequestItem(
                 Text(
                     text = request.userName,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
                 )
                 
                 // Show invite info if applicable
