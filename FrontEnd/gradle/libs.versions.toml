@@ -46,6 +46,11 @@ datastore = "1.1.1"
 # Timber
 timber = "5.0.1"
 
+# Retrofit & OkHttp
+retrofit = "2.9.0"
+okhttp = "4.12.0"
+gson = "2.10.1"
+
 # Accompanist
 accompanist = "0.34.0"
 
@@ -116,6 +121,13 @@ timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "tim
 
 # Accompanist
 accompanist-swiperefresh = { group = "com.google.accompanist", name = "accompanist-swiperefresh", version.ref = "accompanist" }
+
+# Retrofit & OkHttp
+retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
+retrofit-converter-gson = { group = "com.squareup.retrofit2", name = "converter-gson", version.ref = "retrofit" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
+gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

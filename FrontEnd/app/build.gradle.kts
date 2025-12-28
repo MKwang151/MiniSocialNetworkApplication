@@ -118,6 +118,13 @@ dependencies {
     // Timber
     implementation(libs.timber)
 
+    // Retrofit & OkHttp (for REST API - currently not used, app uses Firebase directly)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.gson)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging)
+    implementation(libs.gson)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
