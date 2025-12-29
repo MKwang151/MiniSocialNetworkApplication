@@ -55,12 +55,12 @@ interface MessageDao {
     fun getPendingMessages(): Flow<List<MessageEntity>>
 
     /**
-     * Get media messages (IMAGES) for a conversation
+     * Get media messages (IMAGES and VIDEOS) for a conversation
      */
     @Query("""
         SELECT * FROM messages 
         WHERE conversationId = :conversationId 
-        AND type = 'IMAGE'
+        AND type IN ('IMAGE', 'VIDEO')
         ORDER BY timestamp DESC
     """)
     fun getMediaMessages(conversationId: String): Flow<List<MessageEntity>>

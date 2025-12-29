@@ -18,12 +18,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -59,7 +62,18 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.example.minisocialnetworkapplication.core.domain.model.Message
+import com.example.minisocialnetworkapplication.core.domain.model.MessageType
 import com.example.minisocialnetworkapplication.ui.gallery.ImageGalleryScreen
+import com.example.minisocialnetworkapplication.ui.gallery.VideoPlayerScreen
+
+// Sealed class to distinguish between image and video media items
+sealed class MediaItem {
+    abstract val url: String
+    abstract val messageId: String
+    
+    data class Image(override val url: String, override val messageId: String) : MediaItem()
+    data class Video(override val url: String, override val messageId: String, val duration: Int?) : MediaItem()
+}
 
 // Modern color palette
 private val ColorAccent = Color(0xFF667EEA)
@@ -74,17 +88,19 @@ fun ChatMediaScreen(
 ) {
     val uiState by viewModel.getMediaMessages(conversationId).collectAsStateWithLifecycle()
     var selectedImageIndex by remember { mutableStateOf<Int?>(null) }
+    var selectedVideoUrl by remember { mutableStateOf<String?>(null) }
 
-    // If viewing gallery, handle back press to close gallery
-    if (selectedImageIndex != null) {
+    // If viewing gallery or video, handle back press to close
+    if (selectedImageIndex != null || selectedVideoUrl != null) {
         BackHandler {
             selectedImageIndex = null
+            selectedVideoUrl = null
         }
     }
 
     Scaffold(
         topBar = {
-            if (selectedImageIndex == null) {
+            if (selectedImageIndex == null && selectedVideoUrl == null) {
                 TopAppBar(
                     title = {
                         Column {
@@ -115,10 +131,10 @@ fun ChatMediaScreen(
     ) { padding ->
         Box(
             modifier = Modifier
-                .padding(if (selectedImageIndex == null) padding else PaddingValues(0.dp))
+                .padding(if (selectedImageIndex == null && selectedVideoUrl == null) padding else PaddingValues(0.dp))
                 .fillMaxSize()
                 .background(
-                    if (selectedImageIndex == null) {
+                    if (selectedImageIndex == null && selectedVideoUrl == null) {
                         Brush.verticalGradient(
                             colors = listOf(
                                 MaterialTheme.colorScheme.surface,
@@ -141,13 +157,35 @@ fun ChatMediaScreen(
                     if (state.messages.isEmpty()) {
                         ModernEmptyMediaView()
                     } else {
-                        val allMediaUrls = remember(state.messages) {
-                            state.messages.flatMap { it.mediaUrls }
+                        // Convert messages to MediaItem list
+                        val allMediaItems = remember(state.messages) {
+                            state.messages.flatMap { message ->
+                                message.mediaUrls.map { url ->
+                                    if (message.type == MessageType.VIDEO) {
+                                        MediaItem.Video(url, message.id, message.duration)
+                                    } else {
+                                        MediaItem.Image(url, message.id)
+                                    }
+                                }
+                            }
                         }
+                        
+                        // Get image-only URLs for gallery
+                        val imageUrls = remember(allMediaItems) {
+                            allMediaItems.filterIsInstance<MediaItem.Image>().map { it.url }
+                        }
+                        
+                        val photoCount = allMediaItems.count { it is MediaItem.Image }
+                        val videoCount = allMediaItems.count { it is MediaItem.Video }
 
-                        if (selectedImageIndex != null) {
+                        if (selectedVideoUrl != null) {
+                            VideoPlayerScreen(
+                                videoUrl = selectedVideoUrl!!,
+                                onNavigateBack = { selectedVideoUrl = null }
+                            )
+                        } else if (selectedImageIndex != null) {
                             ImageGalleryScreen(
-                                imageUrls = allMediaUrls,
+                                imageUrls = imageUrls,
                                 initialPage = selectedImageIndex ?: 0,
                                 onNavigateBack = { selectedImageIndex = null }
                             )
@@ -155,7 +193,8 @@ fun ChatMediaScreen(
                             Column {
                                 // Stats card
                                 MediaStatsCard(
-                                    photoCount = allMediaUrls.size,
+                                    photoCount = photoCount,
+                                    videoCount = videoCount,
                                     modifier = Modifier.padding(16.dp)
                                 )
                                 
@@ -167,10 +206,21 @@ fun ChatMediaScreen(
                                     contentPadding = PaddingValues(horizontal = 3.dp, vertical = 3.dp),
                                     modifier = Modifier.fillMaxSize()
                                 ) {
-                                    itemsIndexed(allMediaUrls) { index, url ->
+                                    itemsIndexed(allMediaItems) { index, mediaItem ->
                                         ModernMediaGridItem(
-                                            url = url,
-                                            onClick = { selectedImageIndex = index }
+                                            mediaItem = mediaItem,
+                                            onClick = { 
+                                                when (mediaItem) {
+                                                    is MediaItem.Video -> selectedVideoUrl = mediaItem.url
+                                                    is MediaItem.Image -> {
+                                                        // Find index in imageUrls list
+                                                        val imageIndex = imageUrls.indexOf(mediaItem.url)
+                                                        if (imageIndex >= 0) {
+                                                            selectedImageIndex = imageIndex
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         )
                                     }
                                 }
@@ -186,6 +236,7 @@ fun ChatMediaScreen(
 @Composable
 private fun MediaStatsCard(
     photoCount: Int,
+    videoCount: Int = 0,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -222,13 +273,18 @@ private fun MediaStatsCard(
             Spacer(modifier = Modifier.width(14.dp))
             
             Column {
+                val statsText = buildString {
+                    if (photoCount > 0) append("$photoCount Photos")
+                    if (photoCount > 0 && videoCount > 0) append(" • ")
+                    if (videoCount > 0) append("$videoCount Videos")
+                }
                 Text(
-                    text = "$photoCount Photos",
+                    text = statsText,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Tap any photo to view",
+                    text = "Tap any media to view",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -239,7 +295,7 @@ private fun MediaStatsCard(
 
 @Composable
 private fun ModernMediaGridItem(
-    url: String,
+    mediaItem: MediaItem,
     onClick: () -> Unit
 ) {
     Box(
@@ -250,11 +306,59 @@ private fun ModernMediaGridItem(
             .background(MaterialTheme.colorScheme.surfaceVariant)
     ) {
         AsyncImage(
-            model = url,
+            model = mediaItem.url,
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop
         )
+        
+        // Show play icon overlay for videos
+        if (mediaItem is MediaItem.Video) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = CircleShape,
+                    color = Color.Black.copy(alpha = 0.6f)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = "Play video",
+                            modifier = Modifier.size(24.dp),
+                            tint = Color.White
+                        )
+                    }
+                }
+            }
+            
+            // Show duration if available
+            mediaItem.duration?.let { duration ->
+                val minutes = duration / 60
+                val seconds = duration % 60
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(4.dp)
+                        .background(
+                            Color.Black.copy(alpha = 0.7f),
+                            RoundedCornerShape(4.dp)
+                        )
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = String.format("%d:%02d", minutes, seconds),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White,
+                        fontSize = 10.sp
+                    )
+                }
+            }
+        }
     }
 }
 
