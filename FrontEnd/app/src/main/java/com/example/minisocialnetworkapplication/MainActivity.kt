@@ -16,15 +16,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.lifecycleScope
-import com.example.minisocialnetworkapplication.core.domain.repository.UserRepository
 import com.example.minisocialnetworkapplication.ui.auth.AuthViewModel
 import com.example.minisocialnetworkapplication.ui.navigation.NavGraph
 import com.example.minisocialnetworkapplication.ui.navigation.Screen
 import com.example.minisocialnetworkapplication.ui.theme.MiniSocialNetworkApplicationTheme
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -32,9 +29,6 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var firebaseAuth: FirebaseAuth
-    
-    @Inject
-    lateinit var userRepository: UserRepository
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(newBase)
@@ -75,23 +69,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     
-    override fun onStart() {
-        super.onStart()
-        // Set user as online when app is visible
-        if (firebaseAuth.currentUser != null) {
-            lifecycleScope.launch {
-                userRepository.updatePresence(true)
-            }
-        }
-    }
-    
-    override fun onStop() {
-        super.onStop()
-        // Set user as offline when app goes to background
-        if (firebaseAuth.currentUser != null) {
-            lifecycleScope.launch {
-                userRepository.updatePresence(false)
-            }
-        }
-    }
+    // Note: Online/offline presence tracking is handled by AppLifecycleObserver
+    // at the Application level using ProcessLifecycleOwner for more reliability
 }
+
